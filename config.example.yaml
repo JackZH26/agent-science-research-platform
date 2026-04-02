@@ -1,0 +1,50 @@
+# ASRP Configuration
+# Copy this file to config.yaml and fill in your values.
+# NEVER commit config.yaml to git!
+
+# API Keys (alternatively use .env file or environment variables)
+api_keys:
+  anthropic: ""          # ANTHROPIC_API_KEY
+  google: ""             # GOOGLE_API_KEY  
+  openai: ""             # OPENAI_API_KEY
+
+# Agent Configuration
+agents:
+  theorist:
+    model: "anthropic/claude-opus-4-6"
+    thinking: "high"
+    max_tokens_per_task: 100000
+  engineer:
+    model: "anthropic/claude-sonnet-4-5"
+    thinking: "off"
+    max_tokens_per_task: 50000
+  reviewer:
+    model: "anthropic/claude-opus-4-6"
+    thinking: "high"
+    max_tokens_per_task: 80000
+    read_only: true
+  librarian:
+    model: "google/gemini-2.5-flash"
+    max_tokens_per_task: 30000
+  itdoctor:
+    model: "google/gemini-2.5-flash"
+    heartbeat_interval: 300
+
+# Deployment
+deployment:
+  mode: "single"           # "single" | "docker" | "hybrid"
+  workspace: "./workspace"
+  communication: "file"    # "file" | "redis" | "nats"
+
+# Backup
+backup:
+  enabled: true
+  provider: "local"        # "local" | "gdrive" | "s3"
+  path: "./backups"
+  schedule: "0 * * * *"
+
+# Research
+research:
+  require_preregistration: true
+  require_cross_validation: true
+  max_parallel_lines: 3

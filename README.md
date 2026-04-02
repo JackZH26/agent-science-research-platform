@@ -1,5 +1,8 @@
 # ASRP — Agent Science Research Platform
 
+**English** | [中文](README.zh-CN.md) | [Deutsch](README.de.md)
+
+
 > Encode scientific methodology into AI agent workflows.
 
 **ASRP** is an open-source framework for AI-agent collaborative scientific research. It provides tools, protocols, and benchmarks to make human-agent research collaborations **reproducible, auditable, and self-correcting**.
