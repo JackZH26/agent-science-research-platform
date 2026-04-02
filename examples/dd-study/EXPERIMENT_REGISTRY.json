@@ -1,0 +1,44 @@
+[
+  {
+    "experiment_id": "DD-001",
+    "date_registered": "2026-04-01T07:30:00Z",
+    "researcher": "Wall-E (Engineer agent)",
+    "hypothesis": "Two-electron atom: LDA overestimates binding, HF underestimates. Exact KS potential can be obtained via reverse engineering.",
+    "method": "iDEA exact solve + LDA + HF + KS potential inversion for 2e atom",
+    "expected_result": "E_exact between E_LDA and E_HF; v_xc recoverable",
+    "success_criteria": "All three methods converge; v_xc physically reasonable",
+    "status": "completed",
+    "actual_result": "E_exact=-1.7076, E_LDA=-1.7476 (-2.3%), E_HF=-1.6965 (+0.7%). KS inversion converged at tol=1e-6.",
+    "outcome": "confirmed",
+    "errors_found": [],
+    "lessons_learned": "LDA KS gap != exact KS gap. iDEA reverse engineering slow for multi-well systems."
+  },
+  {
+    "experiment_id": "DD-002",
+    "date_registered": "2026-04-01T09:00:00Z",
+    "researcher": "Albert (Theorist agent)",
+    "hypothesis": "Prime-spaced quantum wells exhibit anomalous negative derivative discontinuity",
+    "method": "4-well system with prime/uniform/Fibonacci/random spacings, exact many-body solution",
+    "expected_result": "Prime lattice DD significantly different from others",
+    "success_criteria": "DD sign difference between prime and uniform lattices",
+    "status": "completed_then_refuted",
+    "actual_result": "DD(prime) = -0.070, DD(uniform) = +0.325. But control experiment showed anti-prime {6,6,3} gives identical DD to prime-like {3,6,6}.",
+    "outcome": "refuted — negative DD from spacing asymmetry, not prime structure",
+    "errors_found": ["Unequal lattice spans across comparison groups", "Attribution to 'prime' without controlled comparison"],
+    "lessons_learned": "Always use equal-span controls. Correlation != causation."
+  },
+  {
+    "experiment_id": "DD-003",
+    "date_registered": "2026-04-01T13:30:00Z",
+    "researcher": "Albert (Theorist agent)",
+    "hypothesis": "Exact KS gap (from potential inversion) confirms negative DD in multi-well systems",
+    "method": "Reverse-engineer exact KS potential for 3-well system at d=1.0, 1.5, 2.0, 3.0",
+    "expected_result": "DD sign consistent between non-interacting gap and exact KS gap",
+    "success_criteria": "Same DD sign for both methods",
+    "status": "completed",
+    "actual_result": "d=1.0: DD flipped from -0.041 (non-interacting) to +0.084 (exact KS). All other points remained positive.",
+    "outcome": "refuted — 'negative DD' was artifact of using non-interacting gap instead of exact KS gap",
+    "errors_found": ["Used non-interacting KS gap instead of exact KS gap in DD definition"],
+    "lessons_learned": "DD definition requires exact KS potential. Approximate KS gaps can give qualitatively wrong DD signs."
+  }
+]
