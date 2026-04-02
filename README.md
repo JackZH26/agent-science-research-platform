@@ -44,7 +44,7 @@ asrp/
 └── docs/                  # Documentation
     ├── quickstart.md
     ├── methodology.md     # Scientific methodology guide
-    └── for-supervisors.md # Guide for academic supervisors
+
 ```
 
 ## Relationship to OpenClaw

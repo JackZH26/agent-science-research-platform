@@ -4,7 +4,7 @@
 
 | Time | Event |
 |------|-------|
-| T+0h | Literature review of Hodgson's work; iDEA code installed and benchmarked |
+| T+0h | Literature review of DFT benchmarks; iDEA code installed and benchmarked |
 | T+1h | Atom experiment: exact vs LDA vs HF comparison + KS potential inversion |
 | T+2h | Hypothesis: "Prime-spaced wells produce anomalous negative DD" |
 | T+3h | V1 experiment: 4-well system, 4 lattice types. Result: DD < 0 for prime lattice |
