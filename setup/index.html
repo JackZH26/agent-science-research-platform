@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASRP Setup Wizard</title>
+<style>
+:root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --green: #3fb950; --yellow: #d29922; --red: #f85149; --input-bg: #0d1117; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+.container { max-width: 900px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 28px; margin-bottom: 8px; }
+h1 span { color: var(--accent); }
+.subtitle { color: var(--muted); margin-bottom: 32px; font-size: 14px; }
+.section { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 20px; }
+.section h2 { font-size: 18px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.section .desc { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+.step-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+input, select { width: 100%; padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+input::placeholder { color: #484f58; }
+.field { margin-bottom: 12px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+.tag-required { background: rgba(248,81,73,.15); color: var(--red); }
+.tag-recommended { background: rgba(210,153,34,.15); color: var(--yellow); }
+.tag-optional { background: rgba(139,148,158,.15); color: var(--muted); }
+.tag-fallback { background: rgba(88,166,255,.15); color: var(--accent); }
+.tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tool-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: border-color .15s; }
+.tool-item:hover { border-color: var(--accent); }
+.tool-item.checked { border-color: var(--green); background: rgba(63,185,80,.06); }
+.tool-item input[type="checkbox"] { accent-color: var(--green); width: 16px; height: 16px; }
+.tool-item .tool-name { font-size: 14px; font-weight: 500; }
+.tool-item .tool-desc { font-size: 11px; color: var(--muted); }
+.agent-card { border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.agent-card .agent-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.agent-card .agent-icon { font-size: 24px; }
+.agent-card .agent-title { font-weight: 600; font-size: 15px; }
+.agent-card .agent-role { font-size: 12px; color: var(--muted); }
+.model-auto { font-size: 12px; color: var(--green); margin-top: 4px; }
+.btn { padding: 10px 24px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: .15s; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #4c96e8; }
+.btn-secondary { background: var(--border); color: var(--text); }
+.btn-secondary:hover { background: #3d444d; }
+.actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+.output-area { background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 16px; font-family: 'SF Mono', Consolas, monospace; font-size: 13px; white-space: pre-wrap; max-height: 500px; overflow-y: auto; display: none; }
+.info-box { background: rgba(88,166,255,.08); border: 1px solid rgba(88,166,255,.3); border-radius: 6px; padding: 12px 16px; font-size: 13px; margin-bottom: 16px; }
+.info-box strong { color: var(--accent); }
+.progress { display: flex; gap: 4px; margin-bottom: 24px; }
+.progress-step { flex: 1; height: 4px; border-radius: 2px; background: var(--border); }
+.progress-step.active { background: var(--accent); }
+.progress-step.done { background: var(--green); }
+.lang-switch { text-align: right; margin-bottom: 16px; }
+.lang-switch a { color: var(--muted); text-decoration: none; font-size: 13px; margin-left: 12px; }
+.lang-switch a:hover, .lang-switch a.active { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="lang-switch">
+<a href="#" class="active" onclick="setLang('en')">English</a>
+<a href="#" onclick="setLang('zh')">中文</a>
+<a href="#" onclick="setLang('de')">Deutsch</a>
+</div>
+
+<h1>🔬 <span>ASRP</span> Setup Wizard</h1>
+<p class="subtitle" id="subtitle">Agent Science Research Platform — One-stop configuration for your AI-powered research lab</p>
+
+<div class="progress">
+<div class="progress-step active" id="ps1"></div>
+<div class="progress-step" id="ps2"></div>
+<div class="progress-step" id="ps3"></div>
+<div class="progress-step" id="ps4"></div>
+</div>
+
+<!-- Step 1: API Keys -->
+<div class="section" id="step1">
+<h2><span class="step-badge">1</span> API Keys</h2>
+<p class="desc">Provide at least 2 API keys. The system will auto-assign models to agents. An OpenRouter key is recommended as fallback.</p>
+
+<div class="info-box">
+<strong>💡 Tip:</strong> ASRP uses multiple models for different tasks. Providing 2+ providers ensures redundancy — if one goes down, agents automatically switch to the backup.
+</div>
+
+<div class="grid-2">
+<div class="field">
+<label>Anthropic API Key <span class="tag tag-recommended">Recommended</span></label>
+<input type="password" id="key-anthropic" placeholder="sk-ant-..." autocomplete="off">
+<div class="model-auto">→ Opus for Theorist/Reviewer, Sonnet for Engineer</div>
+</div>
+<div class="field">
+<label>Google AI API Key <span class="tag tag-recommended">Recommended</span></label>
+<input type="password" id="key-google" placeholder="AIza...">
+<div class="model-auto">→ Flash for Librarian/ITDoctor</div>
+</div>
+</div>
+<div class="grid-2">
+<div class="field">
+<label>OpenAI API Key <span class="tag tag-optional">Optional</span></label>
+<input type="password" id="key-openai" placeholder="sk-...">
+<div class="model-auto">→ Available as alternative for any role</div>
+</div>
+<div class="field">
+<label>OpenRouter API Key <span class="tag tag-fallback">Fallback</span></label>
+<input type="password" id="key-openrouter" placeholder="sk-or-...">
+<div class="model-auto">→ Auto-fallback if primary provider fails</div>
+</div>
+</div>
+</div>
+
+<!-- Step 2: Agent Configuration -->
+<div class="section" id="step2">
+<h2><span class="step-badge">2</span> Agent Configuration</h2>
+<p class="desc">Name your agents and configure their communication channel. Discord is recommended.</p>
+
+<div class="field">
+<label>Communication Channel</label>
+<select id="channel-type">
+<option value="discord" selected>Discord (Recommended)</option>
+<option value="telegram">Telegram</option>
+<option value="slack">Slack</option>
+<option value="local">Local Only (No external channel)</option>
+</select>
+</div>
+
+<div class="agent-card">
+<div class="agent-header">
+<span class="agent-icon">🧠</span>
+<div><div class="agent-title">Theorist</div><div class="agent-role">Hypothesis generation, reasoning, paper writing</div></div>
+</div>
+<div class="grid-3">
+<div class="field"><label>Agent Name</label><input type="text" id="name-theorist" value="Theorist" placeholder="e.g., Albert"></div>
+<div class="field"><label>Model</label><select id="model-theorist"><option value="auto">Auto (Opus)</option><option value="anthropic/claude-opus-4-6">Claude Opus 4.6</option><option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option><option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option><option value="openai/o3">OpenAI o3</option></select></div>
+<div class="field"><label>Thinking</label><select id="think-theorist"><option value="high" selected>High (Deep)</option><option value="medium">Medium</option><option value="off">Off</option></select></div>
+</div>
+</div>
+
+<div class="agent-card">
+<div class="agent-header">
+<span class="agent-icon">⚙️</span>
+<div><div class="agent-title">Engineer</div><div class="agent-role">Code, computation, data pipelines</div></div>
+</div>
+<div class="grid-3">
+<div class="field"><label>Agent Name</label><input type="text" id="name-engineer" value="Engineer" placeholder="e.g., Wall-E"></div>
+<div class="field"><label>Model</label><select id="model-engineer"><option value="auto">Auto (Sonnet)</option><option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option><option value="anthropic/claude-opus-4-6">Claude Opus 4.6</option><option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option></select></div>
+<div class="field"><label>Thinking</label><select id="think-engineer"><option value="off" selected>Off (Speed)</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+</div>
+</div>
+
+<div class="agent-card">
+<div class="agent-header">
+<span class="agent-icon">📋</span>
+<div><div class="agent-title">Reviewer</div><div class="agent-role">Independent peer review, cross-validation (read-only)</div></div>
+</div>
+<div class="grid-3">
+<div class="field"><label>Agent Name</label><input type="text" id="name-reviewer" value="Reviewer" placeholder="e.g., Critic"></div>
+<div class="field"><label>Model</label><select id="model-reviewer"><option value="auto">Auto (Opus)</option><option value="anthropic/claude-opus-4-6">Claude Opus 4.6</option><option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option></select></div>
+<div class="field"><label>Thinking</label><select id="think-reviewer"><option value="high" selected>High (Deep)</option><option value="medium">Medium</option></select></div>
+</div>
+</div>
+
+<div class="agent-card">
+<div class="agent-header">
+<span class="agent-icon">📚</span>
+<div><div class="agent-title">Librarian</div><div class="agent-role">Literature search, reference management</div></div>
+</div>
+<div class="grid-3">
+<div class="field"><label>Agent Name</label><input type="text" id="name-librarian" value="Librarian" placeholder="e.g., Scholar"></div>
+<div class="field"><label>Model</label><select id="model-librarian"><option value="auto">Auto (Flash)</option><option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option><option value="anthropic/claude-sonnet-4-5">Claude Sonnet 4.5</option></select></div>
+<div class="field"><label>Thinking</label><select id="think-librarian"><option value="off" selected>Off</option><option value="medium">Medium</option></select></div>
+</div>
+</div>
+
+<div class="agent-card">
+<div class="agent-header">
+<span class="agent-icon">🏥</span>
+<div><div class="agent-title">ITDoctor</div><div class="agent-role">Monitoring, backups, agent lifecycle, self-healing</div></div>
+</div>
+<div class="grid-3">
+<div class="field"><label>Agent Name</label><input type="text" id="name-itdoctor" value="ITDoctor" placeholder="e.g., DocMario"></div>
+<div class="field"><label>Model</label><select id="model-itdoctor"><option value="auto">Auto (Flash)</option><option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option><option value="google/gemini-2.5-flash-lite">Gemini Flash Lite</option></select></div>
+<div class="field"><label>Health Check Interval</label><select id="itdoc-interval"><option value="300" selected>5 min</option><option value="600">10 min</option><option value="900">15 min</option></select></div>
+</div>
+</div>
+</div>
+
+<!-- Step 3: Tools -->
+<div class="section" id="step3">
+<h2><span class="step-badge">3</span> Research Tools</h2>
+<p class="desc">Select tools to install. Required tools are pre-checked. Recommended tools enhance research quality.</p>
+
+<h3 style="font-size:14px;color:var(--red);margin-bottom:8px;">Required</h3>
+<div class="tool-grid">
+<label class="tool-item checked"><input type="checkbox" checked disabled data-tool="python3"><div><div class="tool-name">Python 3.8+</div><div class="tool-desc">Core runtime for all computations</div></div></label>
+<label class="tool-item checked"><input type="checkbox" checked disabled data-tool="numpy"><div><div class="tool-name">NumPy + SciPy</div><div class="tool-desc">Scientific computing libraries</div></div></label>
+<label class="tool-item checked"><input type="checkbox" checked disabled data-tool="git"><div><div class="tool-name">Git</div><div class="tool-desc">Version control for code and data</div></div></label>
+<label class="tool-item checked"><input type="checkbox" checked disabled data-tool="matplotlib"><div><div class="tool-name">Matplotlib</div><div class="tool-desc">Plotting and visualization</div></div></label>
+</div>
+
+<h3 style="font-size:14px;color:var(--yellow);margin:16px 0 8px;">Recommended</h3>
+<div class="tool-grid">
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" checked data-tool="latex"><div><div class="tool-name">LaTeX (Tectonic)</div><div class="tool-desc">Paper compilation — lightweight TeX engine</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" checked data-tool="idea"><div><div class="tool-name">iDEA Code</div><div class="tool-desc">Exact DFT solver — benchmark computations</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" checked data-tool="himalaya"><div><div class="tool-name">Himalaya</div><div class="tool-desc">CLI email client — submission tracking</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" checked data-tool="rclone"><div><div class="tool-name">Rclone</div><div class="tool-desc">Cloud backup — Google Drive, S3, etc.</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" checked data-tool="jq"><div><div class="tool-name">jq</div><div class="tool-desc">JSON processing for experiment data</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" checked data-tool="pdf-tools"><div><div class="tool-name">PDF Tools</div><div class="tool-desc">opendataloader-pdf for paper analysis</div></div></label>
+</div>
+
+<h3 style="font-size:14px;color:var(--muted);margin:16px 0 8px;">Optional</h3>
+<div class="tool-grid">
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" data-tool="whisper"><div><div class="tool-name">Whisper</div><div class="tool-desc">Speech-to-text for lecture transcription</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" data-tool="ytdlp"><div><div class="tool-name">yt-dlp</div><div class="tool-desc">Video/audio download for research talks</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" data-tool="ffmpeg"><div><div class="tool-name">FFmpeg</div><div class="tool-desc">Audio/video processing</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" data-tool="redis"><div><div class="tool-name">Redis</div><div class="tool-desc">Message queue for multi-agent communication</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" data-tool="docker"><div><div class="tool-name">Docker</div><div class="tool-desc">Container deployment for agent isolation</div></div></label>
+<label class="tool-item" onclick="this.classList.toggle('checked')"><input type="checkbox" data-tool="memsearch"><div><div class="tool-name">Memsearch</div><div class="tool-desc">Local semantic search for knowledge base</div></div></label>
+</div>
+</div>
+
+<!-- Step 4: Generate -->
+<div class="section" id="step4">
+<h2><span class="step-badge">4</span> Generate Configuration</h2>
+<p class="desc">Review and generate your configuration files. No data leaves your browser.</p>
+
+<div class="info-box">
+<strong>🔒 Privacy:</strong> All configuration is generated locally in your browser. No API keys or personal data are sent to any server.
+</div>
+
+<div class="actions">
+<button class="btn btn-secondary" onclick="previewConfig()">Preview</button>
+<button class="btn btn-primary" onclick="generateConfig()">Generate & Download</button>
+</div>
+
+<div class="output-area" id="output"></div>
+</div>
+
+</div>
+
+<script>
+const i18n = {
+  en: { subtitle: "Agent Science Research Platform — One-stop configuration for your AI-powered research lab" },
+  zh: { subtitle: "智能体科学研究平台 — 一站式配置你的 AI 驱动研究实验室" },
+  de: { subtitle: "Agent Science Research Platform — Einrichtung Ihres KI-gestützten Forschungslabors" }
+};
+
+function setLang(lang) {
+  document.getElementById('subtitle').textContent = i18n[lang]?.subtitle || i18n.en.subtitle;
+  document.querySelectorAll('.lang-switch a').forEach(a => a.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function getConfig() {
+  const tools = [];
+  document.querySelectorAll('.tool-item input[type="checkbox"]:checked').forEach(cb => {
+    tools.push(cb.dataset.tool);
+  });
+
+  return {
+    api_keys: {
+      anthropic: document.getElementById('key-anthropic').value || '',
+      google: document.getElementById('key-google').value || '',
+      openai: document.getElementById('key-openai').value || '',
+      openrouter: document.getElementById('key-openrouter').value || '',
+    },
+    agents: {
+      theorist: { name: document.getElementById('name-theorist').value, model: document.getElementById('model-theorist').value, thinking: document.getElementById('think-theorist').value },
+      engineer: { name: document.getElementById('name-engineer').value, model: document.getElementById('model-engineer').value, thinking: document.getElementById('think-engineer').value },
+      reviewer: { name: document.getElementById('name-reviewer').value, model: document.getElementById('model-reviewer').value, thinking: document.getElementById('think-reviewer').value, read_only: true },
+      librarian: { name: document.getElementById('name-librarian').value, model: document.getElementById('model-librarian').value, thinking: document.getElementById('think-librarian').value },
+      itdoctor: { name: document.getElementById('name-itdoctor').value, model: document.getElementById('model-itdoctor').value, heartbeat_interval: parseInt(document.getElementById('itdoc-interval').value) },
+    },
+    channel: document.getElementById('channel-type').value,
+    tools: tools
+  };
+}
+
+function resolveModel(agent, cfg) {
+  const m = cfg.agents[agent].model;
+  if (m !== 'auto') return m;
+  const hasAnthropic = !!cfg.api_keys.anthropic;
+  const hasGoogle = !!cfg.api_keys.google;
+  const hasOpenAI = !!cfg.api_keys.openai;
+  const mapping = {
+    theorist: hasAnthropic ? 'anthropic/claude-opus-4-6' : hasGoogle ? 'google/gemini-2.5-pro' : 'openai/o3',
+    engineer: hasAnthropic ? 'anthropic/claude-sonnet-4-5' : hasGoogle ? 'google/gemini-2.5-flash' : 'openai/gpt-4o',
+    reviewer: hasAnthropic ? 'anthropic/claude-opus-4-6' : hasGoogle ? 'google/gemini-2.5-pro' : 'openai/o3',
+    librarian: hasGoogle ? 'google/gemini-2.5-flash' : hasAnthropic ? 'anthropic/claude-sonnet-4-5' : 'openai/gpt-4o-mini',
+    itdoctor: hasGoogle ? 'google/gemini-2.5-flash' : hasAnthropic ? 'anthropic/claude-haiku-4-5' : 'openai/gpt-4o-mini',
+  };
+  return mapping[agent] || 'anthropic/claude-sonnet-4-5';
+}
+
+function generateYAML(cfg) {
+  let yaml = `# ASRP Configuration — Generated by Setup Wizard\n# ${new Date().toISOString()}\n\n`;
+  yaml += `deployment:\n  mode: "single"\n  workspace: "./workspace"\n  channel: "${cfg.channel}"\n\n`;
+  yaml += `agents:\n`;
+  for (const [role, a] of Object.entries(cfg.agents)) {
+    const model = resolveModel(role, cfg);
+    yaml += `  ${role}:\n    name: "${a.name}"\n    model: "${model}"\n`;
+    if (a.thinking) yaml += `    thinking: "${a.thinking}"\n`;
+    if (a.read_only) yaml += `    read_only: true\n`;
+    if (a.heartbeat_interval) yaml += `    heartbeat_interval: ${a.heartbeat_interval}\n`;
+  }
+  yaml += `\nfallback:\n  provider: "openrouter"\n  enabled: ${!!cfg.api_keys.openrouter}\n`;
+  yaml += `\nresearch:\n  require_preregistration: true\n  require_cross_validation: true\n  max_parallel_lines: 3\n`;
+  return yaml;
+}
+
+function generateEnv(cfg) {
+  let env = `# ASRP Environment — Generated by Setup Wizard\n# ${new Date().toISOString()}\n\n`;
+  if (cfg.api_keys.anthropic) env += `ANTHROPIC_API_KEY=${cfg.api_keys.anthropic}\n`;
+  if (cfg.api_keys.google) env += `GOOGLE_API_KEY=${cfg.api_keys.google}\n`;
+  if (cfg.api_keys.openai) env += `OPENAI_API_KEY=${cfg.api_keys.openai}\n`;
+  if (cfg.api_keys.openrouter) env += `OPENROUTER_API_KEY=${cfg.api_keys.openrouter}\n`;
+  return env;
+}
+
+function generateInstallScript(cfg) {
+  let sh = `#!/bin/bash\n# ASRP Tool Installation Script\n# Generated by Setup Wizard\nset -e\n\necho "Installing ASRP tools..."\n\n`;
+  const cmds = {
+    python3: '# Python 3 — assumed pre-installed\npython3 --version',
+    numpy: 'pip install numpy scipy',
+    matplotlib: 'pip install matplotlib',
+    git: '# Git — assumed pre-installed\ngit --version',
+    latex: 'pip install tectonic || echo "Install tectonic from https://tectonic-typesetting.github.io/"',
+    idea: 'pip install iDEA-latest',
+    himalaya: 'echo "Install himalaya from https://github.com/pimalaya/himalaya"',
+    rclone: 'curl https://rclone.org/install.sh | bash || echo "Install rclone from https://rclone.org/"',
+    jq: 'apt-get install -y jq 2>/dev/null || brew install jq 2>/dev/null || echo "Install jq manually"',
+    'pdf-tools': 'pip install opendataloader-pdf',
+    whisper: 'pip install openai-whisper',
+    ytdlp: 'pip install yt-dlp',
+    ffmpeg: 'apt-get install -y ffmpeg 2>/dev/null || brew install ffmpeg 2>/dev/null || echo "Install ffmpeg manually"',
+    redis: 'apt-get install -y redis-server 2>/dev/null || brew install redis 2>/dev/null || echo "Install redis manually"',
+    docker: 'echo "Install Docker from https://docs.docker.com/get-docker/"',
+    memsearch: 'echo "Install memsearch — see ASRP docs"',
+  };
+  for (const tool of cfg.tools) {
+    if (cmds[tool]) sh += `echo "→ ${tool}"\n${cmds[tool]}\n\n`;
+  }
+  sh += `echo "✅ Installation complete"\n`;
+  return sh;
+}
+
+function previewConfig() {
+  const cfg = getConfig();
+  const keys = Object.values(cfg.api_keys).filter(Boolean).length;
+  if (keys < 2) { alert('Please provide at least 2 API keys for redundancy.'); return; }
+
+  const output = document.getElementById('output');
+  output.style.display = 'block';
+  output.textContent = `=== config.yaml ===\n${generateYAML(cfg)}\n=== .env ===\n${generateEnv(cfg)}\n=== install-tools.sh ===\n${generateInstallScript(cfg)}`;
+}
+
+function generateConfig() {
+  const cfg = getConfig();
+  const keys = Object.values(cfg.api_keys).filter(Boolean).length;
+  if (keys < 2) { alert('Please provide at least 2 API keys for redundancy.'); return; }
+
+  const files = {
+    'config.yaml': generateYAML(cfg),
+    '.env': generateEnv(cfg),
+    'install-tools.sh': generateInstallScript(cfg),
+  };
+
+  for (const [name, content] of Object.entries(files)) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  const output = document.getElementById('output');
+  output.style.display = 'block';
+  output.textContent = '✅ Files downloaded: config.yaml, .env, install-tools.sh\n\nNext steps:\n1. Move these files to your ASRP workspace directory\n2. Run: chmod +x install-tools.sh && ./install-tools.sh\n3. Run: asrp init\n4. Start researching!';
+}
+
+// Progress bar interaction
+document.querySelectorAll('.section').forEach((s, i) => {
+  s.addEventListener('click', () => {
+    document.querySelectorAll('.progress-step').forEach((p, j) => {
+      p.classList.toggle('active', j <= i);
+      p.classList.toggle('done', j < i);
+    });
+  });
+});
+</script>
+</body>
+</html>
