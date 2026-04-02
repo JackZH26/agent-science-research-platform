@@ -1,0 +1,19 @@
+{
+  "experiment_id": "",
+  "date_registered": "",
+  "researcher": "",
+  "agent_roles": [],
+  "hypothesis": "",
+  "method": "",
+  "parameters": {},
+  "expected_result": "",
+  "success_criteria": "",
+  "failure_criteria": "",
+  "estimated_compute_hours": 0,
+  "estimated_token_cost_usd": 0,
+  "status": "registered",
+  "actual_result": "",
+  "outcome": "",
+  "errors_found": [],
+  "lessons_learned": ""
+}
