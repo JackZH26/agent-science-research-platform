@@ -4,7 +4,7 @@ All notable changes to ASRP Desktop are documented here.
 
 ---
 
-## [1.0.0] — 2026-04-03
+## [0.1.0] — 2026-04-03
 
 ### Summary
 First production release of ASRP Desktop — the Electron-based GUI for the
