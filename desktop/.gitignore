@@ -45,4 +45,3 @@ coverage/
 *.pid
 *.seed
 *.pid.lock
-.github/workflows/

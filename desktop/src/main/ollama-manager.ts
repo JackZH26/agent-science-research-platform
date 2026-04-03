@@ -56,6 +56,8 @@ class OllamaManager extends EventEmitter {
   private downloadModel = '';
   private isDownloading = false;
   private serveProcess: ChildProcess | null = null;
+  // Issue #22: Flag to distinguish intentional cancel from error
+  private isCancelled = false;
 
   // ---- T-069: detectOllama ----
   detectOllama(): boolean {
@@ -144,6 +146,8 @@ class OllamaManager extends EventEmitter {
     this.downloadEta = '';
     this.downloadModel = modelName;
 
+    this.isCancelled = false; // Reset cancel flag for new pull
+
     return new Promise((resolve, reject) => {
       this.pullProcess = spawn('ollama', ['pull', modelName], {
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -189,6 +193,12 @@ class OllamaManager extends EventEmitter {
       this.pullProcess.on('close', (code) => {
         this.isDownloading = false;
         this.pullProcess = null;
+        // Issue #22: Don't emit download-error when the close is due to a cancel
+        if (this.isCancelled) {
+          this.isCancelled = false;
+          resolve(); // Cancel already emitted 'download-cancelled'
+          return;
+        }
         if (code === 0) {
           this.downloadProgress = 100;
           this.emit('download-complete', { model: modelName });
@@ -212,6 +222,8 @@ class OllamaManager extends EventEmitter {
   // ---- T-072: cancelPull ----
   cancelPull(): void {
     if (this.pullProcess) {
+      // Issue #22: Set flag before kill so the close handler knows not to emit download-error
+      this.isCancelled = true;
       this.pullProcess.kill('SIGTERM');
       this.pullProcess = null;
       this.isDownloading = false;
@@ -287,6 +299,7 @@ class OllamaManager extends EventEmitter {
   }
 
   // ---- T-075: startOllama / stopOllama ----
+  // Issue #21: Poll health check instead of blind 2-second timeout
   startOllama(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
@@ -295,8 +308,41 @@ class OllamaManager extends EventEmitter {
           stdio: 'ignore',
         });
         this.serveProcess.unref();
-        // Give it a moment to start up
-        setTimeout(() => resolve(), 2000);
+
+        // Handle spawn error (e.g., ollama not in PATH)
+        this.serveProcess.on('error', (err) => {
+          reject(err);
+        });
+
+        // Poll isRunning() up to 10 seconds
+        const maxAttempts = 20;
+        const intervalMs = 500;
+        let attempts = 0;
+
+        const poll = () => {
+          this.isRunning().then((running) => {
+            if (running) {
+              resolve();
+            } else {
+              attempts++;
+              if (attempts >= maxAttempts) {
+                reject(new Error('Ollama did not become ready within 10 seconds'));
+              } else {
+                setTimeout(poll, intervalMs);
+              }
+            }
+          }).catch(() => {
+            attempts++;
+            if (attempts >= maxAttempts) {
+              reject(new Error('Ollama health check timed out'));
+            } else {
+              setTimeout(poll, intervalMs);
+            }
+          });
+        };
+
+        // Start polling after a brief initial delay
+        setTimeout(poll, 200);
       } catch (err) {
         reject(err);
       }

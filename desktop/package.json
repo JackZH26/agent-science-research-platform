@@ -1,7 +1,7 @@
 {
   "name": "asrp-desktop",
   "version": "1.0.0",
-  "description": "ASRP Desktop — Agent Science Research Platform",
+  "description": "ASRP Desktop \u2014 Agent Science Research Platform",
   "main": "dist/main/index.js",
   "author": "ASRP Contributors",
   "license": "Apache-2.0",
@@ -21,7 +21,6 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
-    "electron-store": "^8.1.0",
     "electron-updater": "^6.3.9",
     "jsonwebtoken": "^9.0.3"
   },
@@ -36,5 +35,8 @@
     "electron-reload": "^1.5.0",
     "typescript": "^5.4.5",
     "wait-on": "^7.2.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

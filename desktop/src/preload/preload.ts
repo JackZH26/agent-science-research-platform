@@ -193,25 +193,27 @@ const auth = {
       'auth:login', email, password
     ),
 
-  logout: () =>
-    invoke<{ success: boolean }>('auth:logout'),
+  logout: (token: string) =>
+    invoke<{ success: boolean }>('auth:logout', token),
 
   user: (token: string) =>
     invoke<{ id: number; name: string; email: string; setupComplete: boolean } | null>(
       'auth:user', token
     ),
 
-  setupComplete: (userId: number) =>
-    invoke<{ success: boolean; error?: string }>('auth:setup-complete', userId),
+  // Issue #29: auth:setup-complete consolidated into setup:complete — kept as no-op shim for compat
+  setupComplete: (token: string) =>
+    invoke<{ success: boolean; error?: string }>('auth:setup-complete', token),
 };
 
 // ---- Keys API ----
 const keys = {
-  assignTrial: (userId: number) =>
-    invoke<{ success: boolean; key?: string; error?: string }>('keys:assign-trial', userId),
+  // Issue #3 (IDOR fix): accept token instead of raw userId
+  assignTrial: (token: string) =>
+    invoke<{ success: boolean; key?: string; error?: string }>('keys:assign-trial', token),
 
-  get: (userId: number) =>
-    invoke<{ key: string | null }>('keys:get', userId),
+  get: (token: string) =>
+    invoke<{ key: string | null }>('keys:get', token),
 
   validate: (key: string) =>
     invoke<{ valid: boolean; error?: string }>('keys:validate', key),
@@ -219,17 +221,18 @@ const keys = {
 
 // ---- Setup API ----
 const setup = {
-  saveProfile: (userId: number, profile: Record<string, string>) =>
-    invoke<{ success: boolean; error?: string }>('setup:save-profile', userId, profile),
+  // Issue #3 (IDOR fix): accept token instead of raw userId
+  saveProfile: (token: string, profile: Record<string, string>) =>
+    invoke<{ success: boolean; error?: string }>('setup:save-profile', token, profile),
 
-  saveKeys: (userId: number, apiKeys: Record<string, string>) =>
-    invoke<{ success: boolean; error?: string }>('setup:save-keys', userId, apiKeys),
+  saveKeys: (token: string, apiKeys: Record<string, string>) =>
+    invoke<{ success: boolean; error?: string }>('setup:save-keys', token, apiKeys),
 
-  initAgents: (userId: number) =>
-    invoke<{ success: boolean; error?: string }>('setup:init-agents', userId),
+  initAgents: (token: string) =>
+    invoke<{ success: boolean; error?: string }>('setup:init-agents', token),
 
-  complete: (userId: number) =>
-    invoke<{ success: boolean; error?: string }>('setup:complete', userId),
+  complete: (token: string) =>
+    invoke<{ success: boolean; error?: string }>('setup:complete', token),
 };
 
 // ---- OpenClaw Bridge API ----

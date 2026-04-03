@@ -19,40 +19,6 @@ export interface SelfTestResult {
   durationMs: number;
 }
 
-// ---- Test runner helpers ----
-
-const results: SelfTestResult = {
-  passed: 0,
-  failed: 0,
-  errors: [],
-  details: [],
-  durationMs: 0,
-};
-
-function pass(name: string) {
-  results.passed++;
-  results.details.push({ name, status: 'pass' });
-}
-
-function fail(name: string, error: string) {
-  results.failed++;
-  results.errors.push(`[${name}] ${error}`);
-  results.details.push({ name, status: 'fail', error });
-}
-
-async function test(name: string, fn: () => Promise<void> | void): Promise<void> {
-  try {
-    await fn();
-    pass(name);
-  } catch (err: unknown) {
-    fail(name, String(err));
-  }
-}
-
-function assert(condition: boolean, message: string): void {
-  if (!condition) throw new Error(message);
-}
-
 // ============================================================
 // SELF-TEST SUITE
 // ============================================================
@@ -60,16 +26,46 @@ function assert(condition: boolean, message: string): void {
 export async function runSelfTest(): Promise<SelfTestResult> {
   const start = Date.now();
 
-  // Reset results
-  results.passed = 0;
-  results.failed = 0;
-  results.errors = [];
-  results.details = [];
+  // Issue #10 (race condition fix): results is LOCAL to this call, not module-level.
+  // Concurrent invocations each get their own results object.
+  const results: SelfTestResult = {
+    passed: 0,
+    failed: 0,
+    errors: [],
+    details: [],
+    durationMs: 0,
+  };
+
+  // ---- Test runner helpers (closures over local results) ----
+
+  function pass(name: string): void {
+    results.passed++;
+    results.details.push({ name, status: 'pass' });
+  }
+
+  function fail(name: string, error: string): void {
+    results.failed++;
+    results.errors.push(`[${name}] ${error}`);
+    results.details.push({ name, status: 'fail', error });
+  }
+
+  async function test(name: string, fn: () => Promise<void> | void): Promise<void> {
+    try {
+      await fn();
+      pass(name);
+    } catch (err: unknown) {
+      fail(name, String(err));
+    }
+  }
+
+  function assert(condition: boolean, message: string): void {
+    if (!condition) throw new Error(message);
+  }
 
   // ---- 1. AUTH ----
 
   const testEmail = `selftest-${Date.now()}@asrp.local`;
-  const testPassword = 'SelfTest!2026';
+  const testPassword = 'SelfTest1!2026'; // Meets new 8-char + letter+number requirement
   let testUserId = 0;
   let testToken = '';
 
@@ -100,6 +96,25 @@ export async function runSelfTest(): Promise<SelfTestResult> {
     assert(res.success === false, 'Should reject duplicate email');
   });
 
+  await test('auth:password-validation', async () => {
+    const res = await authService.register('Test', `bad-pw-${Date.now()}@asrp.local`, '123');
+    assert(res.success === false, 'Should reject weak password');
+    assert(typeof res.error === 'string' && res.error.length > 0, 'Should return error message');
+  });
+
+  await test('auth:logout', async () => {
+    const tempRes = await authService.login(testEmail, testPassword);
+    assert(tempRes.success === true, 'Login failed before logout test');
+    const tempToken = tempRes.token!;
+    const logoutRes = authService.logout(tempToken);
+    assert(logoutRes.success === true, 'Logout should succeed');
+    const userAfterLogout = authService.getUser(tempToken);
+    assert(userAfterLogout === null, 'Token should be invalid after logout');
+    // Re-login for remaining tests
+    const relogin = await authService.login(testEmail, testPassword);
+    testToken = relogin.token!;
+  });
+
   // ---- 2. SETUP ----
 
   await test('setup:save-profile', async () => {
@@ -113,7 +128,6 @@ export async function runSelfTest(): Promise<SelfTestResult> {
   });
 
   await test('setup:init-agents (stub)', async () => {
-    // Just verify the stub path exists in ipc-handlers
     assert(true, 'stub always passes');
   });
 
@@ -215,9 +229,8 @@ export async function runSelfTest(): Promise<SelfTestResult> {
   // ---- 6. PAPERS (stub) ----
 
   await test('papers:list (stub)', async () => {
-    // ipc-handlers returns static stub — verify shape
     const papers = [
-      { id: 'paper-001', title: 'Multi-well double-delta DFT analysis', status: 'draft', created: '2026-04-01' },
+      { id: 'paper-001', title: 'Multi-well double-delta DFT analysis', status: 'draft', created: new Date().toISOString().slice(0, 10) },
     ];
     assert(papers.length > 0, 'papers stub empty');
     assert(typeof papers[0].id === 'string', 'paper id should be string');
@@ -232,7 +245,7 @@ export async function runSelfTest(): Promise<SelfTestResult> {
 
   await test('experiments:list (stub)', async () => {
     const experiments = [
-      { id: 'EXP-2026-04-02-003', hypothesis: 'Multi-well DD', status: 'running', created: '2026-04-02' },
+      { id: 'EXP-DEMO-003', hypothesis: 'Multi-well DD', status: 'running', created: new Date().toISOString().slice(0, 10) },
     ];
     assert(experiments.length > 0, 'experiments stub empty');
     assert(experiments[0].id.startsWith('EXP-'), 'id format bad');
@@ -240,7 +253,7 @@ export async function runSelfTest(): Promise<SelfTestResult> {
 
   await test('experiments:register (stub)', async () => {
     const id = `EXP-${new Date().toISOString().slice(0, 10)}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    assert(id.startsWith('EXP-2026-'), `id format bad: ${id}`);
+    assert(id.startsWith('EXP-'), `id format bad: ${id}`);
   });
 
   await test('experiments:update-status (stub)', async () => {
@@ -279,19 +292,19 @@ export async function runSelfTest(): Promise<SelfTestResult> {
       assert(typeof hw.ram === 'number', 'ram should be number');
       assert(typeof hw.os === 'string', 'os should be string');
     } catch (err: unknown) {
-      // Hardware detection failing is acceptable — skip gracefully
       throw new Error(`Hardware detection failed: ${String(err)}`);
     }
   });
 
+  // Issue #10 fix: removed duplicate pass() call from catch block.
+  // The outer test() wrapper calls pass() when fn() returns without throwing.
   await test('ollama:status (graceful)', async () => {
     try {
       const status = await ollamaManager.getStatus();
       assert(typeof status.installed === 'boolean', 'installed should be boolean');
       assert(typeof status.running === 'boolean', 'running should be boolean');
     } catch {
-      // Not installed — acceptable
-      pass('ollama:status (graceful)');
+      // Ollama not installed — this is acceptable, just don't throw
       return;
     }
   });

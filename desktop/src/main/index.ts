@@ -14,6 +14,7 @@ import * as openclawBridge from './openclaw-bridge';
 import { autoUpdater } from './auto-updater';
 
 const isDev = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
+let statusPollInterval: ReturnType<typeof setInterval> | null = null;
 const APP_ROOT = path.join(__dirname, '..', '..');
 
 let mainWindow: BrowserWindow | null = null;
@@ -35,7 +36,7 @@ function createWindow(): void {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true, // Issue #28: Enable sandbox for reduced attack surface
       webSecurity: true,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
@@ -203,9 +204,12 @@ function createAppMenu(): void {
       label: 'Window',
       submenu: [
         { role: 'minimize' },
-        { role: 'zoom' },
-        { type: 'separator' },
-        { role: 'front' },
+        // Issue #30: macOS-only roles guarded by platform check
+        ...(process.platform === 'darwin' ? [
+          { role: 'zoom' as const },
+          { type: 'separator' as const },
+          { role: 'front' as const },
+        ] : []),
       ],
     },
     {
@@ -243,7 +247,8 @@ app.whenReady().then(() => {
   autoUpdater.initialize(() => mainWindow);
 
   // T-027: Agent status polling every 30s
-  setInterval(() => {
+  // Issue #32: Store interval ID so it can be cleared on quit
+  statusPollInterval = setInterval(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       const statuses = openclawBridge.getAgentStatuses();
       mainWindow.webContents.send('agents:status-update', statuses);
@@ -274,6 +279,8 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  // Issue #32: Clear polling interval to prevent leaks
+  if (statusPollInterval) clearInterval(statusPollInterval);
 });
 
 app.on('will-quit', () => {
