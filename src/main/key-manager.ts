@@ -2,7 +2,12 @@ import * as path from 'path';
 import * as fs from 'fs';
 import Database from 'better-sqlite3';
 
-// Placeholder trial keys pool — replace with real keys before distribution
+// Issue #6 (HIGH): Trial keys are PLACEHOLDER values only.
+// ⚠️  SECURITY WARNING: Never replace these with real API keys.
+//    Real keys embedded in compiled binaries can be extracted with `asar extract`
+//    or `strings`. Implement server-side key distribution before production:
+//    the app contacts an ASRP endpoint with a user token, the server distributes
+//    a key. The key should be stored in the OS keychain, not in source code.
 const TRIAL_KEYS = [
   'sk-or-trial-key-001-placeholder-asrp-2026',
   'sk-or-trial-key-002-placeholder-asrp-2026',
@@ -28,7 +33,6 @@ export function initKeyManager(db: Database.Database): void {
 export function assignTrialKey(userId: number): { success: boolean; key?: string; error?: string } {
   if (!keyDb) return { success: false, error: 'Key manager not initialized' };
 
-  // Return existing assignment if present
   const existing = keyDb.prepare(
     'SELECT key_value FROM key_assignments WHERE user_id = ?'
   ).get(userId) as { key_value: string } | undefined;
@@ -69,7 +73,8 @@ export function validateKey(key: string): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-export function writeKeyToWorkspace(key: string, workspacePath: string): void {
+// Issue #17: Returns boolean to allow callers to detect and propagate failures
+export function writeKeyToWorkspace(key: string, workspacePath: string): boolean {
   try {
     fs.mkdirSync(workspacePath, { recursive: true });
     const envPath = path.join(workspacePath, '.env');
@@ -87,7 +92,9 @@ export function writeKeyToWorkspace(key: string, workspacePath: string): void {
     }
 
     fs.writeFileSync(envPath, content, 'utf-8');
+    return true;
   } catch (err) {
     console.error('[KeyManager] Failed to write key to workspace:', err);
+    return false;
   }
 }

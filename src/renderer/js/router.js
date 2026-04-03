@@ -119,14 +119,32 @@ const Router = (() => {
     } catch (err) {
       console.error('[Router] Failed to load route:', resolvedPath, err);
       if (document.getElementById('page-content')) {
-        document.getElementById('page-content').innerHTML = `
-          <div class="empty-state">
-            <span class="icon">⚠️</span>
-            <h3>Page Load Error</h3>
-            <p>Could not load page: ${route.file}</p>
-            <p style="font-family:monospace;font-size:12px;margin-top:8px">${err.message}</p>
-            <button class="btn btn-outline btn-sm" style="margin-top:16px" onclick="Router.clearCache();Router.handleRoute()">Retry</button>
-          </div>`;
+        // Issue #5: Build error DOM with textContent to avoid XSS via err.message / route.file
+        var errContainer = document.createElement('div');
+        errContainer.className = 'empty-state';
+        var icon = document.createElement('span');
+        icon.className = 'icon';
+        icon.textContent = '⚠️';
+        var h3 = document.createElement('h3');
+        h3.textContent = 'Page Load Error';
+        var p1 = document.createElement('p');
+        p1.textContent = 'Could not load page: ' + route.file;
+        var p2 = document.createElement('p');
+        p2.style.fontFamily = 'monospace';
+        p2.style.fontSize = '12px';
+        p2.style.marginTop = '8px';
+        p2.textContent = err.message;
+        var retryBtn = document.createElement('button');
+        retryBtn.className = 'btn btn-outline btn-sm';
+        retryBtn.style.marginTop = '16px';
+        retryBtn.textContent = 'Retry';
+        retryBtn.onclick = function() { Router.clearCache(); Router.handleRoute(); };
+        errContainer.appendChild(icon);
+        errContainer.appendChild(h3);
+        errContainer.appendChild(p1);
+        errContainer.appendChild(p2);
+        errContainer.appendChild(retryBtn);
+        document.getElementById('page-content').appendChild(errContainer);
       }
     } finally {
       if (loading) loading.classList.remove('visible');

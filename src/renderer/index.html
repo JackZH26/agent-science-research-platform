@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Issue #20: 'unsafe-inline' is required because the SPA router re-executes
+       <script> tags from loaded page fragments via executeScripts(). Removing it
+       would require a nonce-based approach or a module-based router rewrite. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     script-src 'self' 'unsafe-inline';
@@ -139,12 +142,7 @@
 <script src="js/assistant-chat.js"></script>
 
 <script>
-  // Listen for main process navigation events
-  if (window.asrp && window.asrp.on) {
-    window.asrp.on('navigate', (route) => {
-      Router.navigate(route);
-    });
-  }
+  // Issue #7: navigate listener removed — router.js Router.init() already registers it.
 
   // Keyboard shortcuts
   var _chordPending = false;
@@ -216,7 +214,14 @@
     var icons = { success: '✅', error: '❌', warning: '⚠️' };
     var toast = document.createElement('div');
     toast.className = 'toast ' + type;
-    toast.innerHTML = '<span>' + (icons[type] || '') + '</span><span style="flex:1">' + message + '</span>';
+    // Issue #4: Use DOM methods instead of innerHTML to prevent XSS
+    var iconSpan = document.createElement('span');
+    iconSpan.textContent = icons[type] || '';
+    var msgSpan = document.createElement('span');
+    msgSpan.style.flex = '1';
+    msgSpan.textContent = message;
+    toast.appendChild(iconSpan);
+    toast.appendChild(msgSpan);
     container.appendChild(toast);
     setTimeout(function() {
       toast.style.opacity = '0';

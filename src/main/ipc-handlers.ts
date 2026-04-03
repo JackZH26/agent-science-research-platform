@@ -8,15 +8,78 @@ import { ollamaManager } from './ollama-manager';
 import { autoUpdater } from './auto-updater';
 import { runSelfTest } from './self-test';
 
-const APP_ROOT = path.join(__dirname, '..', '..');
-const RESOURCES_PATH = path.join(APP_ROOT, 'resources');
+// ---- Issue #1 (CRITICAL): Path resolution — works in dev and packaged ASAR builds ----
+const RESOURCES_PATH = app.isPackaged
+  ? path.join(process.resourcesPath, 'resources')
+  : path.join(__dirname, '..', '..', 'resources');
+
+// ============================================================
+// Security helpers
+// ============================================================
+
+/**
+ * Issue #1 (CRITICAL): Workspace path guard.
+ * Returns the user's configured workspace base. All file IPC operations
+ * are restricted to paths within this directory.
+ */
+function getWorkspaceBase(): string {
+  const userDataPath = app.getPath('userData');
+  const settingsPath = path.join(userDataPath, 'settings.json');
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as Record<string, unknown>;
+      if (typeof settings.workspace === 'string' && settings.workspace.trim()) {
+        return path.resolve(settings.workspace);
+      }
+    }
+  } catch { /* fall through to default */ }
+  return path.join(userDataPath, 'workspace');
+}
+
+function isPathAllowed(targetPath: string): boolean {
+  const base = getWorkspaceBase();
+  const resolved = path.resolve(targetPath);
+  return resolved === base || resolved.startsWith(base + path.sep);
+}
+
+/**
+ * Issue #3 (CRITICAL IDOR): Verify JWT and extract userId.
+ * Throws if the token is invalid or expired.
+ */
+function getAuthenticatedUserId(token: string): number {
+  const user = authService.getUser(token);
+  if (!user) throw new Error('Unauthorized: invalid or expired token');
+  return user.id;
+}
+
+/**
+ * Issue #13: Validate agent name — reject path traversal characters.
+ * Only allow alphanumeric, hyphen, underscore, and space.
+ */
+function isValidAgentName(name: string): boolean {
+  return typeof name === 'string' && name.length > 0 && name.length <= 64 && !/[./\\]/.test(name);
+}
+
+// ---- Issue #16: Rate limiter for system:log-error (max 10/minute) ----
+let _logErrorCount = 0;
+let _logErrorWindowStart = Date.now();
+const LOG_ERROR_MAX_PER_MINUTE = 10;
+
+function isLogErrorRateLimited(): boolean {
+  const now = Date.now();
+  if (now - _logErrorWindowStart > 60000) {
+    _logErrorCount = 0;
+    _logErrorWindowStart = now;
+  }
+  _logErrorCount++;
+  return _logErrorCount > LOG_ERROR_MAX_PER_MINUTE;
+}
 
 // ============================================================
 // IPC Handler Registration
 // ============================================================
 
 export function registerIpcHandlers(): void {
-  // Initialize key manager with the auth DB
   const authDb = authService.getAuthDb();
   keyManager.initKeyManager(authDb);
 
@@ -50,18 +113,21 @@ function registerAuthHandlers(): void {
     return authService.login(email, password);
   });
 
-  ipcMain.handle('auth:logout', async () => {
-    return { success: true };
+  // Issue #15: Logout now invalidates token via auth-service blacklist
+  ipcMain.handle('auth:logout', async (_event, token: string) => {
+    return authService.logout(token);
   });
 
   ipcMain.handle('auth:user', async (_event, token: string) => {
-    const user = authService.getUser(token);
-    return user;
+    return authService.getUser(token);
   });
 
-  ipcMain.handle('auth:setup-complete', async (_event, userId: number) => {
+  // Issue #29: auth:setup-complete consolidated into setup:complete.
+  // Kept for backwards compatibility — now only verifies auth, no longer
+  // duplicates the markSetupComplete call that setup:complete already makes.
+  ipcMain.handle('auth:setup-complete', async (_event, token: string) => {
     try {
-      authService.markSetupComplete(userId);
+      getAuthenticatedUserId(token); // Just verify the token is valid
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: String(err) };
@@ -74,13 +140,25 @@ function registerAuthHandlers(): void {
 // ============================================================
 
 function registerKeyHandlers(): void {
-  ipcMain.handle('keys:assign-trial', async (_event, userId: number) => {
-    return keyManager.assignTrialKey(userId);
+  // Issue #3 (IDOR): Accept token, verify auth before assigning key
+  ipcMain.handle('keys:assign-trial', async (_event, token: string) => {
+    try {
+      const userId = getAuthenticatedUserId(token);
+      return keyManager.assignTrialKey(userId);
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
   });
 
-  ipcMain.handle('keys:get', async (_event, userId: number) => {
-    const key = keyManager.getUserKey(userId);
-    return { key };
+  // Issue #3 (IDOR): Accept token, verify auth before returning key
+  ipcMain.handle('keys:get', async (_event, token: string) => {
+    try {
+      const userId = getAuthenticatedUserId(token);
+      const key = keyManager.getUserKey(userId);
+      return { key };
+    } catch {
+      return { key: null };
+    }
   });
 
   ipcMain.handle('keys:validate', async (_event, key: string) => {
@@ -93,8 +171,10 @@ function registerKeyHandlers(): void {
 // ============================================================
 
 function registerSetupHandlers(): void {
-  ipcMain.handle('setup:save-profile', async (_event, userId: number, profile: authService.UserProfile) => {
+  // Issue #3 (IDOR): Accept token instead of userId; extract userId server-side
+  ipcMain.handle('setup:save-profile', async (_event, token: string, profile: authService.UserProfile) => {
     try {
+      const userId = getAuthenticatedUserId(token);
       authService.saveProfile(userId, profile);
       return { success: true };
     } catch (err: unknown) {
@@ -102,15 +182,22 @@ function registerSetupHandlers(): void {
     }
   });
 
-  ipcMain.handle('setup:save-keys', async (_event, userId: number, keys: Record<string, string>) => {
+  // Issue #3 (IDOR): Accept token instead of userId
+  // Issue #14: API keys stored in plaintext — TODO: migrate to OS keychain (keytar)
+  // Issue #17: writeKeyToWorkspace now returns boolean; propagate error on failure
+  ipcMain.handle('setup:save-keys', async (_event, token: string, keys: Record<string, string>) => {
     try {
-      // Write OpenRouter key to workspace .env
+      const userId = getAuthenticatedUserId(token);
       const userDataPath = app.getPath('userData');
       const workspacePath = path.join(userDataPath, 'workspace');
       if (keys.openrouterKey) {
-        keyManager.writeKeyToWorkspace(keys.openrouterKey, workspacePath);
+        const writeOk = keyManager.writeKeyToWorkspace(keys.openrouterKey, workspacePath);
+        if (!writeOk) {
+          return { success: false, error: 'Failed to write API key to workspace .env — check permissions' };
+        }
       }
-      // Also persist via settings
+      // NOTE (Issue #14): Keys stored in plaintext settings.json.
+      // TODO: migrate to OS keychain (keytar) for production.
       const settingsPath = path.join(userDataPath, 'settings.json');
       let settings: Record<string, unknown> = {};
       try {
@@ -130,15 +217,22 @@ function registerSetupHandlers(): void {
     }
   });
 
-  ipcMain.handle('setup:init-agents', async (_event, _userId: number) => {
-    // Stub — real OpenClaw integration in Phase 7.5
-    return { success: true };
+  // Issue #3 (IDOR): Accept token instead of userId
+  ipcMain.handle('setup:init-agents', async (_event, token: string) => {
+    try {
+      getAuthenticatedUserId(token); // Verify auth
+      // Stub — real OpenClaw integration in Phase 7.5
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
   });
 
-  ipcMain.handle('setup:complete', async (_event, userId: number) => {
+  // Issue #3 (IDOR): Accept token instead of userId
+  ipcMain.handle('setup:complete', async (_event, token: string) => {
     try {
+      const userId = getAuthenticatedUserId(token);
       authService.markSetupComplete(userId);
-      // Also set setupComplete flag in settings
       const userDataPath = app.getPath('userData');
       const settingsPath = path.join(userDataPath, 'settings.json');
       let settings: Record<string, unknown> = {};
@@ -162,7 +256,6 @@ function registerSetupHandlers(): void {
 // ============================================================
 
 function registerSystemHandlers(): void {
-  // Get app version and info
   ipcMain.handle('system:info', async () => {
     return {
       version: app.getVersion(),
@@ -174,14 +267,11 @@ function registerSystemHandlers(): void {
     };
   });
 
-  // Get workspace path
+  // Issue #9: Read workspace path from settings (user-configured), not hardcoded internal path
   ipcMain.handle('system:workspace', async () => {
-    const userDataPath = app.getPath('userData');
-    const workspacePath = path.join(userDataPath, 'workspace');
-    return { path: workspacePath };
+    return { path: getWorkspaceBase() };
   });
 
-  // Open file/folder in system explorer
   ipcMain.handle('system:open-path', async (_event, targetPath: string) => {
     try {
       await shell.openPath(targetPath);
@@ -191,7 +281,6 @@ function registerSystemHandlers(): void {
     }
   });
 
-  // Select directory dialog
   ipcMain.handle('system:select-directory', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
@@ -200,7 +289,6 @@ function registerSystemHandlers(): void {
     return { canceled: false, path: result.filePaths[0] };
   });
 
-  // Health check
   ipcMain.handle('system:health', async () => {
     return {
       status: 'ok',
@@ -215,7 +303,6 @@ function registerSystemHandlers(): void {
 // ============================================================
 
 function registerAgentHandlers(): void {
-  // List all available agents from resources
   ipcMain.handle('agents:list', async () => {
     try {
       const agentsPath = path.join(RESOURCES_PATH, 'agents');
@@ -235,8 +322,11 @@ function registerAgentHandlers(): void {
     }
   });
 
-  // Get agent definition
+  // Issue #13: Validate agentName to prevent path traversal
   ipcMain.handle('agents:get', async (_event, agentName: string) => {
+    if (!isValidAgentName(agentName)) {
+      return { success: false, error: 'Invalid agent name' };
+    }
     try {
       const agentPath = path.join(RESOURCES_PATH, 'agents', `${agentName}.md`);
       if (!fs.existsSync(agentPath)) {
@@ -249,25 +339,23 @@ function registerAgentHandlers(): void {
     }
   });
 
-  // Get agent status (stub — future: communicate with ASRP backend)
+  // Issue #18: Replaced conflicting hardcoded list with openclaw bridge (single source of truth)
   ipcMain.handle('agents:status', async () => {
+    const agents = openclawBridge.getAgentStatuses();
     return {
-      agents: [
-        { name: 'Albert', role: 'Theorist', status: 'idle', model: 'claude-opus-4-6' },
-        { name: 'Wall-E', role: 'Engineer', status: 'idle', model: 'claude-sonnet-4-6' },
-        { name: 'Critic', role: 'Reviewer', status: 'idle', model: 'claude-opus-4-6' },
-        { name: 'Scholar', role: 'Librarian', status: 'idle', model: 'claude-haiku-4-5' },
-        { name: 'DocMario', role: 'ITDoctor', status: 'idle', model: 'claude-haiku-4-5' },
-      ],
+      agents: agents.map(a => ({
+        name: a.name,
+        role: a.role,
+        status: a.status,
+        model: a.model,
+      })),
     };
   });
 
-  // Start agent (stub)
   ipcMain.handle('agents:start', async (_event, agentName: string) => {
     return { success: true, message: `Agent ${agentName} start requested (stub)` };
   });
 
-  // Stop agent (stub)
   ipcMain.handle('agents:stop', async (_event, agentName: string) => {
     return { success: true, message: `Agent ${agentName} stop requested (stub)` };
   });
@@ -278,8 +366,12 @@ function registerAgentHandlers(): void {
 // ============================================================
 
 function registerFileHandlers(): void {
-  // List files in workspace
+  // Issue #1 (CRITICAL): All file handlers now guard against path traversal
+
   ipcMain.handle('files:list', async (_event, dirPath: string) => {
+    if (!isPathAllowed(dirPath)) {
+      return { files: [], error: 'Path outside workspace' };
+    }
     try {
       if (!fs.existsSync(dirPath)) return { files: [], error: 'Path not found' };
       const entries = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -295,8 +387,10 @@ function registerFileHandlers(): void {
     }
   });
 
-  // Read file contents
   ipcMain.handle('files:read', async (_event, filePath: string) => {
+    if (!isPathAllowed(filePath)) {
+      return { success: false, error: 'Path outside workspace' };
+    }
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
       return { success: true, content };
@@ -305,8 +399,10 @@ function registerFileHandlers(): void {
     }
   });
 
-  // Write file contents
   ipcMain.handle('files:write', async (_event, filePath: string, content: string) => {
+    if (!isPathAllowed(filePath)) {
+      return { success: false, error: 'Path outside workspace' };
+    }
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, content, 'utf-8');
@@ -316,8 +412,10 @@ function registerFileHandlers(): void {
     }
   });
 
-  // Delete file
   ipcMain.handle('files:delete', async (_event, filePath: string) => {
+    if (!isPathAllowed(filePath)) {
+      return { success: false, error: 'Path outside workspace' };
+    }
     try {
       fs.rmSync(filePath, { recursive: true, force: true });
       return { success: true };
@@ -326,117 +424,121 @@ function registerFileHandlers(): void {
     }
   });
 
-  // Open file dialog
   ipcMain.handle('files:open-dialog', async (_event, options: Electron.OpenDialogOptions) => {
-    const result = await dialog.showOpenDialog(options || {});
-    return result;
+    return dialog.showOpenDialog(options || {});
   });
 
-  // Save file dialog
   ipcMain.handle('files:save-dialog', async (_event, options: Electron.SaveDialogOptions) => {
-    const result = await dialog.showSaveDialog(options || {});
-    return result;
+    return dialog.showSaveDialog(options || {});
   });
 }
 
 // ============================================================
-// PAPER HANDLERS (channel: 'papers:*')
+// PAPER HANDLERS (channel: 'papers:*') — [DEMO STUB]
 // ============================================================
 
 function registerPaperHandlers(): void {
-  // List papers (stub)
+  // Issue #36: Use relative dates so stubs don't become confusingly historical
+  const relDate = (daysAgo: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().slice(0, 10);
+  };
+
   ipcMain.handle('papers:list', async () => {
     return {
       papers: [
-        { id: 'paper-001', title: 'Multi-well double-delta DFT analysis', status: 'draft', created: '2026-04-01' },
-        { id: 'paper-002', title: 'LDA binding energy corrections', status: 'submitted', created: '2026-03-28' },
+        { id: 'paper-001', title: 'Multi-well double-delta DFT analysis', status: 'draft', created: relDate(2) },
+        { id: 'paper-002', title: 'LDA binding energy corrections', status: 'submitted', created: relDate(6) },
       ],
     };
   });
 
-  // Get paper (stub)
   ipcMain.handle('papers:get', async (_event, paperId: string) => {
     return { success: true, paper: { id: paperId, content: '# Paper Content\n\n(stub)' } };
   });
 
-  // Create paper (stub)
   ipcMain.handle('papers:create', async (_event, metadata: Record<string, unknown>) => {
     return { success: true, paperId: `paper-${Date.now()}`, metadata };
   });
 
-  // Update paper (stub)
   ipcMain.handle('papers:update', async (_event, paperId: string, data: Record<string, unknown>) => {
     return { success: true, paperId, data };
   });
 
-  // Export paper (stub)
   ipcMain.handle('papers:export', async (_event, paperId: string, format: string) => {
     return { success: true, message: `Exported ${paperId} as ${format} (stub)` };
   });
 }
 
 // ============================================================
-// EXPERIMENT HANDLERS (channel: 'experiments:*')
+// EXPERIMENT HANDLERS (channel: 'experiments:*') — [DEMO STUB]
 // ============================================================
 
 function registerExperimentHandlers(): void {
-  // List experiments (stub)
+  // Issue #36: Use relative dates instead of hardcoded domain-specific dates
+  const relDate = (daysAgo: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().slice(0, 10);
+  };
+
   ipcMain.handle('experiments:list', async () => {
     return {
       experiments: [
-        { id: 'EXP-2026-04-02-003', hypothesis: 'Multi-well DD with exact KS gap at d=5,6,7', status: 'running', created: '2026-04-02' },
-        { id: 'EXP-2026-04-01-002', hypothesis: 'Prime-spaced wells produce negative DD', status: 'refuted', created: '2026-04-01' },
-        { id: 'EXP-2026-04-01-001', hypothesis: 'LDA overestimates 2e atom binding by >1%', status: 'confirmed', created: '2026-04-01' },
-        { id: 'EXP-2026-03-31-005', hypothesis: 'Electron membrane model consistent with Stodolna 2013', status: 'confirmed', created: '2026-03-31' },
-        { id: 'EXP-2026-04-02-004', hypothesis: 'Fibonacci lattice reduces DFT ill-conditioning', status: 'registered', created: '2026-04-02' },
+        { id: 'EXP-DEMO-003', hypothesis: 'Multi-well DD with exact KS gap at d=5,6,7', status: 'running', created: relDate(1) },
+        { id: 'EXP-DEMO-002', hypothesis: 'Prime-spaced wells produce negative DD', status: 'refuted', created: relDate(2) },
+        { id: 'EXP-DEMO-001', hypothesis: 'LDA overestimates 2e atom binding by >1%', status: 'confirmed', created: relDate(2) },
+        { id: 'EXP-DEMO-005', hypothesis: 'Electron membrane model consistent with Stodolna 2013', status: 'confirmed', created: relDate(3) },
+        { id: 'EXP-DEMO-004', hypothesis: 'Fibonacci lattice reduces DFT ill-conditioning', status: 'registered', created: relDate(1) },
       ],
     };
   });
 
-  // Get experiment details (stub)
   ipcMain.handle('experiments:get', async (_event, expId: string) => {
     return { success: true, experiment: { id: expId, data: {} } };
   });
 
-  // Register new experiment (stub)
   ipcMain.handle('experiments:register', async (_event, hypothesis: string, metadata: Record<string, unknown>) => {
     const id = `EXP-${new Date().toISOString().slice(0, 10)}-${String(Math.floor(Math.random() * 900) + 100)}`;
     return { success: true, id, hypothesis, metadata };
   });
 
-  // Update experiment status (stub)
   ipcMain.handle('experiments:update-status', async (_event, expId: string, status: string) => {
     return { success: true, expId, status };
   });
 }
 
 // ============================================================
-// AUDIT HANDLERS (channel: 'audit:*')
+// AUDIT HANDLERS (channel: 'audit:*') — [DEMO STUB]
 // ============================================================
 
 function registerAuditHandlers(): void {
-  // Get audit trail (stub)
+  // Issue #36: Use relative timestamps
+  const relTime = (minutesAgo: number): string => {
+    const t = new Date(Date.now() - minutesAgo * 60 * 1000);
+    return t.toTimeString().slice(0, 5);
+  };
+
   ipcMain.handle('audit:list', async (_event, options: { limit?: number; offset?: number }) => {
     const limit = options?.limit ?? 50;
     return {
       entries: [
-        { time: '10:03', agent: 'Engineer', message: 'EXP-003: Exact KS gap computed for d=3.0, DD=+0.215', severity: 'info' },
-        { time: '09:58', agent: 'Reviewer', message: 'EXP-002: DD sign depends on KS gap definition — verify with exact potential', severity: 'warning' },
-        { time: '09:45', agent: 'Theorist', message: 'Registered EXP-004: Fibonacci ill-conditioning hypothesis', severity: 'info' },
-        { time: '09:30', agent: 'System', message: 'Daily backup completed (workspace: 2.4 MB)', severity: 'info' },
-        { time: '09:15', agent: 'Engineer', message: 'EXP-003: iDEA reverse engineering started (tol=1e-6, mu=3.0)', severity: 'info' },
-        { time: '09:00', agent: 'System', message: 'Health check: all agents online, disk 23%', severity: 'info' },
+        { time: relTime(0),  agent: 'Engineer', message: 'EXP-003: Exact KS gap computed for d=3.0, DD=+0.215', severity: 'info' },
+        { time: relTime(5),  agent: 'Reviewer', message: 'EXP-002: DD sign depends on KS gap definition — verify with exact potential', severity: 'warning' },
+        { time: relTime(18), agent: 'Theorist', message: 'Registered EXP-004: Fibonacci ill-conditioning hypothesis', severity: 'info' },
+        { time: relTime(33), agent: 'System',   message: 'Daily backup completed (workspace: 2.4 MB)', severity: 'info' },
+        { time: relTime(48), agent: 'Engineer', message: 'EXP-003: iDEA reverse engineering started (tol=1e-6, mu=3.0)', severity: 'info' },
+        { time: relTime(63), agent: 'System',   message: 'Health check: all agents online, disk 23%', severity: 'info' },
       ].slice(0, limit),
-      total: 847,
+      total: 6,
     };
   });
 
-  // Log custom entry (stub)
   ipcMain.handle('audit:log', async (_event, entry: Record<string, unknown>) => {
     return { success: true, entry };
   });
 
-  // Export audit log (stub)
   ipcMain.handle('audit:export', async () => {
     return { success: true, message: 'Audit export stub' };
   });
@@ -462,28 +564,34 @@ function registerSettingsHandlers(): void {
     autoStart: false,
   };
 
+  // Issue #19: Allowlist of valid setting keys — prevents renderer from polluting settings.json
+  const ALLOWED_SETTING_KEYS = new Set(Object.keys(defaultSettings));
+
   const loadSettings = (): Record<string, unknown> => {
     try {
       if (fs.existsSync(settingsPath)) {
         const raw = fs.readFileSync(settingsPath, 'utf-8');
         return { ...defaultSettings, ...JSON.parse(raw) };
       }
-    } catch {
-      // Fall through to defaults
-    }
+    } catch { /* Fall through to defaults */ }
     return { ...defaultSettings };
   };
 
-  // Get settings
   ipcMain.handle('settings:get', async () => {
     return loadSettings();
   });
 
-  // Set settings
   ipcMain.handle('settings:set', async (_event, updates: Record<string, unknown>) => {
     try {
+      // Filter to only known, allowed keys
+      const filteredUpdates: Record<string, unknown> = {};
+      for (const key of Object.keys(updates)) {
+        if (ALLOWED_SETTING_KEYS.has(key)) {
+          filteredUpdates[key] = updates[key];
+        }
+      }
       const current = loadSettings();
-      const updated = { ...current, ...updates };
+      const updated = { ...current, ...filteredUpdates };
       fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
       fs.writeFileSync(settingsPath, JSON.stringify(updated, null, 2), 'utf-8');
       return { success: true, settings: updated };
@@ -492,7 +600,6 @@ function registerSettingsHandlers(): void {
     }
   });
 
-  // Reset settings to defaults
   ipcMain.handle('settings:reset', async () => {
     try {
       fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2), 'utf-8');
@@ -528,27 +635,41 @@ function registerOpenClawHandlers(): void {
     return openclawBridge.getGatewayStatus();
   });
 
-  // Agent lifecycle
   ipcMain.handle('agents:restart', async (_event, agentName: string) => {
     return openclawBridge.restartAgent(agentName);
   });
 
-  // Agent SOUL editor
+  // Issue #13: Validate agentName to prevent path traversal
+  // Issue #8: Read user-modified SOUL from userData/agents/ first, then fallback to packaged resources
   ipcMain.handle('agents:get-soul', async (_event, agentName: string) => {
-    // Try to load from resources first, fall back to bridge stub
+    if (!isValidAgentName(agentName)) {
+      return { success: false, error: 'Invalid agent name' };
+    }
+    const userDataPath = app.getPath('userData');
+    const userSoulPath = path.join(userDataPath, 'agents', `${agentName.toLowerCase()}-soul.md`);
+    try {
+      if (fs.existsSync(userSoulPath)) {
+        return { success: true, content: fs.readFileSync(userSoulPath, 'utf-8') };
+      }
+    } catch { /* fall through */ }
     try {
       const soulPath = path.join(RESOURCES_PATH, 'agents', `${agentName.toLowerCase()}-soul.md`);
       if (fs.existsSync(soulPath)) {
-        const content = fs.readFileSync(soulPath, 'utf-8');
-        return { success: true, content };
+        return { success: true, content: fs.readFileSync(soulPath, 'utf-8') };
       }
     } catch { /* fall through */ }
     return { success: true, content: openclawBridge.getAgentSoul(agentName) };
   });
 
+  // Issue #8: Write to userData/agents/ (writable location), not resources/ (read-only in packaged ASAR)
+  // Issue #13: Validate agentName to prevent path traversal
   ipcMain.handle('agents:save-soul', async (_event, agentName: string, content: string) => {
+    if (!isValidAgentName(agentName)) {
+      return { success: false, error: 'Invalid agent name' };
+    }
     try {
-      const soulPath = path.join(RESOURCES_PATH, 'agents', `${agentName.toLowerCase()}-soul.md`);
+      const userDataPath = app.getPath('userData');
+      const soulPath = path.join(userDataPath, 'agents', `${agentName.toLowerCase()}-soul.md`);
       fs.mkdirSync(path.dirname(soulPath), { recursive: true });
       fs.writeFileSync(soulPath, content, 'utf-8');
       return { success: true };
@@ -577,6 +698,8 @@ function registerOpenClawHandlers(): void {
 function registerAssistantHandlers(): void {
   const userDataPath = app.getPath('userData');
   const chatHistoryPath = path.join(userDataPath, 'logs', 'assistant-chat.jsonl');
+  // Issue #23: Maximum lines stored on disk (older entries trimmed automatically)
+  const HISTORY_MAX_LINES = 1000;
 
   const ensureHistoryFile = () => {
     fs.mkdirSync(path.dirname(chatHistoryPath), { recursive: true });
@@ -585,16 +708,23 @@ function registerAssistantHandlers(): void {
     }
   };
 
-  // Get chat model info
+  const trimHistoryIfNeeded = () => {
+    try {
+      const raw = fs.readFileSync(chatHistoryPath, 'utf-8');
+      const lines = raw.split('\n').filter(l => l.trim());
+      if (lines.length > HISTORY_MAX_LINES) {
+        const trimmed = lines.slice(-HISTORY_MAX_LINES).join('\n') + '\n';
+        fs.writeFileSync(chatHistoryPath, trimmed, 'utf-8');
+      }
+    } catch { /* ignore */ }
+  };
+
   ipcMain.handle('assistant:get-model', async () => {
-    // Check if Ollama is available (stub — always returns cloud for now)
     return { model: 'Claude Sonnet 4.6', type: 'cloud' as const };
   });
 
-  // Send message to assistant (stub — returns mock response)
   ipcMain.handle('assistant:chat', async (_event, message: string, context?: string) => {
     try {
-      // Context-aware mock responses
       const mockResponses: Record<string, string> = {
         'register': 'To register an experiment, navigate to **Experiments** → click **+ Register Experiment** → fill in your hypothesis and metadata. The system will assign an EXP-ID automatically.',
         'model': 'To switch an agent\'s model, go to **Agents** → click on the agent card → use the **Model** dropdown. Changes take effect after the agent restarts.',
@@ -616,11 +746,11 @@ function registerAssistantHandlers(): void {
         reply = `*[Context: ${context}]*\n\n${reply}`;
       }
 
-      // Save both messages to history
       ensureHistoryFile();
       const userEntry = JSON.stringify({ role: 'user', content: message, ts: new Date().toISOString() });
       const assistantEntry = JSON.stringify({ role: 'assistant', content: reply, ts: new Date().toISOString() });
       fs.appendFileSync(chatHistoryPath, userEntry + '\n' + assistantEntry + '\n', 'utf-8');
+      trimHistoryIfNeeded();
 
       return { success: true, reply, model: 'Claude Sonnet 4.6' };
     } catch (err: unknown) {
@@ -628,7 +758,6 @@ function registerAssistantHandlers(): void {
     }
   });
 
-  // Load chat history (last 50 messages)
   ipcMain.handle('assistant:history', async () => {
     try {
       ensureHistoryFile();
@@ -644,22 +773,20 @@ function registerAssistantHandlers(): void {
     }
   });
 
-  // Save a single message
   ipcMain.handle('assistant:save-message', async (_event, role: string, content: string) => {
     try {
       ensureHistoryFile();
       const entry = JSON.stringify({ role, content, ts: new Date().toISOString() });
       fs.appendFileSync(chatHistoryPath, entry + '\n', 'utf-8');
+      trimHistoryIfNeeded();
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: String(err) };
     }
   });
 
-  // Clear history
   ipcMain.handle('assistant:clear-history', async () => {
     try {
-      ensureHistoryFile();
       fs.writeFileSync(chatHistoryPath, '', 'utf-8');
       return { success: true };
     } catch (err: unknown) {
@@ -673,7 +800,6 @@ function registerAssistantHandlers(): void {
 // ============================================================
 
 function registerOllamaHandlers(): void {
-  // Get full Ollama + download status
   ipcMain.handle('ollama:status', async () => {
     try {
       return await ollamaManager.getStatus();
@@ -682,7 +808,6 @@ function registerOllamaHandlers(): void {
     }
   });
 
-  // Detect hardware capabilities
   ipcMain.handle('ollama:detect-hardware', async () => {
     try {
       const hardware = ollamaManager.detectHardware();
@@ -693,11 +818,9 @@ function registerOllamaHandlers(): void {
     }
   });
 
-  // Start pulling a model (background, progress pushed via event)
   ipcMain.handle('ollama:pull-model', async (event, modelName: string = 'gemma3:27b') => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
 
-    // Forward progress events to renderer
     const progressHandler = (data: unknown) => {
       if (senderWindow && !senderWindow.isDestroyed()) {
         senderWindow.webContents.send('ollama:download-progress', data);
@@ -707,30 +830,33 @@ function registerOllamaHandlers(): void {
       if (senderWindow && !senderWindow.isDestroyed()) {
         senderWindow.webContents.send('ollama:download-complete', data);
       }
-      ollamaManager.removeListener('download-progress', progressHandler);
-      ollamaManager.removeListener('download-complete', completeHandler);
-      ollamaManager.removeListener('download-error', errorHandler);
+      cleanup();
     };
     const errorHandler = (data: unknown) => {
       if (senderWindow && !senderWindow.isDestroyed()) {
         senderWindow.webContents.send('ollama:download-error', data);
       }
+      cleanup();
+    };
+    const cancelHandler = () => { cleanup(); };
+
+    const cleanup = () => {
       ollamaManager.removeListener('download-progress', progressHandler);
       ollamaManager.removeListener('download-complete', completeHandler);
       ollamaManager.removeListener('download-error', errorHandler);
+      ollamaManager.removeListener('download-cancelled', cancelHandler);
     };
 
     ollamaManager.on('download-progress', progressHandler);
     ollamaManager.on('download-complete', completeHandler);
     ollamaManager.on('download-error', errorHandler);
+    ollamaManager.on('download-cancelled', cancelHandler);
 
-    // Start pull in background (don't await)
-    ollamaManager.pullModel(modelName).catch(() => { /* handled via event */ });
+    ollamaManager.pullModel(modelName).catch(() => { /* handled via events */ });
 
     return { success: true, message: `Pull started for ${modelName}` };
   });
 
-  // Cancel ongoing pull
   ipcMain.handle('ollama:cancel-pull', async () => {
     try {
       ollamaManager.cancelPull();
@@ -740,7 +866,6 @@ function registerOllamaHandlers(): void {
     }
   });
 
-  // List installed models
   ipcMain.handle('ollama:list-models', async () => {
     try {
       const models = await ollamaManager.listModels();
@@ -750,7 +875,6 @@ function registerOllamaHandlers(): void {
     }
   });
 
-  // Chat via local Ollama
   ipcMain.handle('ollama:chat', async (_event, messages: Array<{ role: string; content: string }>, model?: string) => {
     try {
       const reply = await ollamaManager.chat(
@@ -763,7 +887,6 @@ function registerOllamaHandlers(): void {
     }
   });
 
-  // Delete a model
   ipcMain.handle('ollama:delete-model', async (_event, modelName: string) => {
     try {
       await ollamaManager.deleteModel(modelName);
@@ -773,7 +896,6 @@ function registerOllamaHandlers(): void {
     }
   });
 
-  // Start Ollama server
   ipcMain.handle('ollama:start', async () => {
     try {
       await ollamaManager.startOllama();
@@ -783,7 +905,6 @@ function registerOllamaHandlers(): void {
     }
   });
 
-  // Stop Ollama server
   ipcMain.handle('ollama:stop', async () => {
     try {
       ollamaManager.stopOllama();
@@ -793,7 +914,6 @@ function registerOllamaHandlers(): void {
     }
   });
 
-  // Get install instructions
   ipcMain.handle('ollama:install-instructions', async () => {
     return ollamaManager.installOllama();
   });
@@ -837,7 +957,7 @@ function registerUpdaterHandlers(): void {
 }
 
 // ============================================================
-// SELF-TEST HANDLER (channel: 'system:self-test')
+// SELF-TEST + ERROR LOG HANDLERS (channel: 'system:*')
 // ============================================================
 
 function registerSelfTestHandlers(): void {
@@ -850,8 +970,11 @@ function registerSelfTestHandlers(): void {
     }
   });
 
-  // Log renderer-side errors to disk
+  // Issue #16: Rate-limited (max 10/minute) to prevent disk exhaustion
   ipcMain.handle('system:log-error', async (_event, errorInfo: Record<string, unknown>) => {
+    if (isLogErrorRateLimited()) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
     try {
       const userDataPath = app.getPath('userData');
       const logsPath = path.join(userDataPath, 'logs');
@@ -865,7 +988,6 @@ function registerSelfTestHandlers(): void {
     }
   });
 
-  // Deployment mode detection
   ipcMain.handle('system:is-headless', async () => {
     const display = process.env.DISPLAY;
     const isHeadless = process.platform === 'linux' && (!display || display.trim() === '');

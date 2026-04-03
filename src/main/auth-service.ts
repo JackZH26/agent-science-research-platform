@@ -1,11 +1,46 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 
-const JWT_SECRET = 'asrp-desktop-local-jwt-secret-2026';
+// Issue #27: Generate a random JWT secret on first launch and persist it in userData.
+// This ensures each installation has a unique secret and tokens from one machine
+// cannot be replayed on another even if the database is copied.
+let _jwtSecret: string | null = null;
+
+function getJwtSecret(): string {
+  if (_jwtSecret) return _jwtSecret;
+  const secretPath = path.join(app.getPath('userData'), '.jwt-secret');
+  try {
+    if (fs.existsSync(secretPath)) {
+      const secret = fs.readFileSync(secretPath, 'utf-8').trim();
+      if (secret.length >= 32) {
+        _jwtSecret = secret;
+        return _jwtSecret;
+      }
+    }
+  } catch { /* fall through to generate */ }
+
+  // Generate a new random 64-char hex secret
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const crypto = require('crypto') as typeof import('crypto');
+  const newSecret = (crypto.randomBytes(32) as Buffer).toString('hex');
+  try {
+    fs.mkdirSync(path.dirname(secretPath), { recursive: true });
+    fs.writeFileSync(secretPath, newSecret, 'utf-8');
+  } catch { /* ignore write failure — still use in-memory secret */ }
+  _jwtSecret = newSecret;
+  return _jwtSecret;
+}
+
 const SALT_ROUNDS = 10;
+
+// Issue #15: In-memory token revocation list.
+// Tokens are local-only, so in-memory revocation is sufficient.
+// The set is cleared on app restart which is acceptable for a desktop app.
+const revokedTokens = new Set<string>();
 
 export interface UserRecord {
   id: number;
@@ -64,6 +99,20 @@ function getDb(): Database.Database {
 
 export function register(name: string, email: string, password: string): AuthResult {
   try {
+    // Issue #12: Enforce password strength and email validation
+    if (!name || name.trim().length === 0) {
+      return { success: false, error: 'Name is required' };
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { success: false, error: 'A valid email address is required' };
+    }
+    if (!password || password.length < 8) {
+      return { success: false, error: 'Password must be at least 8 characters' };
+    }
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return { success: false, error: 'Password must contain at least one letter and one number' };
+    }
+
     const database = getDb();
     const existing = database.prepare('SELECT id FROM users WHERE email = ?').get(email);
     if (existing) {
@@ -73,12 +122,12 @@ export function register(name: string, email: string, password: string): AuthRes
     const hash = bcrypt.hashSync(password, SALT_ROUNDS);
     const result = database.prepare(
       'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)'
-    ).run(name, email, hash);
+    ).run(name.trim(), email, hash);
 
     const userId = result.lastInsertRowid as number;
-    const token = jwt.sign({ id: userId, email }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ id: userId, email }, getJwtSecret(), { expiresIn: '30d' });
 
-    return { success: true, token, user: { id: userId, name, email } };
+    return { success: true, token, user: { id: userId, name: name.trim(), email } };
   } catch (err: unknown) {
     return { success: false, error: String(err) };
   }
@@ -98,7 +147,7 @@ export function login(email: string, password: string): AuthResult {
       return { success: false, error: 'Invalid email or password' };
     }
 
-    const token = jwt.sign({ id: user.id, email }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ id: user.id, email }, getJwtSecret(), { expiresIn: '30d' });
     return {
       success: true,
       token,
@@ -109,9 +158,20 @@ export function login(email: string, password: string): AuthResult {
   }
 }
 
+// Issue #15: Logout adds the token to the revocation list so it cannot be reused
+export function logout(token: string): { success: boolean } {
+  if (token && token.length > 0) {
+    revokedTokens.add(token);
+  }
+  return { success: true };
+}
+
 export function getUser(token: string): { id: number; name: string; email: string; setupComplete: boolean } | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: number; email: string };
+    // Issue #15: Check revocation list before verifying
+    if (revokedTokens.has(token)) return null;
+
+    const decoded = jwt.verify(token, getJwtSecret()) as { id: number; email: string };
     const database = getDb();
     const user = database.prepare(
       'SELECT id, name, email, setup_complete FROM users WHERE id = ?'
