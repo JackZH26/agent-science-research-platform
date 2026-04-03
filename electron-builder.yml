@@ -1,10 +1,10 @@
 appId: com.asrp.desktop
 productName: ASRP Desktop
-copyright: Copyright © 2026 ASRP Contributors
+copyright: Copyright © 2026 Jian Zhou
 
 directories:
   buildResources: build
-  output: release
+  output: dist
 
 files:
   - dist/main/**/*
@@ -13,68 +13,40 @@ files:
   - resources/**/*
   - package.json
 
-# T-080/T-081: Embedded resources (runtimes, scripts)
 extraResources:
   - from: resources/
     to: resources/
     filter:
       - "**/*"
-  # Platform-specific embedded Node.js portable (populated at build time)
-  - from: build/runtimes/node/${os}
-    to: runtimes/node
-    filter:
-      - "**/*"
 
-# T-077: Windows / NSIS
+# Windows
 win:
   target:
     - target: nsis
-      arch:
-        - x64
-        - ia32
-  icon: build/icon.ico
-  artifactName: ASRP-Desktop-Setup-${version}-${arch}.exe
+      arch: [x64]
+  icon: build/icon.svg
+  artifactName: ASRP_Setup_${version}.exe
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  menuCategory: ASRP Research
-  installerIcon: build/icon.ico
-  uninstallerIcon: build/icon.ico
-  installerHeader: build/installerHeader.bmp
-  installerHeaderIcon: build/icon.ico
-  include: build/installer.nsh
   deleteAppDataOnUninstall: false
   perMachine: false
   runAfterFinish: true
-  # Component-based install options
-  allowElevation: true
-  displayLanguageSelector: false
 
-# T-078: macOS / DMG
+# macOS
 mac:
   target:
     - target: dmg
-      arch:
-        - x64
-        - arm64
-    - target: zip
-      arch:
-        - x64
-        - arm64
-  icon: build/icon.icns
+      arch: [universal]
+  icon: build/icon.svg
   category: public.app-category.productivity
-  hardenedRuntime: true
-  gatekeeperAssess: false
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
-  artifactName: ASRP-Desktop-${version}-${arch}.dmg
+  artifactName: ASRP_Setup_${version}.dmg
 
 dmg:
   title: ASRP Desktop ${version}
-  background: build/dmg-background.png
   window:
     width: 540
     height: 380
@@ -86,40 +58,23 @@ dmg:
       y: 190
       type: link
       path: /Applications
-  iconSize: 80
-  iconTextSize: 12
 
-# T-079: Linux / AppImage + deb
+# Linux
 linux:
   target:
     - target: AppImage
-      arch:
-        - x64
-    - target: deb
-      arch:
-        - x64
-    - target: rpm
-      arch:
-        - x64
-  icon: build/icon.png
+      arch: [x64]
+  icon: build/icon.svg
   category: Science
   description: Agent Science Research Platform Desktop Application
-  synopsis: AI-powered autonomous research platform
+  maintainer: jackzhou.sci@gmail.com
 
 appImage:
-  artifactName: ASRP-Desktop-${version}-${arch}.AppImage
+  artifactName: ASRP_Desktop_${version}.AppImage
 
-deb:
-  artifactName: asrp-desktop_${version}_${arch}.deb
-  depends:
-    - libnotify4
-    - libxtst6
-    - libnss3
-
-# Auto-updater publish config (T-083)
+# Auto-updater
 publish:
   provider: github
   owner: JackZH26
   repo: agent-science-research-platform
   releaseType: draft
-  vPrefixedTagName: true
