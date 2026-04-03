@@ -59,7 +59,7 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      # ---- Package with electron-builder ----
+      # ---- Package with ASRP Builder ----
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
         run: npm run dist:win
@@ -159,7 +159,7 @@ jobs:
             | Linux DEB | `asrp-desktop_*.deb` |
 
             ### What's New
-            See [CHANGELOG](https://github.com/JackZH26/agent-science-research-platform/blob/main/CHANGELOG.md) for details.
+            See [CHANGELOG](https://github.com/JackZH26/ASRP-JZIS/blob/main/CHANGELOG.md) for details.
 
             ### Checksums
             SHA-256 checksums are included in the `*.blockmap` files and `latest*.yml` manifests.

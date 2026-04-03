@@ -217,11 +217,11 @@ function createAppMenu(): void {
       submenu: [
         {
           label: 'Documentation',
-          click: () => shell.openExternal('https://github.com/JackZH26/agent-science-research-platform'),
+          click: () => shell.openExternal('https://github.com/JackZH26/ASRP-JZIS'),
         },
         {
           label: 'Report Issue',
-          click: () => shell.openExternal('https://github.com/JackZH26/agent-science-research-platform/issues'),
+          click: () => shell.openExternal('https://github.com/JackZH26/ASRP-JZIS/issues'),
         },
       ],
     },

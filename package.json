@@ -42,9 +42,9 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "homepage": "https://github.com/JackZH26/agent-science-research-platform",
+  "homepage": "https://github.com/JackZH26/ASRP-JZIS",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JackZH26/agent-science-research-platform.git"
+    "url": "https://github.com/JackZH26/ASRP-JZIS.git"
   }
 }

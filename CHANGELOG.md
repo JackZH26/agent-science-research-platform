@@ -14,7 +14,7 @@ Agent Science Research Platform (ASRP). Phases 0 through 9 complete (91/91 tasks
 
 ### Phase 0 — Project Bootstrap
 - Electron + TypeScript project scaffold (`src/main`, `src/preload`, `src/renderer`)
-- `electron-builder` config, `tsconfig.json`, `package.json`
+- `ASRP Builder` config, `tsconfig.json`, `package.json`
 - Build pipeline: `npm run build` → `dist/`, `npm start`, `npm run dev` (hot-reload)
 - CSP header, contextBridge (nodeIntegration OFF), `window.asrp` typed API surface
 

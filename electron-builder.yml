@@ -76,5 +76,5 @@ appImage:
 publish:
   provider: github
   owner: JackZH26
-  repo: agent-science-research-platform
+  repo: ASRP-JZIS
   releaseType: draft

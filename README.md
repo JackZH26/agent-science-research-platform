@@ -1,6 +1,6 @@
 # ASRP Desktop
 
-GUI application for the [Agent Science Research Platform](https://github.com/JackZH26/agent-science-research-platform).
+GUI application for the [Agent Science Research Platform](https://github.com/JackZH26/ASRP-JZIS).
 
 ## Features
 
