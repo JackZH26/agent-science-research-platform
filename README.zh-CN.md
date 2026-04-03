@@ -58,6 +58,12 @@
 
 当前 7 篇在 Physical Review D、SUST、Foundations of Physics、IJNT、Experimental Mathematics 等期刊审稿中。
 
+## 社区
+
+加入 Discord 社区，讨论研究、分享想法、获取帮助：
+
+👉 [**加入 ASRP Discord**](https://discord.gg/DFmwBkDTB)
+
 ## 许可
 
 Apache 2.0

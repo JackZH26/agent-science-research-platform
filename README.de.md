@@ -61,6 +61,12 @@ Vollständige Anleitung: [`docs/quickstart.md`](docs/quickstart.md)
 
 Siehe [`examples/portfolio/`](examples/portfolio/) — 20 Papers in 16 Tagen, mit vollständiger Fehleranalyse.
 
+## Community
+
+Tritte unserem Discord bei, um Forschung zu diskutieren und Hilfe zu erhalten:
+
+👉 [**ASRP Discord beitreten**](https://discord.gg/DFmwBkDTB)
+
 ## Lizenz
 
 Apache 2.0
