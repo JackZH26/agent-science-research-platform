@@ -205,10 +205,15 @@ const Toast = (() => {
     const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `
-      <span>${icons[type] || icons.info}</span>
-      <span>${message}</span>
-    `;
+
+    // H1: Use DOM methods instead of innerHTML to prevent XSS from message content
+    const iconSpan = document.createElement('span');
+    iconSpan.textContent = icons[type] || icons.info;
+    const msgSpan = document.createElement('span');
+    msgSpan.textContent = message;
+    toast.appendChild(iconSpan);
+    toast.appendChild(msgSpan);
+
     container.appendChild(toast);
 
     setTimeout(() => {

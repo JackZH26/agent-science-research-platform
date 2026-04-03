@@ -1,3 +1,9 @@
+<!-- H4: Demo mode banner — visible whenever real OpenClaw is not connected -->
+<div id="demo-banner" style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 16px;margin-bottom:14px;font-size:13px;color:#856404;display:flex;align-items:center;gap:8px">
+  <span>⚠️</span>
+  <span><strong>Demo Mode</strong> — Displaying sample data. Connect to OpenClaw for live data.</span>
+</div>
+
 <div class="page-header">
   <div>
     <h1>Research Dashboard</h1>
@@ -148,6 +154,15 @@
 
 <script>
 (function() {
+  // H2: HTML-escape helper to prevent XSS when inserting IPC data into innerHTML
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   async function loadDashboard() {
     if (!window.asrp) return;
 
@@ -167,9 +182,9 @@
       const expList = document.getElementById('recent-experiments-list');
       expList.innerHTML = experiments.slice(0, 5).map(e => `
         <div class="exp-row">
-          <span class="exp-status ${e.status}">${capitalize(e.status)}</span>
-          <span class="exp-id">${e.id}</span>
-          <span class="exp-hyp">${e.hypothesis}</span>
+          <span class="exp-status ${escHtml(e.status)}">${escHtml(capitalize(e.status))}</span>
+          <span class="exp-id">${escHtml(e.id)}</span>
+          <span class="exp-hyp">${escHtml(e.hypothesis)}</span>
         </div>
       `).join('') || '<div class="empty-state"><p>No experiments yet</p></div>';
 
@@ -189,9 +204,9 @@
       agentList.innerHTML = agents.map(a => `
         <div class="agent-row">
           <span class="dot ${a.status === 'running' ? 'online' : a.status === 'stopped' ? 'offline' : 'idle'}"></span>
-          <span class="name">${roleEmoji[a.role] || '🤖'} ${a.name}</span>
-          <span class="role">${a.role}</span>
-          <span class="model">${shortModel(a.model)}</span>
+          <span class="name">${escHtml(roleEmoji[a.role] || '🤖')} ${escHtml(a.name)}</span>
+          <span class="role">${escHtml(a.role)}</span>
+          <span class="model">${escHtml(shortModel(a.model))}</span>
         </div>
       `).join('');
 
@@ -213,9 +228,9 @@
       const auditList = document.getElementById('audit-trail-list');
       auditList.innerHTML = entries.map(e => `
         <div class="audit-entry">
-          <span class="time">${e.time}</span>
-          <span class="agent-tag ${e.agent.toLowerCase()}">${e.agent}</span>
-          <span class="msg">${e.message}</span>
+          <span class="time">${escHtml(e.time)}</span>
+          <span class="agent-tag ${escHtml(e.agent.toLowerCase())}">${escHtml(e.agent)}</span>
+          <span class="msg">${escHtml(e.message)}</span>
         </div>
       `).join('');
 
@@ -233,11 +248,11 @@
         const modelColors = ['#7c69f0', '#4a8c6a', '#6c8cff'];
         barsEl.innerHTML = tokenData.models.map((m, i) => `
           <div class="db-budget-row">
-            <span class="db-budget-label">${m.name}</span>
+            <span class="db-budget-label">${escHtml(m.name)}</span>
             <div class="db-budget-bar-bg">
-              <div class="db-budget-bar-fill" style="width:${m.pct}%;background:${modelColors[i] || '#4a8c6a'}"></div>
+              <div class="db-budget-bar-fill" style="width:${escHtml(String(m.pct))}%;background:${modelColors[i] || '#4a8c6a'}"></div>
             </div>
-            <span class="db-budget-val">$${m.cost.toFixed(2)}</span>
+            <span class="db-budget-val">$${escHtml(m.cost.toFixed(2))}</span>
           </div>
         `).join('');
 
@@ -283,13 +298,17 @@
     } catch (e) { console.error('research progress load error', e); }
 
     try {
-      // System health
-      const health = await window.asrp.system.health();
+      // System health — load audit count dynamically (M5: remove hardcoded 847)
+      const [health, auditData] = await Promise.all([
+        window.asrp.system.health(),
+        window.asrp.audit.list({ limit: 1 }).catch(() => ({ total: '—' })),
+      ]);
+      const auditTotal = auditData.total != null ? auditData.total : '—';
       document.getElementById('health-grid').innerHTML = `
-        <div class="health-item"><span class="icon">✅</span> System: ${health.status}</div>
-        <div class="health-item"><span class="icon">⏱️</span> Uptime: ${Math.floor(health.uptime / 60)}m</div>
-        <div class="health-item"><span class="icon">✅</span> Audit: 847 entries</div>
-        <div class="health-item"><span class="icon">✅</span> Last backup: 09:30</div>
+        <div class="health-item"><span class="icon">✅</span> System: ${escHtml(health.status)}</div>
+        <div class="health-item"><span class="icon">⏱️</span> Uptime: ${escHtml(String(Math.floor(health.uptime / 60)))}m</div>
+        <div class="health-item"><span class="icon">✅</span> Audit: ${escHtml(String(auditTotal))} entries</div>
+        <div class="health-item"><span class="icon">✅</span> Last backup: —</div>
       `;
     } catch (e) { console.error('health load error', e); }
   }
@@ -319,13 +338,13 @@
       if (!textEl || !actionsEl) return;
 
       if (!status.installed) {
-        textEl.innerHTML = '<span style="color:var(--text-tertiary)">Local AI: Not installed</span>';
+        textEl.textContent = 'Local AI: Not installed';
         actionsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="Router.navigate(\'/settings\')">Setup</button>';
         return;
       }
 
       if (status.downloading) {
-        textEl.innerHTML = 'Downloading ' + (status.downloadModel || 'model') + '...';
+        textEl.textContent = 'Downloading ' + (status.downloadModel || 'model') + '...';
         if (progressWrap) {
           progressWrap.style.display = 'block';
           var bar = document.getElementById('local-ai-progress-bar');
@@ -339,10 +358,11 @@
 
       const hasGemma = status.models.some(function(m) { return m.includes('gemma'); });
       if (hasGemma) {
+        // Static template with no user-supplied data — innerHTML is safe here
         textEl.innerHTML = 'Gemma 27B <span style="color:var(--success)">&#9679;</span> Ready' + (!status.running ? ' <span style="color:var(--text-tertiary)">(server stopped)</span>' : '');
         actionsEl.innerHTML = '';
       } else if (status.installed) {
-        textEl.innerHTML = 'Ollama installed · Model not downloaded';
+        textEl.textContent = 'Ollama installed · Model not downloaded';
         actionsEl.innerHTML = '<button class="btn btn-primary btn-sm" onclick="startOllamaDownload()">Download Gemma 27B</button><button class="btn btn-ghost btn-sm" onclick="Router.navigate(\'/settings\')">Settings</button>';
       }
 
@@ -355,8 +375,8 @@
           var w = document.getElementById('local-ai-progress-wrap');
           if (w) w.style.display = 'block';
           if (b) b.style.width = data.progress + '%';
-          if (l) l.textContent = data.progress + '% ' + (data.speed ? '· ' + data.speed : '') + (data.eta ? ' · ETA ' + data.eta : '');
-          if (t) t.textContent = 'Downloading ' + data.model + '...';
+          if (l) l.textContent = data.progress + '% ' + (data.speed ? '\u00b7 ' + data.speed : '') + (data.eta ? ' \u00b7 ETA ' + data.eta : '');
+          if (t) t.textContent = 'Downloading ' + (data.model || 'model') + '...';
         });
         window.asrp.ollama.onDownloadComplete(function(data) {
           var w = document.getElementById('local-ai-progress-wrap');
@@ -394,9 +414,9 @@
       agentList.innerHTML = agents.map(function(a) {
         return '<div class="agent-row">' +
           '<span class="dot ' + (a.status === 'running' ? 'online' : a.status === 'stopped' ? 'offline' : 'idle') + '"></span>' +
-          '<span class="name">' + (roleEmoji[a.role] || '🤖') + ' ' + a.name + '</span>' +
-          '<span class="role">' + a.role + '</span>' +
-          '<span class="model">' + shortModel(a.model) + '</span>' +
+          '<span class="name">' + escHtml(roleEmoji[a.role] || '🤖') + ' ' + escHtml(a.name) + '</span>' +
+          '<span class="role">' + escHtml(a.role) + '</span>' +
+          '<span class="model">' + escHtml(shortModel(a.model)) + '</span>' +
           '</div>';
       }).join('');
       const liveBadge = document.getElementById('audit-live-badge');

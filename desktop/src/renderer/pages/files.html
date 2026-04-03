@@ -121,6 +121,15 @@
 
 <script>
 (function() {
+  // H2: HTML-escape helper to prevent XSS from file names and error messages in innerHTML
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   let workspacePath = '';
   let treeData = {};
   let currentFilePath = '';
@@ -154,7 +163,7 @@
   // ---- Tree ----
   async function loadTree(dirPath, container, depth) {
     const { files, error } = await window.asrp.files.list(dirPath);
-    if (error || !files) { container.innerHTML = `<div style="padding:8px 12px;font-size:12px;color:var(--error)">Error: ${error}</div>`; return; }
+    if (error || !files) { container.innerHTML = `<div style="padding:8px 12px;font-size:12px;color:var(--error)">Error: ${escHtml(error)}</div>`; return; }
 
     const sorted = [...files].sort((a, b) => {
       if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
@@ -178,7 +187,7 @@
         const row = document.createElement('div');
         row.className = 'tree-row';
         row.style.paddingLeft = indentPx + 'px';
-        row.innerHTML = `<span class="tree-toggle">▶</span><span style="margin-right:4px">📂</span><span style="font-size:13px">${f.name}</span>`;
+        row.innerHTML = `<span class="tree-toggle">▶</span><span style="margin-right:4px">📂</span><span style="font-size:13px">${escHtml(f.name)}</span>`;
         const children = document.createElement('div');
         children.style.display = 'none';
         let expanded = false;
@@ -199,7 +208,7 @@
         row.className = 'tree-row';
         row.id = 'tree-' + f.path.replace(/[^a-zA-Z0-9]/g,'_');
         row.style.paddingLeft = indentPx + 'px';
-        row.innerHTML = `<span class="tree-toggle"></span><span style="margin-right:4px">${fileIcon(f.name)}</span><span style="font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>${badge ? `<span class="git-badge ${badge === '?' ? 'ques' : badge}">${badge === '?' ? '?' : badge}</span>` : ''}`;
+        row.innerHTML = `<span class="tree-toggle"></span><span style="margin-right:4px">${escHtml(fileIcon(f.name))}</span><span style="font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.name)}</span>${badge ? `<span class="git-badge ${badge === '?' ? 'ques' : badge}">${badge === '?' ? '?' : badge}</span>` : ''}`;
         row.onclick = () => openFile(f.path, f.name, row);
         node.appendChild(row);
       }
@@ -263,7 +272,7 @@
 
     const result = await window.asrp.files.read(filePath);
     if (!result.success) {
-      document.getElementById('preview-content').innerHTML = `<div class="alert error show" style="margin:14px">${result.error}</div>`;
+      document.getElementById('preview-content').innerHTML = `<div class="alert error show" style="margin:14px">${escHtml(result.error)}</div>`;
       return;
     }
 

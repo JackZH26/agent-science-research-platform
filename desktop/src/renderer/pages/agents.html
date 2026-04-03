@@ -1,3 +1,9 @@
+<!-- H4: Demo mode banner -->
+<div id="demo-banner" style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 16px;margin-bottom:14px;font-size:13px;color:#856404;display:flex;align-items:center;gap:8px">
+  <span>⚠️</span>
+  <span><strong>Demo Mode</strong> — Displaying sample data. Connect to OpenClaw for live data.</span>
+</div>
+
 <div class="page-header">
   <div>
     <h1>Agents</h1>
@@ -225,26 +231,30 @@
       const cost = a.tokenUsage ? a.tokenUsage.cost : 0;
       const pct = tokenPct(cost);
       const isExpanded = expandedCards.has(a.name);
+      // H2: Escape agent name for use in HTML attribute values (onclick, id, etc.)
+      const safeName = escHtml(a.name);
+      // For JS string arguments in onclick: escape single quotes so attribute values are not broken
+      const jsName = a.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       const modelOptions = AVAILABLE_MODELS.map(m =>
-        `<option value="${m.value}" ${a.model === m.value ? 'selected' : ''}>${m.label}</option>`
+        `<option value="${escHtml(m.value)}" ${a.model === m.value ? 'selected' : ''}>${escHtml(m.label)}</option>`
       ).join('');
 
       return `
-        <div class="agent-card-new" id="card-${a.name}">
+        <div class="agent-card-new" id="card-${safeName}">
           <!-- Card header (T-039) -->
-          <div class="agent-card-header" onclick="toggleCard('${a.name}')">
-            <div class="agent-card-emoji">${meta.emoji}</div>
+          <div class="agent-card-header" onclick="toggleCard('${jsName}')">
+            <div class="agent-card-emoji">${escHtml(meta.emoji)}</div>
             <div class="agent-card-info">
               <div class="agent-card-name">
-                <input class="agent-name-input" id="name-input-${a.name}"
-                  value="${a.name}" title="Click to rename"
+                <input class="agent-name-input" id="name-input-${safeName}"
+                  value="${safeName}" title="Click to rename"
                   onclick="event.stopPropagation()"
-                  onblur="renameAgent('${a.name}', this)"
+                  onblur="renameAgent('${jsName}', this)"
                   onkeydown="if(event.key==='Enter'){this.blur()}"
                 />
-                <span class="agent-status-dot ${statusClass}" title="${statusLabel}"></span>
+                <span class="agent-status-dot ${escHtml(statusClass)}" title="${escHtml(statusLabel)}"></span>
               </div>
-              <div class="agent-card-role">${a.role} · ${statusLabel}</div>
+              <div class="agent-card-role">${escHtml(a.role)} · ${escHtml(statusLabel)}</div>
             </div>
             <div style="font-size:18px;color:var(--text-tertiary);padding-left:4px">${isExpanded ? '▾' : '▸'}</div>
           </div>
@@ -253,13 +263,13 @@
           <div class="agent-card-meta">
             <div class="agent-card-model-row">
               <!-- T-042: Model switch dropdown -->
-              <select class="model-select" id="model-select-${a.name}"
-                onchange="switchModel('${a.name}', this.value)"
+              <select class="model-select" id="model-select-${safeName}"
+                onchange="switchModel('${jsName}', this.value)"
                 title="Switch model">
                 ${modelOptions}
               </select>
-              <span class="agent-sessions-badge">📡 ${a.sessions || 0} sessions</span>
-              <span style="font-size:11px;color:var(--text-tertiary)">${uptimeStr(a.uptime)}</span>
+              <span class="agent-sessions-badge">📡 ${escHtml(String(a.sessions || 0))} sessions</span>
+              <span style="font-size:11px;color:var(--text-tertiary)">${escHtml(uptimeStr(a.uptime))}</span>
             </div>
             <!-- Token usage bar -->
             <div style="display:flex;align-items:center;gap:8px">
@@ -267,47 +277,47 @@
               <div class="agent-token-bar-bg" style="flex:1">
                 <div class="agent-token-bar-fill" style="width:${pct}%"></div>
               </div>
-              <span style="font-size:11px;color:var(--text-tertiary)">$${cost.toFixed(2)}</span>
+              <span style="font-size:11px;color:var(--text-tertiary)">$${escHtml(cost.toFixed(2))}</span>
             </div>
           </div>
 
           <!-- T-044: Action buttons -->
           <div class="agent-actions">
             ${a.status === 'running'
-              ? `<button class="btn btn-outline btn-sm" onclick="agentAction('${a.name}','stop')">⏹ Stop</button>
-                 <button class="btn btn-ghost btn-sm" onclick="agentAction('${a.name}','restart')">🔄 Restart</button>`
-              : `<button class="btn btn-primary btn-sm" onclick="agentAction('${a.name}','start')">▶ Start</button>`
+              ? `<button class="btn btn-outline btn-sm" onclick="agentAction('${jsName}','stop')">⏹ Stop</button>
+                 <button class="btn btn-ghost btn-sm" onclick="agentAction('${jsName}','restart')">🔄 Restart</button>`
+              : `<button class="btn btn-primary btn-sm" onclick="agentAction('${jsName}','start')">▶ Start</button>`
             }
-            <button class="btn btn-ghost btn-sm" onclick="openSoulModal('${a.name}')">📜 SOUL</button>
-            <button class="btn btn-ghost btn-sm" onclick="toggleCard('${a.name}')">
+            <button class="btn btn-ghost btn-sm" onclick="openSoulModal('${jsName}')">📜 SOUL</button>
+            <button class="btn btn-ghost btn-sm" onclick="toggleCard('${jsName}')">
               ${isExpanded ? '▲ Collapse' : '▼ Details'}
             </button>
           </div>
 
           <!-- T-040: Expandable details -->
-          <div class="agent-detail-section ${isExpanded ? 'open' : ''}" id="detail-${a.name}">
+          <div class="agent-detail-section ${isExpanded ? 'open' : ''}" id="detail-${safeName}">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
               <!-- Left: token breakdown + uptime -->
               <div>
                 <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">TOKEN USAGE</div>
                 ${a.tokenUsage ? `
-                  <div class="health-item"><span class="icon">📥</span> Input: ${(a.tokenUsage.input/1000).toFixed(1)}K tokens</div>
-                  <div class="health-item"><span class="icon">📤</span> Output: ${(a.tokenUsage.output/1000).toFixed(1)}K tokens</div>
-                  <div class="health-item"><span class="icon">💰</span> Cost today: $${a.tokenUsage.cost.toFixed(2)}</div>
+                  <div class="health-item"><span class="icon">📥</span> Input: ${escHtml((a.tokenUsage.input/1000).toFixed(1))}K tokens</div>
+                  <div class="health-item"><span class="icon">📤</span> Output: ${escHtml((a.tokenUsage.output/1000).toFixed(1))}K tokens</div>
+                  <div class="health-item"><span class="icon">💰</span> Cost today: $${escHtml(a.tokenUsage.cost.toFixed(2))}</div>
                 ` : '<div class="health-item">No data</div>'}
                 <div style="margin-top:12px">
                   <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">UPTIME</div>
-                  <div class="health-item"><span class="icon">⏱️</span> ${uptimeStr(a.uptime)}</div>
+                  <div class="health-item"><span class="icon">⏱️</span> ${escHtml(uptimeStr(a.uptime))}</div>
                 </div>
               </div>
               <!-- Right: log viewer (T-045) -->
               <div>
                 <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">RECENT LOGS</div>
-                <div class="agent-log-viewer" id="log-${a.name}">
+                <div class="agent-log-viewer" id="log-${safeName}">
                   ${(a.recentLogs || []).map(line => formatLogLine(line)).join('')}
                   ${(!a.recentLogs || a.recentLogs.length === 0) ? '<span class="log-line info">No logs available.</span>' : ''}
                 </div>
-                <button class="btn btn-ghost btn-sm mt-1" onclick="refreshLogs('${a.name}')">↻ Refresh logs</button>
+                <button class="btn btn-ghost btn-sm mt-1" onclick="refreshLogs('${jsName}')">↻ Refresh logs</button>
               </div>
             </div>
           </div>

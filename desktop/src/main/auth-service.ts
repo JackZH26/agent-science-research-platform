@@ -29,7 +29,7 @@ function getJwtSecret(): string {
   const newSecret = (crypto.randomBytes(32) as Buffer).toString('hex');
   try {
     fs.mkdirSync(path.dirname(secretPath), { recursive: true });
-    fs.writeFileSync(secretPath, newSecret, 'utf-8');
+    fs.writeFileSync(secretPath, newSecret, { encoding: 'utf-8', mode: 0o600 });
   } catch { /* ignore write failure — still use in-memory secret */ }
   _jwtSecret = newSecret;
   return _jwtSecret;
@@ -41,6 +41,24 @@ const SALT_ROUNDS = 10;
 // Tokens are local-only, so in-memory revocation is sufficient.
 // The set is cleared on app restart which is acceptable for a desktop app.
 const revokedTokens = new Set<string>();
+
+// M4: Periodically prune expired tokens from the revocation set to prevent unbounded growth.
+// JWT tokens expire after 30 days; we check once per hour.
+setInterval(() => {
+  for (const token of revokedTokens) {
+    try {
+      // jwt.decode does NOT verify signature — only used to read exp claim for pruning
+      const decoded = jwt.decode(token) as { exp?: number } | null;
+      if (!decoded || !decoded.exp) {
+        revokedTokens.delete(token); // malformed token, safe to remove
+      } else if (decoded.exp * 1000 < Date.now()) {
+        revokedTokens.delete(token); // token already expired, no need to keep
+      }
+    } catch {
+      revokedTokens.delete(token);
+    }
+  }
+}, 60 * 60 * 1000); // every hour
 
 export interface UserRecord {
   id: number;

@@ -300,8 +300,19 @@ class OllamaManager extends EventEmitter {
 
   // ---- T-075: startOllama / stopOllama ----
   // Issue #21: Poll health check instead of blind 2-second timeout
+  // M6: Added `settled` flag to prevent resolve/reject being called more than once,
+  //     fixing a race condition where the error handler and polling could both fire.
   startOllama(): Promise<void> {
     return new Promise((resolve, reject) => {
+      let settled = false;
+
+      const settle = (err?: Error) => {
+        if (settled) return;
+        settled = true;
+        if (err) reject(err);
+        else resolve();
+      };
+
       try {
         this.serveProcess = spawn('ollama', ['serve'], {
           detached: true,
@@ -311,7 +322,7 @@ class OllamaManager extends EventEmitter {
 
         // Handle spawn error (e.g., ollama not in PATH)
         this.serveProcess.on('error', (err) => {
-          reject(err);
+          settle(err);
         });
 
         // Poll isRunning() up to 10 seconds
@@ -320,21 +331,24 @@ class OllamaManager extends EventEmitter {
         let attempts = 0;
 
         const poll = () => {
+          if (settled) return; // already resolved or rejected — stop polling
           this.isRunning().then((running) => {
+            if (settled) return;
             if (running) {
-              resolve();
+              settle();
             } else {
               attempts++;
               if (attempts >= maxAttempts) {
-                reject(new Error('Ollama did not become ready within 10 seconds'));
+                settle(new Error('Ollama did not become ready within 10 seconds'));
               } else {
                 setTimeout(poll, intervalMs);
               }
             }
           }).catch(() => {
+            if (settled) return;
             attempts++;
             if (attempts >= maxAttempts) {
-              reject(new Error('Ollama health check timed out'));
+              settle(new Error('Ollama health check timed out'));
             } else {
               setTimeout(poll, intervalMs);
             }
@@ -344,7 +358,7 @@ class OllamaManager extends EventEmitter {
         // Start polling after a brief initial delay
         setTimeout(poll, 200);
       } catch (err) {
-        reject(err);
+        settle(err instanceof Error ? err : new Error(String(err)));
       }
     });
   }

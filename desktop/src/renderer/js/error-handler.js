@@ -95,17 +95,32 @@
   window.showRetryBanner = function (containerId, message, retryFn) {
     var el = document.getElementById(containerId);
     if (!el) return;
-    el.innerHTML = [
-      '<div style="text-align:center;padding:40px 20px;color:var(--text-tertiary)">',
-      '  <div style="font-size:32px;margin-bottom:12px">⚠️</div>',
-      '  <div style="font-size:14px;margin-bottom:16px">' + (message || 'Unable to load data.') + '</div>',
-      '  <button class="btn btn-outline btn-sm" id="retry-btn-' + containerId + '">Retry</button>',
-      '</div>',
-    ].join('');
-    var btn = document.getElementById('retry-btn-' + containerId);
-    if (btn && typeof retryFn === 'function') {
+
+    // H3: Build DOM nodes instead of using innerHTML to prevent XSS from message content
+    var wrapper = document.createElement('div');
+    wrapper.style.cssText = 'text-align:center;padding:40px 20px;color:var(--text-tertiary)';
+
+    var icon = document.createElement('div');
+    icon.style.cssText = 'font-size:32px;margin-bottom:12px';
+    icon.textContent = '⚠️';
+
+    var msg = document.createElement('div');
+    msg.style.cssText = 'font-size:14px;margin-bottom:16px';
+    msg.textContent = message || 'Unable to load data.';
+
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-outline btn-sm';
+    btn.id = 'retry-btn-' + containerId;
+    btn.textContent = 'Retry';
+    if (typeof retryFn === 'function') {
       btn.addEventListener('click', function () { retryFn(); });
     }
+
+    wrapper.appendChild(icon);
+    wrapper.appendChild(msg);
+    wrapper.appendChild(btn);
+    el.innerHTML = '';
+    el.appendChild(wrapper);
   };
 
   // ---- Empty state helper ----
@@ -113,21 +128,36 @@
   window.showEmptyState = function (containerId, icon, title, message, actionLabel, actionFn) {
     var el = document.getElementById(containerId);
     if (!el) return;
-    var actionHtml = (actionLabel && typeof actionFn === 'function')
-      ? '<button class="btn btn-primary btn-sm" id="empty-action-' + containerId + '">' + actionLabel + '</button>'
-      : '';
-    el.innerHTML = [
-      '<div class="empty-state">',
-      '  <span class="icon">' + (icon || '📭') + '</span>',
-      '  <h3>' + (title || 'Nothing here yet') + '</h3>',
-      '  <p>' + (message || '') + '</p>',
-      '  ' + actionHtml,
-      '</div>',
-    ].join('');
+
+    // H3: Build DOM nodes instead of using innerHTML to prevent XSS from title/message content
+    var wrapper = document.createElement('div');
+    wrapper.className = 'empty-state';
+
+    var iconEl = document.createElement('span');
+    iconEl.className = 'icon';
+    iconEl.textContent = icon || '📭';
+
+    var h3 = document.createElement('h3');
+    h3.textContent = title || 'Nothing here yet';
+
+    var p = document.createElement('p');
+    p.textContent = message || '';
+
+    wrapper.appendChild(iconEl);
+    wrapper.appendChild(h3);
+    wrapper.appendChild(p);
+
     if (actionLabel && typeof actionFn === 'function') {
-      var btn = document.getElementById('empty-action-' + containerId);
-      if (btn) btn.addEventListener('click', function () { actionFn(); });
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-primary btn-sm';
+      btn.id = 'empty-action-' + containerId;
+      btn.textContent = actionLabel;
+      btn.addEventListener('click', function () { actionFn(); });
+      wrapper.appendChild(btn);
     }
+
+    el.innerHTML = '';
+    el.appendChild(wrapper);
   };
 
 })();

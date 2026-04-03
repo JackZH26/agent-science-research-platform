@@ -315,8 +315,8 @@
       };
       state.profile = profile;
       // Save profile
-      if (window.asrp && state.userId) {
-        window.asrp.setup.saveProfile(state.userId, profile).catch(function() {});
+      if (window.asrp && state.token) {
+        window.asrp.setup.saveProfile(state.token, profile).catch(function() {});
       }
       swHideAlert('s1-alert');
     }
@@ -369,8 +369,8 @@
 
   // ── Step 2: Keys ──────────────────────────────────────────
   function swInitStep2() {
-    if (!window.asrp || !state.userId) return;
-    window.asrp.keys.assignTrial(state.userId).then(function(res) {
+    if (!window.asrp || !state.token) return;
+    window.asrp.keys.assignTrial(state.token).then(function(res) {
       if (res.success && res.key) {
         state.trialKey = res.key;
         var display = document.getElementById('s2-trial-key-display');
@@ -404,8 +404,8 @@
       googleKey: gKey,
     };
 
-    if (window.asrp && state.userId) {
-      window.asrp.setup.saveKeys(state.userId, state.keysData).catch(function() {});
+    if (window.asrp && state.token) {
+      window.asrp.setup.saveKeys(state.token, state.keysData).catch(function() {});
     }
     swGoTo(3);
   };
@@ -444,8 +444,8 @@
     }).join('');
 
     // Start the init IPC call (stub)
-    if (window.asrp && state.userId) {
-      window.asrp.setup.initAgents(state.userId).catch(function() {});
+    if (window.asrp && state.token) {
+      window.asrp.setup.initAgents(state.token).catch(function() {});
     }
 
     // Animate through agents
@@ -513,8 +513,8 @@
     }, 1400);
 
     // Mark setup complete
-    if (window.asrp && state.userId) {
-      window.asrp.setup.complete(state.userId).then(function() {
+    if (window.asrp && state.token) {
+      window.asrp.setup.complete(state.token).then(function() {
         // Update localStorage user record
         var userJson = localStorage.getItem(STORAGE_USER);
         if (userJson) {
