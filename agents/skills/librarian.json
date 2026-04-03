@@ -42,6 +42,11 @@
       {
         "name": "curl",
         "required": true
+      },
+      {
+        "name": "opencli",
+        "required": true,
+        "reason": "Universal CLI hub \u2014 turns any website into a CLI tool. AI-native discovery for browser-based research (arXiv, Google Scholar, journal sites). Reuses Chrome session for authenticated access."
       }
     ]
   }
