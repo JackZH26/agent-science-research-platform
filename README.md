@@ -72,6 +72,12 @@ See [`examples/portfolio/`](examples/portfolio/) for the complete analysis of ou
 
 Key metrics: 449 views, 364 downloads on figshare. 7 papers currently under peer review at journals including Physical Review D, SUST, Foundations of Physics, IJNT, and Experimental Mathematics.
 
+## Community
+
+Join our Discord to discuss research, share ideas, and get help:
+
+👉 [**Join ASRP Discord**](https://discord.gg/DFmwBkDTB)
+
 ## License
 
 Apache 2.0
