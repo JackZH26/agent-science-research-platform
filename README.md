@@ -78,4 +78,4 @@ Apache 2.0
 
 ## Author
 
-Jian Zhou — Independent Researcher, Shanghai, China
+JZIS — JZ Institute of Science

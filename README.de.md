@@ -67,4 +67,4 @@ Apache 2.0
 
 ## Autor
 
-Jian Zhou — Unabhängiger Forscher, Shanghai, China
+JZIS — JZ Institute of Science

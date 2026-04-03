@@ -64,4 +64,4 @@ Apache 2.0
 
 ## 作者
 
-周健 (Jian Zhou) — 独立研究者，上海
+JZIS — JZ Institute of Science
