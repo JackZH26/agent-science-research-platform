@@ -24,7 +24,7 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  icon: build/icon.svg
+  icon: build/icon.png
   artifactName: ASRP_Setup_${version}.exe
 
 nsis:
@@ -41,7 +41,7 @@ mac:
   target:
     - target: dmg
       arch: [universal]
-  icon: build/icon.svg
+  icon: build/icon.png
   category: public.app-category.productivity
   artifactName: ASRP_Setup_${version}.dmg
 
@@ -64,7 +64,7 @@ linux:
   target:
     - target: AppImage
       arch: [x64]
-  icon: build/icon.svg
+  icon: build/icon.png
   category: Science
   description: Agent Science Research Platform Desktop Application
   maintainer: jackzhou.sci@gmail.com
