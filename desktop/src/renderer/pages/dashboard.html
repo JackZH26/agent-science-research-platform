@@ -409,7 +409,7 @@
       const badge = document.getElementById('agent-count-badge');
       if (badge) badge.textContent = agents.length + ' agents';
       const agentList = document.getElementById('agent-status-list');
-      if (!agentList) return;
+      if (!agentList || !document.body.contains(agentList)) return;
       const roleEmoji = { Theorist: '🧠', Engineer: '⚙️', Reviewer: '📋', Librarian: '📚', ITDoctor: '🏥', Analyst: '📈' };
       agentList.innerHTML = agents.map(function(a) {
         return '<div class="agent-row">' +
