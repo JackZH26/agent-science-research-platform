@@ -223,16 +223,56 @@ export function registerAssistantHandlers(): void {
       let reply = '';
       let modelLabel = DEFAULT_ASSISTANT_MODEL_LABEL;
 
-      // Read API key from settings file
+      // Read API key: settings.json (user key) → cached trial key → provision from server
       let apiKey = process.env.OPENROUTER_KEY || '';
+      const { app: electronApp } = require('electron');
+      const settingsFile = path.join(electronApp.getPath('userData'), 'settings.json');
       try {
-        const { app: electronApp } = require('electron');
-        const settingsFile = path.join(electronApp.getPath('userData'), 'settings.json');
         if (fs.existsSync(settingsFile)) {
           const s = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
-          if (s.openrouterKey) apiKey = s.openrouterKey;
+          if (s.openrouterKey && !s.openrouterKey.includes('placeholder')) apiKey = s.openrouterKey;
         }
       } catch { /* use env fallback */ }
+
+      // If no key, try to provision from ASRP server
+      if (!apiKey) {
+        try {
+          const trialKeyFile = path.join(electronApp.getPath('userData'), '.trial-key');
+          if (fs.existsSync(trialKeyFile)) {
+            apiKey = fs.readFileSync(trialKeyFile, 'utf-8').trim();
+          } else {
+            // Fetch from server
+            const https = require('https');
+            const provisionedKey = await new Promise<string>((resolve, reject) => {
+              const req = https.request({
+                hostname: 'asrp.jzis.org',
+                path: '/api/key/provision',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+              }, (res: import('http').IncomingMessage) => {
+                let data = '';
+                res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+                res.on('end', () => {
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.key) {
+                      // Cache the trial key locally
+                      fs.writeFileSync(trialKeyFile, parsed.key, { mode: 0o600 });
+                      resolve(parsed.key);
+                    } else {
+                      resolve('');
+                    }
+                  } catch { resolve(''); }
+                });
+              });
+              req.on('error', () => resolve(''));
+              req.write(JSON.stringify({}));
+              req.end();
+            });
+            apiKey = provisionedKey;
+          }
+        } catch { /* no trial key available */ }
+      }
 
       if (!apiKey) {
         reply = 'No API key configured. Go to **Settings** → add your OpenRouter API key to enable the assistant.';
