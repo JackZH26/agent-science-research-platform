@@ -128,32 +128,66 @@
       </div>
 
       <!-- ═══════════════════════════════════════
-           STEP 3: Agent Initialization
+           STEP 3: OpenClaw Runtime + Agent Initialization
       ════════════════════════════════════════ -->
       <div id="sw-step-3" class="panel" style="display:none">
-        <h3 style="margin-bottom:6px">🤖 Agent Initialization</h3>
-        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
-          Initializing your research team. This takes just a moment.
-        </p>
+        <!-- Phase A: OpenClaw Check -->
+        <div id="s3-phase-a">
+          <h3 style="margin-bottom:6px">🦞 OpenClaw Runtime</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+            ASRP uses OpenClaw to manage your AI agents. Let's make sure it's installed.
+          </p>
 
-        <!-- Overall progress -->
-        <div style="margin-bottom:20px">
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:6px">
-            <span id="sw-init-status">Preparing workspace…</span>
-            <span id="sw-init-pct">0%</span>
+          <div id="s3-openclaw-status" style="padding:16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:16px">
+            <div style="font-size:13px;color:var(--text-secondary)">🔄 Checking OpenClaw installation...</div>
           </div>
-          <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-            <div id="sw-init-bar" style="height:100%;width:0%;background:var(--gradient);border-radius:3px;transition:width 0.4s ease"></div>
+
+          <div id="s3-openclaw-install" style="display:none;padding:16px;border:1px solid var(--border-hover);border-radius:10px;background:var(--accent-light);margin-bottom:16px">
+            <div style="font-weight:600;font-size:13px;margin-bottom:8px">❌ OpenClaw Not Found</div>
+            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+              OpenClaw is required to run ASRP agents. Click the button below to install it (requires npm).
+            </p>
+            <button class="btn btn-primary btn-sm" onclick="s3InstallOpenClaw()" id="s3-install-btn">📦 Install OpenClaw</button>
+            <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px">
+              Or manually install: <code style="background:white;padding:2px 6px;border-radius:4px">npm install -g openclaw</code>
+            </div>
+            <div id="s3-install-progress" style="display:none;margin-top:12px;font-size:12px;color:var(--accent)"></div>
+          </div>
+
+          <div class="alert" id="s3a-alert"></div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <button class="btn btn-ghost btn-sm" onclick="swGoTo(2)">← Back</button>
+            <button class="btn btn-primary" id="s3-continue-to-init" disabled onclick="s3StartAgentInit()">Continue →</button>
           </div>
         </div>
 
-        <!-- Agent cards -->
-        <div id="sw-agent-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
-          <!-- Populated by JS -->
-        </div>
+        <!-- Phase B: Agent Init -->
+        <div id="s3-phase-b" style="display:none">
+          <h3 style="margin-bottom:6px">🤖 Agent Initialization</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+            Initializing your research team. This takes just a moment.
+          </p>
 
-        <div style="display:flex;justify-content:flex-end">
-          <button class="btn btn-primary" id="sw-step3-continue" disabled onclick="swGoTo(4)">Continue →</button>
+          <!-- Overall progress -->
+          <div style="margin-bottom:20px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:6px">
+              <span id="sw-init-status">Preparing workspace…</span>
+              <span id="sw-init-pct">0%</span>
+            </div>
+            <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div id="sw-init-bar" style="height:100%;width:0%;background:var(--gradient);border-radius:3px;transition:width 0.4s ease"></div>
+            </div>
+          </div>
+
+          <!-- Agent cards -->
+          <div id="sw-agent-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+            <!-- Populated by JS -->
+          </div>
+
+          <div style="display:flex;justify-content:flex-end">
+            <button class="btn btn-primary" id="sw-step3-continue" disabled onclick="swGoTo(4)">Continue →</button>
+          </div>
         </div>
       </div>
 
@@ -206,12 +240,6 @@
           <!-- Agent wizard card (populated by JS) -->
           <div id="s4-agent-card-area"></div>
 
-          <!-- Assistant guidance panel -->
-          <div id="s4-assistant-panel" style="display:none;margin-top:14px;background:var(--accent-light);border:1px solid var(--border-hover);border-radius:10px;padding:14px">
-            <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px">💬 Assistant</div>
-            <div id="s4-assistant-msg" style="font-size:13px;color:var(--text-secondary);line-height:1.5"></div>
-          </div>
-
           <div class="alert" id="s4-alert"></div>
 
           <!-- Navigation -->
@@ -220,21 +248,24 @@
             <div style="display:flex;gap:8px;align-items:center">
               <span id="s4-all-done-msg" style="font-size:12px;color:var(--success);display:none">✅ All agents configured</span>
               <button class="btn btn-outline btn-sm" id="s4-next-btn" onclick="swAgentConfigNext()">Save &amp; Next →</button>
-              <button class="btn btn-outline btn-sm" id="s4-verify-btn" style="display:none" onclick="s4StartVerification()">Verify All →</button>
+              <button class="btn btn-primary" id="s4-complete-btn" style="display:none" onclick="s4StartBatchVerification()">Complete Setup →</button>
             </div>
           </div>
         </div>
 
-        <!-- ── Phase C: Final verification ── -->
+        <!-- ── Phase C: Batch Verification ── -->
         <div id="s4-phase-c" style="display:none">
-          <div style="font-weight:600;font-size:14px;margin-bottom:12px">🔍 Step 3 of 3 — Final Verification</div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:12px">🔍 Verifying Agents</div>
           <div id="s4-verify-table" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
             <!-- Populated by JS -->
           </div>
           <div class="alert" id="s4c-alert"></div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
-            <button class="btn btn-ghost btn-sm" onclick="s4BackToPhaseB()">← Fix Issues</button>
-            <button class="btn btn-primary" id="s4-continue-btn" disabled onclick="swGoTo(5)">Continue to Complete →</button>
+            <button class="btn btn-ghost btn-sm" onclick="s4BackToPhaseB()">← Back</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-sm" id="s4-recheck-btn" style="display:none" onclick="s4StartBatchVerification()">Re-check</button>
+              <button class="btn btn-primary" id="s4-continue-btn" disabled onclick="swGoTo(5)">Continue →</button>
+            </div>
           </div>
         </div>
       </div>
@@ -347,7 +378,9 @@
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
+.sw-agent-dot:hover { border-color: var(--accent); }
 .sw-agent-dot.active { background: var(--accent); border-color: var(--accent); color: white; }
 .sw-agent-dot.done   { background: var(--success); border-color: var(--success); color: white; }
 
@@ -578,7 +611,7 @@
     swGoTo(3);
   };
 
-  // ── Step 3: Agent Init ────────────────────────────────────
+  // ── Step 3: OpenClaw + Agent Init ─────────────────────────
   var AGENTS = [
     { emoji: '🧑‍💼', name: 'Aria',    role: 'Assistant', model: 'claude-haiku-4-5' },
     { emoji: '🧠',   name: 'Albert',  role: 'Theorist',  model: 'claude-opus-4-6' },
@@ -598,6 +631,80 @@
   ];
 
   function swInitStep3() {
+    // Check OpenClaw installation
+    var statusDiv = document.getElementById('s3-openclaw-status');
+    var installDiv = document.getElementById('s3-openclaw-install');
+    var continueBtn = document.getElementById('s3-continue-to-init');
+
+    if (window.asrp && window.asrp.gateway) {
+      window.asrp.gateway.status().then(function(res) {
+        if (res.installed) {
+          // OpenClaw found
+          if (statusDiv) {
+            statusDiv.innerHTML = '<div style="font-size:13px;color:var(--success)">✅ OpenClaw v' + (res.version || 'unknown') + ' found</div>';
+            statusDiv.style.borderColor = 'var(--success)';
+            statusDiv.style.background = 'rgba(74,140,106,0.08)';
+          }
+          if (continueBtn) continueBtn.disabled = false;
+        } else {
+          // Not found
+          if (statusDiv) statusDiv.style.display = 'none';
+          if (installDiv) installDiv.style.display = 'block';
+        }
+      }).catch(function() {
+        // Assume not installed
+        if (statusDiv) statusDiv.style.display = 'none';
+        if (installDiv) installDiv.style.display = 'block';
+      });
+    } else {
+      // IPC not available, show manual install
+      if (statusDiv) statusDiv.style.display = 'none';
+      if (installDiv) installDiv.style.display = 'block';
+    }
+  }
+
+  window.s3InstallOpenClaw = function() {
+    var btn = document.getElementById('s3-install-btn');
+    var progress = document.getElementById('s3-install-progress');
+    if (btn) btn.disabled = true;
+    if (progress) {
+      progress.style.display = 'block';
+      progress.textContent = '📦 Installing OpenClaw... (this may take a minute)';
+    }
+
+    if (window.asrp && window.asrp.gateway) {
+      window.asrp.gateway.install().then(function(res) {
+        if (res.success) {
+          if (progress) {
+            progress.style.color = 'var(--success)';
+            progress.textContent = '✅ OpenClaw installed successfully!';
+          }
+          // Re-check status
+          setTimeout(function() { swInitStep3(); }, 1000);
+        } else {
+          if (progress) {
+            progress.style.color = 'var(--error)';
+            progress.textContent = '❌ Installation failed: ' + (res.error || 'Unknown error');
+          }
+          if (btn) btn.disabled = false;
+        }
+      }).catch(function(err) {
+        if (progress) {
+          progress.style.color = 'var(--error)';
+          progress.textContent = '❌ Error: ' + String(err);
+        }
+        if (btn) btn.disabled = false;
+      });
+    }
+  };
+
+  window.s3StartAgentInit = function() {
+    document.getElementById('s3-phase-a').style.display = 'none';
+    document.getElementById('s3-phase-b').style.display = 'block';
+    s3RunAgentInit();
+  };
+
+  function s3RunAgentInit() {
     var list = document.getElementById('sw-agent-list');
     if (!list) return;
 
@@ -671,35 +778,30 @@
       desc: 'Generates hypotheses and theoretical frameworks for your research.',
       defaultModel: 'claude-opus-4-6',
       suggestedBotName: 'ASRP-Albert',
-      assistantMsg: "You're configuring Albert (Theorist). He generates hypotheses and reasoning frameworks. Create a Discord bot called 'ASRP-Albert', paste its token below, and invite it to your server. Enable the Message Content Intent in the Discord Developer Portal under Bot → Privileged Gateway Intents.",
     },
     {
       emoji: '⚙️', name: 'Wall-E',   role: 'Engineer',  defaultName: 'Wall-E',
       desc: 'Implements researchs, writes code, and runs computational tasks.',
       defaultModel: 'claude-sonnet-4-6',
       suggestedBotName: 'ASRP-WallE',
-      assistantMsg: "You're configuring Wall-E (Engineer). He writes and runs researchal code. Create a Discord bot called 'ASRP-WallE', paste its token, and invite it. Enable Message Content Intent — Wall-E needs to read task messages to execute code.",
     },
     {
       emoji: '📋', name: 'Critic',   role: 'Reviewer',  defaultName: 'Critic',
       desc: 'Reviews and validates research outputs with rigorous peer-review standards.',
       defaultModel: 'claude-opus-4-6',
       suggestedBotName: 'ASRP-Critic',
-      assistantMsg: "You're configuring Critic (Reviewer). She validates research outputs. Create 'ASRP-Critic' in the Developer Portal. Enable Message Content Intent so she can read and evaluate full messages from other agents.",
     },
     {
       emoji: '📚', name: 'Scholar',  role: 'Librarian', defaultName: 'Scholar',
       desc: 'Searches literature, manages citations, and curates research references.',
       defaultModel: 'claude-haiku-4-5',
       suggestedBotName: 'ASRP-Scholar',
-      assistantMsg: "You're configuring Scholar (Librarian). He handles literature search and citations. Create 'ASRP-Scholar' in Discord. Haiku is efficient for high-volume retrieval. Enable Message Content Intent to receive search queries.",
     },
     {
       emoji: '🏥', name: 'DocMario', role: 'ITDoctor',  defaultName: 'DocMario',
       desc: 'Monitors system health, diagnoses issues, and keeps infrastructure running.',
       defaultModel: 'claude-haiku-4-5',
       suggestedBotName: 'ASRP-DocMario',
-      assistantMsg: "You're configuring DocMario (ITDoctor). He monitors system health and fixes issues. Create 'ASRP-DocMario' in Discord. Enable Message Content Intent for diagnostic messages.",
     },
   ];
 
@@ -732,18 +834,8 @@
     var modelVal  = saved.model        || a.defaultModel;
     var focusVal  = saved.researchFocus || '';
     var tokenVal  = saved.discordToken  || '';
-    var chanVal   = saved.discordChannelId || '';
     var tokenValid = saved.discordTokenValid || false;
-    var inGuild   = saved.discordInGuild || false;
     var isDone    = s4AgentComplete(idx);
-
-    // Build channel dropdown HTML
-    var channels = saved.channels || [];
-    var chanOptions = '<option value="">— Select channel —</option>';
-    channels.forEach(function(ch) {
-      chanOptions += '<option value="' + swEscape(ch.id) + '"' + (chanVal === ch.id ? ' selected' : '') + '>#' + swEscape(ch.name) + '</option>';
-    });
-    chanOptions += '<option value="__create__">+ Create #asrp-' + swEscape(a.defaultName.toLowerCase()) + '</option>';
 
     // Status badge text
     var tokenStatusClass = tokenValid ? 'valid' : (tokenVal ? 'invalid' : '');
@@ -793,8 +885,7 @@
             '<li>Open the Discord Developer Portal and create a new Application named <strong>' + swEscape(a.suggestedBotName) + '</strong>.</li>' +
             '<li>Go to <strong>Bot</strong> → Reset Token → copy the token below.</li>' +
             '<li>Enable <strong>Message Content Intent</strong> under Privileged Gateway Intents.</li>' +
-            '<li>Click <strong>Add to Server</strong> to invite the bot to your server.</li>' +
-            '<li>Select the channel for this agent to use.</li>' +
+            '<li>Click <strong>Add to Server</strong> to invite the bot to your server (all agents will use #general).</li>' +
           '</ol>' +
           '<div style="display:flex;gap:6px;margin-bottom:10px">' +
             '<button class="btn btn-outline btn-sm" onclick="s4OpenPortal()">' +
@@ -815,20 +906,7 @@
           (tokenValid ? (
             '<div style="display:flex;gap:6px;margin-bottom:8px">' +
               '<button class="btn btn-outline btn-sm" onclick="s4AddToServer(' + idx + ')">🔗 Add to Server</button>' +
-              (inGuild
-                ? '<span style="font-size:12px;color:var(--success);align-self:center">✅ Bot is in server</span>'
-                : '<button class="btn btn-ghost btn-sm" onclick="s4CheckGuild(' + idx + ')">Check if joined</button>') +
-            '</div>' +
-            (inGuild ? (
-              '<div class="form-group" style="margin-bottom:0">' +
-                '<label style="font-size:12px;font-weight:600">Channel</label>' +
-                '<div style="display:flex;gap:6px">' +
-                  '<select id="s4-channel-' + idx + '" style="flex:1" onchange="s4ChannelSelected(' + idx + ')">' + chanOptions + '</select>' +
-                  '<button class="btn btn-ghost btn-sm" onclick="s4RefreshChannels(' + idx + ')">↻</button>' +
-                '</div>' +
-              '</div>'
-            ) : '') +
-            '<div class="alert" id="s4-guild-alert-' + idx + '"></div>'
+            '</div>'
           ) : '') +
         '</div>' +
       '</div>';
@@ -929,63 +1007,7 @@
     }
   };
 
-  window.s4CheckGuild = function(idx) {
-    var cfg = state.agentConfigs[idx] || {};
-    var token = cfg.discordToken;
-    if (!token || !cfg.discordTokenValid) { swShowAlert('s4-alert', 'Validate the token first.', 'error'); return; }
-    var alertId = 's4-guild-alert-' + idx;
-    swShowAlert(alertId, '🔄 Checking…', '');
-    if (window.asrp && window.asrp.discord) {
-      window.asrp.discord.checkGuild(token, state.guildId).then(function(res) {
-        if (res.inGuild) {
-          cfg.discordInGuild = true;
-          cfg.discordGuildName = res.guildName || '';
-          state.agentConfigs[idx] = cfg;
-          // Load channels
-          s4LoadChannels(idx);
-        } else {
-          swShowAlert(alertId, 'Bot is not in the server yet. Use "Add to Server" and complete the invite.', 'error');
-        }
-      }).catch(function(err) {
-        swShowAlert(alertId, 'Error: ' + String(err), 'error');
-      });
-    }
-  };
 
-  function s4LoadChannels(idx) {
-    var cfg = state.agentConfigs[idx] || {};
-    var token = cfg.discordToken;
-    if (!token) return;
-    if (window.asrp && window.asrp.discord) {
-      window.asrp.discord.listChannels(token, state.guildId).then(function(res) {
-        cfg.channels = res.channels || [];
-        state.agentConfigs[idx] = cfg;
-        s4SoftSaveBasicFields(idx);
-        swRenderAgentCard(idx);
-        swCheckAllConfigured();
-      }).catch(function() {});
-    }
-  }
-
-  window.s4RefreshChannels = function(idx) { s4LoadChannels(idx); };
-
-  window.s4ChannelSelected = function(idx) {
-    var sel = document.getElementById('s4-channel-' + idx);
-    if (!sel) return;
-    var val = sel.value;
-    var cfg = state.agentConfigs[idx] || {};
-    if (val === '__create__') {
-      // Create the channel via Discord API (delegated to main) — stub, use check-guild flow
-      var chanName = 'asrp-' + CONFIG_AGENTS[idx].defaultName.toLowerCase();
-      swShowAlert('s4-alert', 'Channel creation: use Discord to create #' + chanName + ' and refresh.', 'warning');
-      sel.value = cfg.discordChannelId || '';
-      return;
-    }
-    cfg.discordChannelId = val;
-    state.agentConfigs[idx] = cfg;
-    swCheckAllConfigured();
-    swUpdateAgentDots();
-  };
 
   // Save name/model/focus fields into state without full validation
   function s4SoftSaveBasicFields(idx) {
@@ -1020,11 +1042,11 @@
     return true;
   }
 
-  // An agent is "complete" when it has name + model + valid token + in guild + channel
+  // An agent is "complete" when it has name + model + valid token
   function s4AgentComplete(idx) {
     var cfg = state.agentConfigs[idx];
     if (!cfg) return false;
-    return !!(cfg.customName && cfg.model && cfg.discordTokenValid && cfg.discordInGuild && cfg.discordChannelId);
+    return !!(cfg.customName && cfg.model && cfg.discordTokenValid);
   }
 
   window.swAgentConfigNext = function() {
@@ -1070,6 +1092,12 @@
       var dot = document.getElementById('s4-adot-' + i);
       if (!dot) continue;
       dot.classList.remove('active', 'done');
+      
+      // Make clickable
+      (function(idx) {
+        dot.onclick = function() { swJumpToAgent(idx); };
+      })(i);
+      
       if (i === currentAgentIdx) {
         dot.classList.add('active');
         dot.textContent = i + 1;
@@ -1082,6 +1110,18 @@
     }
   }
 
+  window.swJumpToAgent = function(idx) {
+    if (idx === currentAgentIdx) return; // Already here
+    swHideAlert('s4-alert');
+    // Save current agent first
+    s4SoftSaveBasicFields(currentAgentIdx);
+    // Jump to target
+    currentAgentIdx = idx;
+    swRenderAgentCard(idx);
+    swUpdateAgentDots();
+    swUpdateAgentNavButtons();
+  };
+
   function swAllConfigured() {
     for (var i = 0; i < CONFIG_AGENTS.length; i++) {
       if (!s4AgentComplete(i)) return false;
@@ -1092,18 +1132,18 @@
   function swCheckAllConfigured() {
     var allDoneMsg = document.getElementById('s4-all-done-msg');
     var nextBtn    = document.getElementById('s4-next-btn');
-    var verifyBtn  = document.getElementById('s4-verify-btn');
+    var completeBtn = document.getElementById('s4-complete-btn');
     var allDone    = swAllConfigured();
     if (allDoneMsg) allDoneMsg.style.display = allDone ? 'inline' : 'none';
     if (nextBtn)   nextBtn.style.display    = allDone ? 'none' : '';
-    if (verifyBtn) verifyBtn.style.display  = allDone ? '' : 'none';
+    if (completeBtn) completeBtn.style.display  = allDone ? '' : 'none';
   }
 
   function swUpdateAgentNavButtons() {
     var backBtn    = document.getElementById('s4-back-btn');
     var nextBtn    = document.getElementById('s4-next-btn');
     var allDoneMsg = document.getElementById('s4-all-done-msg');
-    var verifyBtn  = document.getElementById('s4-verify-btn');
+    var completeBtn = document.getElementById('s4-complete-btn');
 
     if (backBtn) backBtn.textContent = currentAgentIdx === 0 ? '← Back' : '← Back';
 
@@ -1113,7 +1153,7 @@
     var allDone = swAllConfigured();
     if (allDoneMsg) allDoneMsg.style.display = allDone ? 'inline' : 'none';
     if (nextBtn)   nextBtn.style.display    = allDone ? 'none' : '';
-    if (verifyBtn) verifyBtn.style.display  = allDone ? '' : 'none';
+    if (completeBtn) completeBtn.style.display  = allDone ? '' : 'none';
   }
 
   function swInitStep4Config() {
@@ -1131,33 +1171,26 @@
     swRenderAgentCard(0);
     swUpdateAgentDots();
     swUpdateAgentNavButtons();
-    swSendAgentAssistantMsg(0);
     swCheckAllConfigured();
   }
 
-  function swSendAgentAssistantMsg(idx) {
-    var msg = CONFIG_AGENTS[idx].assistantMsg;
-    var panel = document.getElementById('s4-assistant-panel');
-    var msgEl = document.getElementById('s4-assistant-msg');
-
-    if (panel) panel.style.display = 'block';
-    // Show the guidance text directly — no need to call AI for setup instructions
-    if (msgEl) msgEl.textContent = msg;
-  }
-
-  // ── Phase C: Verification ──────────────────────────────────
-  window.s4StartVerification = function() {
+  // ── Phase C: Batch Verification ───────────────────────────
+  window.s4StartBatchVerification = function() {
     s4SoftSaveBasicFields(currentAgentIdx);
     document.getElementById('s4-phase-b').style.display = 'none';
     document.getElementById('s4-phase-c').style.display = 'block';
 
     var table = document.getElementById('s4-verify-table');
     var continueBtn = document.getElementById('s4-continue-btn');
+    var recheckBtn = document.getElementById('s4-recheck-btn');
     if (table) table.innerHTML = '';
     if (continueBtn) continueBtn.disabled = true;
+    if (recheckBtn) recheckBtn.style.display = 'none';
+    swHideAlert('s4c-alert');
 
     var pending = CONFIG_AGENTS.length;
     var allOk = true;
+    var missingBots = [];
 
     CONFIG_AGENTS.forEach(function(agent, idx) {
       var cfg = state.agentConfigs[idx] || {};
@@ -1174,42 +1207,47 @@
         '<span id="' + rowId + '-status" style="font-size:12px;color:var(--text-tertiary)">🔄 Checking…</span>';
       if (table) table.appendChild(row);
 
-      // Re-verify token + guild membership
+      // Batch check: token + guild membership
       if (window.asrp && window.asrp.discord && cfg.discordToken) {
         window.asrp.discord.validateToken(cfg.discordToken).then(function(vRes) {
           if (!vRes.valid) {
             s4SetVerifyRow(rowId, false, 'Token invalid: ' + (vRes.error || ''));
             allOk = false;
             pending--;
-            if (pending === 0) s4VerifyDone(allOk);
+            if (pending === 0) s4BatchVerifyDone(allOk, missingBots);
             return;
           }
           return window.asrp.discord.checkGuild(cfg.discordToken, state.guildId).then(function(gRes) {
             if (!gRes.inGuild) {
-              s4SetVerifyRow(rowId, false, 'Bot not in server');
+              s4SetVerifyRow(rowId, false, '❌ Not in server');
               allOk = false;
-            } else if (!cfg.discordChannelId) {
-              s4SetVerifyRow(rowId, false, 'No channel selected');
-              allOk = false;
+              missingBots.push({
+                idx: idx,
+                name: cfg.customName || agent.name,
+                appId: s4ExtractAppId(cfg.discordToken),
+              });
             } else {
               s4SetVerifyRow(rowId, true, '✅ Ready');
+              // Default channel to #general
+              cfg.discordChannelId = 'general';
+              state.agentConfigs[idx] = cfg;
             }
             pending--;
-            if (pending === 0) s4VerifyDone(allOk);
+            if (pending === 0) s4BatchVerifyDone(allOk, missingBots);
           });
         }).catch(function(err) {
           s4SetVerifyRow(rowId, false, 'Error: ' + String(err));
           allOk = false;
           pending--;
-          if (pending === 0) s4VerifyDone(allOk);
+          if (pending === 0) s4BatchVerifyDone(allOk, missingBots);
         });
       } else {
         // No IPC — trust local state
         var ok = s4AgentComplete(idx);
-        s4SetVerifyRow(rowId, ok, ok ? '✅ Ready' : '⚠️ Incomplete (no IPC)');
+        s4SetVerifyRow(rowId, ok, ok ? '✅ Ready' : '⚠️ Incomplete');
         if (!ok) allOk = false;
         pending--;
-        if (pending === 0) s4VerifyDone(allOk);
+        if (pending === 0) s4BatchVerifyDone(allOk, missingBots);
       }
     });
   };
@@ -1221,14 +1259,34 @@
     if (statusEl) statusEl.textContent = msg;
   }
 
-  function s4VerifyDone(allOk) {
+  function s4BatchVerifyDone(allOk, missingBots) {
     var continueBtn = document.getElementById('s4-continue-btn');
+    var recheckBtn = document.getElementById('s4-recheck-btn');
     var alertEl = document.getElementById('s4c-alert');
+    
     if (allOk) {
       if (continueBtn) continueBtn.disabled = false;
-      if (alertEl) { alertEl.className = 'alert success show'; alertEl.textContent = '✅ All agents verified! Click Continue to finish setup.'; }
+      if (alertEl) { 
+        alertEl.className = 'alert success show'; 
+        alertEl.textContent = '✅ All agents verified! All bots will use #general channel.'; 
+      }
     } else {
-      if (alertEl) { alertEl.className = 'alert error show'; alertEl.textContent = 'Some agents have issues. Click "Fix Issues" to go back and resolve them.'; }
+      if (recheckBtn) recheckBtn.style.display = '';
+      if (alertEl) { 
+        alertEl.className = 'alert error show'; 
+        var msg = '⚠️ Some bots haven\'t joined the server yet. ';
+        if (missingBots.length > 0) {
+          msg += 'Please invite the missing bots:\n\n';
+          missingBots.forEach(function(bot) {
+            if (bot.appId) {
+              msg += '• ' + bot.name + ': Click "Add to Server" in the agent config\n';
+            }
+          });
+        }
+        msg += '\nUse "Re-check" to verify again, or go "Back" to fix issues.';
+        alertEl.textContent = msg;
+        alertEl.style.whiteSpace = 'pre-line';
+      }
     }
   }
 
