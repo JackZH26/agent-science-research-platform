@@ -91,3 +91,48 @@ export function removeKey(keyName: string): void {
 export function isEncryptionAvailable(): boolean {
   return safeStorage.isEncryptionAvailable();
 }
+
+/**
+ * Resolve the OpenRouter API key from all sources in priority order:
+ * 1. Encrypted store (safeKeyStore)
+ * 2. Environment variable OPENROUTER_KEY
+ * 3. Legacy plaintext settings.json (auto-migrates to encrypted store)
+ * 4. Cached trial key file
+ * Returns empty string if no key is found.
+ */
+export function resolveOpenRouterKey(): string {
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+
+  // 1. Encrypted store
+  const stored = getKey('openrouterKey');
+  if (stored && !stored.includes('placeholder')) return stored;
+
+  // 2. Env
+  if (process.env.OPENROUTER_KEY) return process.env.OPENROUTER_KEY;
+
+  // 3. Legacy settings.json (migrate on read)
+  try {
+    const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+    if (fs.existsSync(settingsFile)) {
+      const s = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
+      if (s.openrouterKey && !s.openrouterKey.includes('placeholder')) {
+        const key = s.openrouterKey as string;
+        storeKey('openrouterKey', key);
+        delete s.openrouterKey;
+        fs.writeFileSync(settingsFile, JSON.stringify(s, null, 2), 'utf-8');
+        return key;
+      }
+    }
+  } catch { /* ignore */ }
+
+  // 4. Cached trial key
+  try {
+    const trialKeyFile = path.join(app.getPath('userData'), '.trial-key');
+    if (fs.existsSync(trialKeyFile)) {
+      return fs.readFileSync(trialKeyFile, 'utf-8').trim();
+    }
+  } catch { /* ignore */ }
+
+  return '';
+}

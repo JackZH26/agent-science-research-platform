@@ -326,6 +326,16 @@ export async function runSelfTest(): Promise<SelfTestResult> {
     assert(typeof ws === 'string' && ws.length > 0, 'workspace path invalid');
   });
 
+  // ---- CLEANUP: Remove self-test users to prevent DB bloat ----
+  try {
+    const db = authService.getAuthDb();
+    db.prepare("DELETE FROM user_profiles WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'selftest-%@asrp.local')").run();
+    db.prepare("DELETE FROM key_assignments WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'selftest-%@asrp.local')").run();
+    db.prepare("DELETE FROM users WHERE email LIKE 'selftest-%@asrp.local'").run();
+  } catch {
+    // Non-critical — ignore cleanup errors
+  }
+
   // ---- DONE ----
 
   results.durationMs = Date.now() - start;

@@ -264,69 +264,38 @@ export function registerAssistantHandlers(): void {
       let reply = '';
       let modelLabel = DEFAULT_ASSISTANT_MODEL_LABEL;
 
-      // Read API key: safeKeyStore (encrypted) → env → legacy settings.json → trial key → server
-      let apiKey = '';
-      // 1. Try encrypted store first
-      const storedKey = safeKeyStore.getKey('openrouterKey');
-      if (storedKey && !storedKey.includes('placeholder')) {
-        apiKey = storedKey;
-      }
-      // 2. Fallback to env
-      if (!apiKey) apiKey = process.env.OPENROUTER_KEY || '';
-      // 3. Fallback to legacy plaintext settings.json (for migration)
-      if (!apiKey) {
-        const settingsFile = path.join(app.getPath('userData'), 'settings.json');
-        try {
-          if (fs.existsSync(settingsFile)) {
-            const s = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
-            if (s.openrouterKey && !s.openrouterKey.includes('placeholder')) {
-              apiKey = s.openrouterKey;
-              // Migrate: move legacy key to encrypted store and remove from settings
-              safeKeyStore.storeKey('openrouterKey', apiKey);
-              delete s.openrouterKey;
-              fs.writeFileSync(settingsFile, JSON.stringify(s, null, 2), 'utf-8');
-            }
-          }
-        } catch { /* ignore */ }
-      }
+      // Resolve API key from all sources (encrypted store → env → legacy → trial)
+      let apiKey = safeKeyStore.resolveOpenRouterKey();
 
-      // If no key, try to provision from ASRP server
+      // If still no key, try to provision from ASRP server
       if (!apiKey) {
         try {
+          const https = require('https');
           const trialKeyFile = path.join(app.getPath('userData'), '.trial-key');
-          if (fs.existsSync(trialKeyFile)) {
-            apiKey = fs.readFileSync(trialKeyFile, 'utf-8').trim();
-          } else {
-            // Fetch from server
-            const https = require('https');
-            const provisionedKey = await new Promise<string>((resolve, reject) => {
-              const req = https.request({
-                hostname: 'asrp.jzis.org',
-                path: '/api/key/provision',
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-              }, (res: import('http').IncomingMessage) => {
-                let data = '';
-                res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-                res.on('end', () => {
-                  try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.key) {
-                      // Cache the trial key locally
-                      fs.writeFileSync(trialKeyFile, parsed.key, { mode: 0o600 });
-                      resolve(parsed.key);
-                    } else {
-                      resolve('');
-                    }
-                  } catch { resolve(''); }
-                });
+          const provisionedKey = await new Promise<string>((resolve) => {
+            const req = https.request({
+              hostname: 'asrp.jzis.org',
+              path: '/api/key/provision',
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+            }, (res: import('http').IncomingMessage) => {
+              let data = '';
+              res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+              res.on('end', () => {
+                try {
+                  const parsed = JSON.parse(data);
+                  if (parsed.key) {
+                    fs.writeFileSync(trialKeyFile, parsed.key, { mode: 0o600 });
+                    resolve(parsed.key);
+                  } else { resolve(''); }
+                } catch { resolve(''); }
               });
-              req.on('error', () => resolve(''));
-              req.write(JSON.stringify({}));
-              req.end();
             });
-            apiKey = provisionedKey;
-          }
+            req.on('error', () => resolve(''));
+            req.write(JSON.stringify({}));
+            req.end();
+          });
+          apiKey = provisionedKey;
         } catch { /* no trial key available */ }
       }
 

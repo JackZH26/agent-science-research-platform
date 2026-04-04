@@ -86,17 +86,18 @@ function createWindow(): void {
     return { action: 'deny' };
   });
 
-  // Hot reload in dev mode
+  // Hot reload in dev mode only — guard both the require and call behind isDev
+  // to avoid unnecessary require() overhead in production builds
   if (isDev) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require('electron-reload')(APP_ROOT, {
+      const reload = require('electron-reload');
+      reload(APP_ROOT, {
         electron: path.join(APP_ROOT, 'node_modules', '.bin', 'electron'),
         hardResetMethod: 'exit',
         ignored: /node_modules|dist/,
       });
     } catch {
-      // electron-reload not available, skip
+      // electron-reload not available in dev, skip silently
     }
   }
 }
@@ -328,10 +329,10 @@ app.whenReady().then(() => {
   protocol.handle('app', (request) => {
     const url = new URL(request.url);
     const pathname = decodeURIComponent(url.pathname);
-    const filePath = path.join(rendererRoot, pathname);
+    const filePath = path.normalize(path.join(rendererRoot, pathname));
 
-    // Security: prevent path traversal
-    if (!filePath.startsWith(rendererRoot)) {
+    // Security: prevent path traversal (normalize + reject .. segments + startsWith check)
+    if (pathname.includes('..') || !filePath.startsWith(rendererRoot)) {
       return new Response('Forbidden', { status: 403, headers: { 'Content-Type': 'text/plain' } });
     }
 
