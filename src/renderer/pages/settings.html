@@ -158,7 +158,8 @@
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="window.asrp && window.asrp.system.openPath && Toast.show('Opening docs', 'info')">📖 Documentation</button>
       <button class="btn btn-outline btn-sm" onclick="Toast.show('GitHub: JackZH26/ASRP-JZIS', 'info')">GitHub</button>
-      <button class="btn btn-outline btn-sm" onclick="Toast.show('Running setup wizard', 'info');setTimeout(()=>Router.navigate('/setup'), 600)">↻ Re-run Setup</button>
+      <button class="btn btn-outline btn-sm" onclick="rerunSetup()">↻ Re-run Setup</button>
+      <button class="btn btn-outline btn-sm" style="color:var(--error);border-color:var(--error)" onclick="handleLogout()">🚪 Logout</button>
     </div>
   </div>
 
@@ -520,6 +521,31 @@
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Run Self-Test'; }
     }
+  };
+
+  // Logout: revoke token + clear localStorage + redirect to login
+  window.handleLogout = async function() {
+    if (!confirm('Are you sure you want to logout?')) return;
+    var token = localStorage.getItem('asrp_token');
+    if (window.asrp && window.asrp.auth && token) {
+      try { await window.asrp.auth.logout(token); } catch(e) { /* ignore */ }
+    }
+    localStorage.removeItem('asrp_token');
+    localStorage.removeItem('asrp_user');
+    Router.clearCache();
+    Toast.show('Logged out', 'info');
+    setTimeout(function() { Router.navigate('/login'); }, 300);
+  };
+
+  // Re-run setup: reset setup_complete flag then navigate
+  window.rerunSetup = async function() {
+    if (!confirm('Re-run the initial setup wizard?')) return;
+    var token = localStorage.getItem('asrp_token');
+    if (window.asrp && window.asrp.settings) {
+      try { await window.asrp.settings.set({ setupComplete: false }); } catch(e) { /* ignore */ }
+    }
+    Toast.show('Running setup wizard', 'info');
+    setTimeout(function() { Router.navigate('/setup'); }, 300);
   };
 
   loadSettings();
