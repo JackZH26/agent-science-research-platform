@@ -62,23 +62,26 @@ jobs:
         run: npx tsc --noEmit
 
       # ---- Package with ASRP Builder ----
+      # --publish never: don't let electron-builder auto-publish to GitHub.
+      # Our separate 'release' job handles GitHub Release creation with proper permissions.
+      # TypeScript was already compiled in the 'Build TypeScript' step above.
       - name: Package (Windows)
         if: matrix.os == 'windows-latest'
-        run: npm run dist:win
+        run: npx electron-builder --win --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Package (macOS)
         if: matrix.os == 'macos-latest'
-        run: npm run dist:mac
+        run: npx electron-builder --mac --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Package (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: npm run dist:linux
+        run: npx electron-builder --linux --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
