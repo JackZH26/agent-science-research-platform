@@ -221,7 +221,7 @@
   function renderCards(agents) {
     const container = document.getElementById('agent-cards');
     if (!agents || agents.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>No agents found.</p></div>';
+      container.innerHTML = '<div class="empty-state"><span class="icon">🤖</span><h3>No agents configured</h3><p>Complete the setup wizard to configure your research agents.</p><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="Router.navigate(\'/settings\')">Go to Settings</button></div>';
       return;
     }
     container.innerHTML = agents.map((a, i) => {
