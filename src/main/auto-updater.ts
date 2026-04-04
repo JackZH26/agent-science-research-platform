@@ -46,6 +46,7 @@ class AppAutoUpdater extends EventEmitter {
   private getWindow: (() => BrowserWindow | null) | null = null;
   private periodicTimer: ReturnType<typeof setInterval> | null = null;
   private manualCheck = false; // true when user clicked "Check for Updates..."
+  private userDeferredUpdate = false; // true when user clicked "Later" on update dialog
 
   initialize(getWindow: () => BrowserWindow | null): void {
     if (this.initialized) return;
@@ -85,12 +86,14 @@ class AppAutoUpdater extends EventEmitter {
           type: 'info',
           title: 'Update Available',
           message: `ASRP Desktop v${info.version} is available`,
-          detail: `You are running v${app.getVersion()}. The update will download in the background and you\'ll be prompted to restart when ready.`,
+          detail: `You are running v${app.getVersion()}. The update will download in the background and you'll be prompted to restart when ready.`,
           buttons: ['Download Now', 'Later'],
           defaultId: 0,
         }).then(({ response }) => {
           if (response === 0) {
             this.downloadUpdate().catch(() => { /* handled by error event */ });
+          } else {
+            this.userDeferredUpdate = true; // Don't show download-complete dialog this session
           }
         });
       }
@@ -135,20 +138,22 @@ class AppAutoUpdater extends EventEmitter {
       this.status.progress = 100;
       this._send('updater:status', this.getStatus());
 
-      // Show prominent dialog asking user to restart
-      const win = this.getWindow?.() ?? undefined;
-      dialog.showMessageBox(win as BrowserWindow, {
-        type: 'info',
-        title: 'Update Ready',
-        message: `ASRP Desktop v${info.version} is ready to install`,
-        detail: 'Restart now to apply the update, or restart later at your convenience.',
-        buttons: ['Restart Now', 'Later'],
-        defaultId: 0,
-      }).then(({ response }) => {
-        if (response === 0) {
-          this.installUpdate();
-        }
-      });
+      // Show prominent dialog asking user to restart (unless they deferred)
+      if (!this.userDeferredUpdate) {
+        const win = this.getWindow?.() ?? undefined;
+        dialog.showMessageBox(win as BrowserWindow, {
+          type: 'info',
+          title: 'Update Ready',
+          message: `ASRP Desktop v${info.version} is ready to install`,
+          detail: 'Restart now to apply the update, or restart later at your convenience.',
+          buttons: ['Restart Now', 'Later'],
+          defaultId: 0,
+        }).then(({ response }) => {
+          if (response === 0) {
+            this.installUpdate();
+          }
+        });
+      }
 
       // Update menu
       this._updateMenu();

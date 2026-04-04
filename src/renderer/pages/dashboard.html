@@ -474,20 +474,38 @@
         if (icon) icon.textContent = '⚠️';
         if (text) text.innerHTML = '<strong>OpenClaw not installed</strong> — Run <code>npm install -g openclaw</code> to enable agents.';
         if (btn) btn.style.display = 'none';
-      } else if (status.running) {
-        banner.style.background = 'rgba(74,140,106,0.08)';
-        banner.style.borderColor = '#4a8c6a';
-        banner.style.color = '#2d5a3d';
-        if (icon) icon.textContent = '🟢';
-        if (text) text.innerHTML = '<strong>Gateway running</strong> — Port ' + status.port + ' · PID ' + status.pid + ' · Uptime ' + formatUptime(status.uptime);
-        if (btn) btn.style.display = 'none';
+      } else if (status.agents && status.agents.length > 0) {
+        var running = status.agents.filter(function(a) { return a.running; }).length;
+        var total = status.agents.length;
+        if (running === total) {
+          banner.style.background = 'rgba(74,140,106,0.08)';
+          banner.style.borderColor = '#4a8c6a';
+          banner.style.color = '#2d5a3d';
+          if (icon) icon.textContent = '🟢';
+          if (text) text.innerHTML = '<strong>' + running + '/' + total + ' agents online</strong> — All gateways running';
+          if (btn) btn.style.display = 'none';
+        } else if (running > 0) {
+          banner.style.background = '#fff3cd';
+          banner.style.borderColor = '#ffc107';
+          banner.style.color = '#856404';
+          if (icon) icon.textContent = '🟡';
+          if (text) text.innerHTML = '<strong>' + running + '/' + total + ' agents online</strong> — Some agents failed to start';
+          if (btn) btn.style.display = '';
+        } else {
+          banner.style.background = '#e8f4fd';
+          banner.style.borderColor = '#b8daff';
+          banner.style.color = '#004085';
+          if (icon) icon.textContent = '⏸️';
+          if (text) text.innerHTML = '<strong>All agents stopped</strong> — Start gateways to bring agents online.';
+          if (btn) btn.style.display = '';
+        }
       } else {
         banner.style.background = '#e8f4fd';
         banner.style.borderColor = '#b8daff';
         banner.style.color = '#004085';
-        if (icon) icon.textContent = '⏸️';
-        if (text) text.innerHTML = '<strong>Gateway stopped</strong> — Start the gateway to bring agents online.';
-        if (btn) btn.style.display = '';
+        if (icon) icon.textContent = 'ℹ️';
+        if (text) text.innerHTML = '<strong>Standalone Mode</strong> — Complete setup to connect agents.';
+        if (btn) btn.style.display = 'none';
       }
     } catch (e) {
       // Ignore

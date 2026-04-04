@@ -381,14 +381,26 @@ app.whenReady().then(() => {
     }
   });
 
-  // Auto-start OpenClaw gateway if config exists (setup was completed)
+  // Auto-start OpenClaw gateways if configs exist (setup was completed)
   if (hasConfig()) {
-    openclawManager.start().then((res) => {
-      if (res.success) {
-        console.log('[ASRP] OpenClaw gateway started on port 18800');
-      } else {
-        console.warn('[ASRP] OpenClaw gateway failed to start:', res.error);
+    // Load saved agent configs from settings to re-register agents
+    const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+    try {
+      if (fs.existsSync(settingsFile)) {
+        const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
+        const agentConfigs = settings.agentConfigs as Array<{ agentId: string; role: string }> | undefined;
+        if (agentConfigs) {
+          agentConfigs.forEach((cfg, idx) => {
+            openclawManager.registerAgent(cfg.agentId || `Agent${idx}`, cfg.role || 'Assistant', idx);
+          });
+        }
       }
+    } catch { /* ignore settings parse errors */ }
+
+    openclawManager.startAll().then((res) => {
+      const ok = res.results.filter(r => r.success).length;
+      const fail = res.results.filter(r => !r.success).length;
+      console.log(`[ASRP] OpenClaw gateways: ${ok} started, ${fail} failed`);
     }).catch((err) => {
       console.warn('[ASRP] OpenClaw gateway start error:', err);
     });
@@ -413,8 +425,8 @@ app.on('before-quit', () => {
   isQuitting = true;
   // Issue #32: Clear polling interval to prevent leaks
   if (statusPollInterval) clearInterval(statusPollInterval);
-  // Stop OpenClaw gateway on app quit
-  openclawManager.stop();
+  // Stop all OpenClaw gateways on app quit
+  openclawManager.stopAll();
 });
 
 app.on('will-quit', () => {

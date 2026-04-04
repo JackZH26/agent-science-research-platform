@@ -414,26 +414,31 @@ const discord = {
 const gateway = {
   status: () =>
     invoke<{
-      installed: boolean; running: boolean; port: number;
-      pid: number | null; version: string | null; uptime: number; error: string | null;
+      installed: boolean;
+      version: string | null;
+      agents: Array<{
+        name: string; role: string; port: number;
+        running: boolean; pid: number | null; uptime: number; error: string | null;
+      }>;
+      error: string | null;
     }>('gateway:status'),
 
   start: () =>
-    invoke<{ success: boolean; error?: string }>('gateway:start'),
+    invoke<{ results: Array<{ name: string; success: boolean; error?: string }> }>('gateway:start'),
 
   stop: () =>
     invoke<{ success: boolean }>('gateway:stop'),
 
-  restart: () =>
-    invoke<{ success: boolean; error?: string }>('gateway:restart'),
+  restart: (agentName?: string) =>
+    invoke<{ success: boolean; error?: string }>('gateway:restart', agentName),
 
   install: () =>
     invoke<{ success: boolean; error?: string }>('gateway:install'),
 
-  setupAndStart: (agentConfigs: Array<{
-    name: string; role: string; model: string; discordToken: string; channelId?: string; customName?: string;
+  setupAndStart: (token: string, agentConfigs: Array<{
+    name: string; role: string; model: string; discordToken: string; customName?: string;
   }>, guildId: string) =>
-    invoke<{ success: boolean; error?: string }>('gateway:setup-and-start', agentConfigs, guildId),
+    invoke<{ success: boolean; error?: string }>('gateway:setup-and-start', token, agentConfigs, guildId),
 
   hasConfig: () =>
     invoke<{ hasConfig: boolean }>('gateway:has-config'),

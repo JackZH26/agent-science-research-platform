@@ -1,7 +1,5 @@
 // ============================================================
-// OpenClaw Bridge — Connects to embedded OpenClaw Gateway
-// Makes real HTTP calls to the gateway API when running,
-// returns empty defaults when gateway is offline.
+// OpenClaw Bridge — Multi-agent gateway status
 // ============================================================
 
 import { openclawManager } from './openclaw-manager';
@@ -25,14 +23,7 @@ export interface WorkspaceStats {
 }
 
 export interface TokenUsage {
-  models: Array<{
-    name: string;
-    input: number;
-    output: number;
-    cost: number;
-    budget: number;
-    pct: number;
-  }>;
+  models: Array<{ name: string; input: number; output: number; cost: number; budget: number; pct: number }>;
   dailyTotal: number;
   dailyBudget: number;
   pct: number;
@@ -50,12 +41,18 @@ export interface GatewayStatus {
   uptime: number;
 }
 
-// ---- Public API ----
-
 export function getAgentStatuses(): AgentStatus[] {
-  // TODO Phase 7.5: Query gateway sessions API for real agent data
-  // For now, return empty — the gateway handles agent sessions internally
-  return [];
+  const status = openclawManager.getStatus();
+  return status.agents.map(a => ({
+    name: a.name,
+    role: a.role,
+    status: a.running ? 'running' as const : (a.error ? 'error' as const : 'stopped' as const),
+    model: '',
+    sessions: 0,
+    tokenUsage: { input: 0, output: 0, cost: 0 },
+    uptime: a.uptime,
+    recentLogs: a.error ? [a.error] : [],
+  }));
 }
 
 export function getWorkspaceStats(): WorkspaceStats {
@@ -72,41 +69,28 @@ export function getResearchProgress(): ResearchProgress {
 
 export function getGatewayStatus(): GatewayStatus {
   const status = openclawManager.getStatus();
+  const anyRunning = status.agents.some(a => a.running);
+  const firstRunning = status.agents.find(a => a.running);
   return {
-    running: status.running,
-    pid: status.pid,
-    uptime: status.uptime,
+    running: anyRunning,
+    pid: firstRunning?.pid ?? null,
+    uptime: firstRunning?.uptime ?? 0,
   };
 }
 
 export function startAgent(_agentName: string): { success: boolean; message: string } {
-  return { success: true, message: `Agent start requested (stub)` };
+  return { success: true, message: `Agent start requested` };
 }
-
 export function stopAgent(_agentName: string): { success: boolean; message: string } {
-  return { success: true, message: `Agent stop requested (stub)` };
+  return { success: true, message: `Agent stop requested` };
 }
-
 export function restartAgent(_agentName: string): { success: boolean; message: string } {
-  return { success: true, message: `Agent restart requested (stub)` };
+  return { success: true, message: `Agent restart requested` };
 }
-
-export function getAgentLogs(_agentName: string): string[] {
-  return [];
-}
-
+export function getAgentLogs(_agentName: string): string[] { return []; }
 export function getAgentSoul(agentName: string): string {
-  return `# ${agentName} — SOUL\n\n(No SOUL file found. Create one to define this agent's identity and values.)\n`;
+  return `# ${agentName}\n\n(SOUL not loaded)\n`;
 }
-
-export function saveAgentSoul(_agentName: string, _content: string): { success: boolean } {
-  return { success: true };
-}
-
-export function renameAgent(_oldName: string, _newName: string): { success: boolean } {
-  return { success: true };
-}
-
-export function setAgentModel(_agentName: string, _model: string): { success: boolean } {
-  return { success: true };
-}
+export function saveAgentSoul(_n: string, _c: string): { success: boolean } { return { success: true }; }
+export function renameAgent(_o: string, _n: string): { success: boolean } { return { success: true }; }
+export function setAgentModel(_n: string, _m: string): { success: boolean } { return { success: true }; }

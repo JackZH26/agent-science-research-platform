@@ -1361,7 +1361,8 @@
       var gwGuildId = state.guildId || '';
 
       if (gwAgents.length > 0 && gwGuildId) {
-        window.asrp.gateway.setupAndStart(gwAgents, gwGuildId).then(function(res) {
+        var _gwToken = localStorage.getItem('asrp_token') || '';
+        window.asrp.gateway.setupAndStart(_gwToken, gwAgents, gwGuildId).then(function(res) {
           if (gwStatus) {
             if (res.success) {
               gwStatus.style.background = 'rgba(74,140,106,0.08)';

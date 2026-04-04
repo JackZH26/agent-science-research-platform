@@ -101,9 +101,6 @@ export function isEncryptionAvailable(): boolean {
  * Returns empty string if no key is found.
  */
 export function resolveOpenRouterKey(): string {
-  const fs = require('fs') as typeof import('fs');
-  const path = require('path') as typeof import('path');
-
   // 1. Encrypted store
   const stored = getKey('openrouterKey');
   if (stored && !stored.includes('placeholder')) return stored;
