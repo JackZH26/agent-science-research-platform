@@ -216,8 +216,21 @@ class AppAutoUpdater extends EventEmitter {
   }
 
   installUpdate(): void {
-    if (!this.lib || !this.status.ready) return;
-    this.lib.quitAndInstall(false, true);
+    if (!this.lib || !this.status.ready) {
+      console.log('[AutoUpdater] installUpdate called but not ready:', { lib: !!this.lib, ready: this.status.ready });
+      return;
+    }
+    console.log('[AutoUpdater] Calling quitAndInstall...');
+    // On macOS, setImmediate ensures the IPC response is sent before the app quits
+    setImmediate(() => {
+      try {
+        this.lib.quitAndInstall(false, true);
+      } catch (err) {
+        console.error('[AutoUpdater] quitAndInstall failed:', err);
+        // Fallback: force quit and let autoInstallOnAppQuit handle it
+        app.quit();
+      }
+    });
   }
 
   getStatus(): UpdaterStatus {

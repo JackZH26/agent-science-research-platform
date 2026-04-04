@@ -240,7 +240,18 @@
   function handleUpdateAction() {
     if (!window.asrp || !window.asrp.updater) return;
     if (_updateState === 'ready') {
-      window.asrp.updater.install();
+      var btn = document.getElementById('update-action-btn');
+      if (btn) { btn.textContent = 'Restarting...'; btn.disabled = true; }
+      window.asrp.updater.install().then(function() {
+        // App should quit — if still here after 5s, show error
+        setTimeout(function() {
+          if (btn) { btn.textContent = 'Restart Now'; btn.disabled = false; }
+          if (window.showToast) window.showToast('Restart failed. Please quit and reopen the app manually.', 'error', 5000);
+        }, 5000);
+      }).catch(function(err) {
+        if (btn) { btn.textContent = 'Restart Now'; btn.disabled = false; }
+        if (window.showToast) window.showToast('Install error: ' + String(err), 'error', 5000);
+      });
     } else if (_updateState === 'available') {
       window.asrp.updater.download();
     } else if (_updateState === 'idle') {
