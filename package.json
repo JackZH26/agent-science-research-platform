@@ -47,5 +47,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/JackZH26/ASRP-JZIS.git"
+  },
+  "optionalDependencies": {
+    "dmg-license": "^1.0.11"
   }
 }
