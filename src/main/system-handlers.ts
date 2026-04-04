@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { autoUpdater } from './auto-updater';
 import { runSelfTest } from './self-test';
+import * as safeKeyStore from './safe-key-store';
 import {
   RESOURCES_PATH,
   getWorkspaceBase,
@@ -79,6 +80,7 @@ export function registerSettingsHandlers(): void {
     notifications: true,
     minimizeToTray: true,
     autoStart: false,
+    setupComplete: false,
   };
 
   // Issue #19: Allowlist of valid setting keys — prevents renderer from polluting settings.json
@@ -95,11 +97,27 @@ export function registerSettingsHandlers(): void {
   };
 
   ipcMain.handle('settings:get', async () => {
-    return loadSettings();
+    const settings = loadSettings();
+    // Inject API key status (masked) from safeKeyStore so renderer knows if a key is configured
+    const storedKey = safeKeyStore.getKey('openrouterKey');
+    if (storedKey) {
+      settings.openrouterKey = storedKey.slice(0, 8) + '••••••••';
+    }
+    return settings;
   });
 
   ipcMain.handle('settings:set', async (_event, updates: Record<string, unknown>) => {
     try {
+      // Route API key updates through safeKeyStore (encrypted)
+      if (typeof updates.openrouterKey === 'string') {
+        const keyVal = updates.openrouterKey as string;
+        // Only store if it's a real key (not the masked placeholder we send to renderer)
+        if (keyVal && !keyVal.includes('••••')) {
+          safeKeyStore.storeKey('openrouterKey', keyVal);
+        }
+        delete updates.openrouterKey; // Don't persist in settings.json
+      }
+
       // Filter to only known, allowed keys
       const filteredUpdates: Record<string, unknown> = {};
       for (const key of Object.keys(updates)) {

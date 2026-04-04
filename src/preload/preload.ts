@@ -62,14 +62,14 @@ const agents = {
   status: () =>
     invoke<{ agents: Array<{ name: string; role: string; status: string; model: string }> }>('agents:status'),
 
-  start: (agentName: string) =>
-    invoke<{ success: boolean; message: string }>('agents:start', agentName),
+  start: (token: string, agentName: string) =>
+    invoke<{ success: boolean; message: string }>('agents:start', token, agentName),
 
-  stop: (agentName: string) =>
-    invoke<{ success: boolean; message: string }>('agents:stop', agentName),
+  stop: (token: string, agentName: string) =>
+    invoke<{ success: boolean; message: string }>('agents:stop', token, agentName),
 
-  restart: (agentName: string) =>
-    invoke<{ success: boolean; message: string }>('agents:restart', agentName),
+  restart: (token: string, agentName: string) =>
+    invoke<{ success: boolean; message: string }>('agents:restart', token, agentName),
 
   getSoul: (agentName: string) =>
     invoke<{ success: boolean; content?: string }>('agents:get-soul', agentName),
@@ -77,11 +77,11 @@ const agents = {
   saveSoul: (agentName: string, content: string) =>
     invoke<{ success: boolean; error?: string }>('agents:save-soul', agentName, content),
 
-  rename: (oldName: string, newName: string) =>
-    invoke<{ success: boolean; error?: string }>('agents:rename', oldName, newName),
+  rename: (token: string, oldName: string, newName: string) =>
+    invoke<{ success: boolean; error?: string }>('agents:rename', token, oldName, newName),
 
-  setModel: (agentName: string, model: string) =>
-    invoke<{ success: boolean; error?: string }>('agents:set-model', agentName, model),
+  setModel: (token: string, agentName: string, model: string) =>
+    invoke<{ success: boolean; error?: string }>('agents:set-model', token, agentName, model),
 
   logs: (agentName: string) =>
     invoke<{ logs: string[] }>('agents:logs', agentName),

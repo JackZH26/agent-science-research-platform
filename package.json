@@ -20,7 +20,7 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
     "postinstall": "electron-builder install-app-deps",
-    "prebuild": "node -e \"const fs=require(\"fs\");const {execSync}=require(\"child_process\");const commit=execSync(\"git rev-parse --short HEAD 2>/dev/null||echo unknown\").toString().trim();const date=new Date().toISOString().slice(0,10);fs.writeFileSync(\"src/main/build-info.json\",JSON.stringify({commit,date}))\""
+    "prebuild": "node scripts/prebuild.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

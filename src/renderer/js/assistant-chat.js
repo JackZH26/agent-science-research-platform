@@ -309,15 +309,13 @@
   function renderQuickActions() {
     var container = document.getElementById('ap-quick-actions');
     if (!container) return;
-    container.innerHTML = QUICK_ACTIONS.map(function (a) {
-      return '<button class="ap-quick-btn" data-msg="' + encodeURIComponent(a.msg) + '">' + a.label + '</button>';
-    }).join('');
-
-    container.querySelectorAll('.ap-quick-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var msg = decodeURIComponent(btn.getAttribute('data-msg') || '');
-        if (msg) sendMessage(msg);
-      });
+    container.innerHTML = '';
+    QUICK_ACTIONS.forEach(function (a) {
+      var btn = document.createElement('button');
+      btn.className = 'ap-quick-btn';
+      btn.textContent = a.label;
+      btn.addEventListener('click', function () { sendMessage(a.msg); });
+      container.appendChild(btn);
     });
   }
 
@@ -336,29 +334,70 @@
     var container = document.getElementById('ap-messages');
     if (!container) return;
 
+    container.innerHTML = '';
+
     if (messages.length === 0) {
-      container.innerHTML = '<div class="ap-empty"><div class="ap-empty-icon">✨</div>Ask me anything about your research, experiments, or agents.</div>';
+      var empty = document.createElement('div');
+      empty.className = 'ap-empty';
+      var emptyIcon = document.createElement('div');
+      emptyIcon.className = 'ap-empty-icon';
+      emptyIcon.textContent = '✨';
+      var emptyText = document.createTextNode('Ask me anything about your research, experiments, or agents.');
+      empty.appendChild(emptyIcon);
+      empty.appendChild(emptyText);
+      container.appendChild(empty);
       return;
     }
 
-    container.innerHTML = messages.map(function (m) {
-      var text = formatMessageText(m.content);
-      return '<div class="ap-msg ' + m.role + '">' + text + '</div>';
-    }).join('');
+    messages.forEach(function (m) {
+      var div = document.createElement('div');
+      div.className = 'ap-msg ' + m.role;
+      buildFormattedContent(div, m.content);
+      container.appendChild(div);
+    });
 
     container.scrollTop = container.scrollHeight;
   }
 
-  // ---- Simple markdown-ish text formatter ----
-  function formatMessageText(text) {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/`([^`]+)`/g, '<code style="background:#e8f2ec;padding:1px 4px;border-radius:3px;font-family:monospace;font-size:12px">$1</code>')
-      .replace(/\n/g, '<br>');
+  // ---- Safe markdown-ish text formatter using DOM API ----
+  // Parses **bold**, *italic*, `code`, and newlines without innerHTML
+  function buildFormattedContent(parent, text) {
+    // Split by newlines first
+    var lines = text.split('\n');
+    for (var li = 0; li < lines.length; li++) {
+      if (li > 0) parent.appendChild(document.createElement('br'));
+      var line = lines[li];
+      // Tokenize: **bold**, *italic*, `code`, plain text
+      var regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+      var lastIdx = 0;
+      var match;
+      while ((match = regex.exec(line)) !== null) {
+        // Plain text before this match
+        if (match.index > lastIdx) {
+          parent.appendChild(document.createTextNode(line.slice(lastIdx, match.index)));
+        }
+        var token = match[0];
+        if (token.startsWith('**') && token.endsWith('**')) {
+          var strong = document.createElement('strong');
+          strong.textContent = token.slice(2, -2);
+          parent.appendChild(strong);
+        } else if (token.startsWith('`') && token.endsWith('`')) {
+          var code = document.createElement('code');
+          code.style.cssText = 'background:#e8f2ec;padding:1px 4px;border-radius:3px;font-family:monospace;font-size:12px';
+          code.textContent = token.slice(1, -1);
+          parent.appendChild(code);
+        } else if (token.startsWith('*') && token.endsWith('*')) {
+          var em = document.createElement('em');
+          em.textContent = token.slice(1, -1);
+          parent.appendChild(em);
+        }
+        lastIdx = match.index + token.length;
+      }
+      // Remaining plain text
+      if (lastIdx < line.length) {
+        parent.appendChild(document.createTextNode(line.slice(lastIdx)));
+      }
+    }
   }
 
   // ---- Send message ----

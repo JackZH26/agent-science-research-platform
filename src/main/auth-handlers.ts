@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as authService from './auth-service';
 import * as keyManager from './key-manager';
+import * as safeKeyStore from './safe-key-store';
 import {
   getAuthenticatedUserId,
   getWorkspaceBase,
@@ -103,9 +104,12 @@ export function registerSetupHandlers(): void {
           return { success: false, error: 'Failed to write API key to workspace .env — check permissions' };
         }
       }
-      // NOTE (Issue #14): Keys stored in plaintext settings.json.
-      // TODO: migrate to OS keychain (keytar) for production.
-      // L4: Write keys to settings.json
+      // Issue #14 FIX: Store API keys using safeStorage (encrypted) instead of plaintext
+      if (keys.openrouterKey) safeKeyStore.storeKey('openrouterKey', keys.openrouterKey);
+      if (keys.anthropicKey) safeKeyStore.storeKey('anthropicKey', keys.anthropicKey);
+      if (keys.googleKey) safeKeyStore.storeKey('googleKey', keys.googleKey);
+
+      // Write non-sensitive settings only
       const userDataPath = app.getPath('userData');
       const settingsPath = path.join(userDataPath, 'settings.json');
       let settings: Record<string, unknown> = {};
@@ -114,9 +118,10 @@ export function registerSetupHandlers(): void {
           settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
         }
       } catch { /* use empty */ }
-      if (keys.openrouterKey) settings.openrouterKey = keys.openrouterKey;
-      if (keys.anthropicKey) settings.anthropicKey = keys.anthropicKey;
-      if (keys.googleKey) settings.googleKey = keys.googleKey;
+      // Remove any legacy plaintext keys from settings.json
+      delete settings.openrouterKey;
+      delete settings.anthropicKey;
+      delete settings.googleKey;
       settings.userId = userId;
       fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');

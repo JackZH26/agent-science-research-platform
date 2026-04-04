@@ -2,9 +2,11 @@ import { ipcMain, app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as openclawBridge from './openclaw-bridge';
+import * as safeKeyStore from './safe-key-store';
 import {
   RESOURCES_PATH,
   isValidAgentName,
+  getAuthenticatedUserId,
 } from './ipc-handlers';
 
 // ============================================================
@@ -61,12 +63,23 @@ export function registerAgentHandlers(): void {
     };
   });
 
-  ipcMain.handle('agents:start', async (_event, agentName: string) => {
-    return { success: true, message: `Agent ${agentName} start requested (stub)` };
+  // Issue #H1: Mutating agent actions require auth
+  ipcMain.handle('agents:start', async (_event, token: string, agentName: string) => {
+    try {
+      getAuthenticatedUserId(token);
+      return { success: true, message: `Agent ${agentName} start requested (stub)` };
+    } catch (err: unknown) {
+      return { success: false, message: String(err) };
+    }
   });
 
-  ipcMain.handle('agents:stop', async (_event, agentName: string) => {
-    return { success: true, message: `Agent ${agentName} stop requested (stub)` };
+  ipcMain.handle('agents:stop', async (_event, token: string, agentName: string) => {
+    try {
+      getAuthenticatedUserId(token);
+      return { success: true, message: `Agent ${agentName} stop requested (stub)` };
+    } catch (err: unknown) {
+      return { success: false, message: String(err) };
+    }
   });
 }
 
@@ -95,8 +108,13 @@ export function registerOpenClawHandlers(): void {
     return openclawBridge.getGatewayStatus();
   });
 
-  ipcMain.handle('agents:restart', async (_event, agentName: string) => {
-    return openclawBridge.restartAgent(agentName);
+  ipcMain.handle('agents:restart', async (_event, token: string, agentName: string) => {
+    try {
+      getAuthenticatedUserId(token);
+      return openclawBridge.restartAgent(agentName);
+    } catch (err: unknown) {
+      return { success: false, message: String(err) };
+    }
   });
 
   // Issue #13: Validate agentName to prevent path traversal
@@ -138,12 +156,23 @@ export function registerOpenClawHandlers(): void {
     }
   });
 
-  ipcMain.handle('agents:rename', async (_event, oldName: string, newName: string) => {
-    return openclawBridge.renameAgent(oldName, newName);
+  // Issue #H1: Mutating agent actions require auth
+  ipcMain.handle('agents:rename', async (_event, token: string, oldName: string, newName: string) => {
+    try {
+      getAuthenticatedUserId(token);
+      return openclawBridge.renameAgent(oldName, newName);
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
   });
 
-  ipcMain.handle('agents:set-model', async (_event, agentName: string, model: string) => {
-    return openclawBridge.setAgentModel(agentName, model);
+  ipcMain.handle('agents:set-model', async (_event, token: string, agentName: string, model: string) => {
+    try {
+      getAuthenticatedUserId(token);
+      return openclawBridge.setAgentModel(agentName, model);
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
   });
 
   ipcMain.handle('agents:logs', async (_event, agentName: string) => {
@@ -235,21 +264,36 @@ export function registerAssistantHandlers(): void {
       let reply = '';
       let modelLabel = DEFAULT_ASSISTANT_MODEL_LABEL;
 
-      // Read API key: settings.json (user key) → cached trial key → provision from server
-      let apiKey = process.env.OPENROUTER_KEY || '';
-      const { app: electronApp } = require('electron');
-      const settingsFile = path.join(electronApp.getPath('userData'), 'settings.json');
-      try {
-        if (fs.existsSync(settingsFile)) {
-          const s = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
-          if (s.openrouterKey && !s.openrouterKey.includes('placeholder')) apiKey = s.openrouterKey;
-        }
-      } catch { /* use env fallback */ }
+      // Read API key: safeKeyStore (encrypted) → env → legacy settings.json → trial key → server
+      let apiKey = '';
+      // 1. Try encrypted store first
+      const storedKey = safeKeyStore.getKey('openrouterKey');
+      if (storedKey && !storedKey.includes('placeholder')) {
+        apiKey = storedKey;
+      }
+      // 2. Fallback to env
+      if (!apiKey) apiKey = process.env.OPENROUTER_KEY || '';
+      // 3. Fallback to legacy plaintext settings.json (for migration)
+      if (!apiKey) {
+        const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+        try {
+          if (fs.existsSync(settingsFile)) {
+            const s = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
+            if (s.openrouterKey && !s.openrouterKey.includes('placeholder')) {
+              apiKey = s.openrouterKey;
+              // Migrate: move legacy key to encrypted store and remove from settings
+              safeKeyStore.storeKey('openrouterKey', apiKey);
+              delete s.openrouterKey;
+              fs.writeFileSync(settingsFile, JSON.stringify(s, null, 2), 'utf-8');
+            }
+          }
+        } catch { /* ignore */ }
+      }
 
       // If no key, try to provision from ASRP server
       if (!apiKey) {
         try {
-          const trialKeyFile = path.join(electronApp.getPath('userData'), '.trial-key');
+          const trialKeyFile = path.join(app.getPath('userData'), '.trial-key');
           if (fs.existsSync(trialKeyFile)) {
             apiKey = fs.readFileSync(trialKeyFile, 'utf-8').trim();
           } else {

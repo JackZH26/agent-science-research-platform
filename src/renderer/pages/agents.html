@@ -361,7 +361,8 @@
     if (!newName || newName === oldName) return;
     try {
       if (window.asrp && window.asrp.agents) {
-        await window.asrp.agents.rename(oldName, newName);
+        var _tk = localStorage.getItem('asrp_token') || '';
+        await window.asrp.agents.rename(_tk, oldName, newName);
       }
       // Update local data
       currentAgents = currentAgents.map(a => a.name === oldName ? { ...a, name: newName } : a);
@@ -381,7 +382,8 @@
   window.switchModel = async function(agentName, model) {
     try {
       if (window.asrp && window.asrp.agents) {
-        await window.asrp.agents.setModel(agentName, model);
+        var _tk = localStorage.getItem('asrp_token') || '';
+        await window.asrp.agents.setModel(_tk, agentName, model);
       }
       currentAgents = currentAgents.map(a => a.name === agentName ? { ...a, model } : a);
       showToast(agentName + ' → ' + shortModel(model) + ' (restart to apply)', 'success');
@@ -394,9 +396,10 @@
   window.agentAction = async function(agentName, action) {
     try {
       if (window.asrp && window.asrp.agents) {
-        if (action === 'start') await window.asrp.agents.start(agentName);
-        else if (action === 'stop') await window.asrp.agents.stop(agentName);
-        else if (action === 'restart') await window.asrp.agents.restart(agentName);
+        var _tk = localStorage.getItem('asrp_token') || '';
+        if (action === 'start') await window.asrp.agents.start(_tk, agentName);
+        else if (action === 'stop') await window.asrp.agents.stop(_tk, agentName);
+        else if (action === 'restart') await window.asrp.agents.restart(_tk, agentName);
       }
       // Optimistically update status
       const newStatus = action === 'start' ? 'running' : action === 'stop' ? 'stopped' : 'idle';

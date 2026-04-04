@@ -86,6 +86,22 @@ export function registerOllamaHandlers(): void {
   });
 
   ipcMain.handle('ollama:chat', async (_event, messages: Array<{ role: string; content: string }>, model?: string) => {
+    // Validate input: limit messages count and individual message length
+    if (!Array.isArray(messages) || messages.length > 100) {
+      return { success: false, reply: '', error: 'Too many messages (max 100)' };
+    }
+    const MAX_MSG_LEN = 50000;
+    for (const m of messages) {
+      if (typeof m.content !== 'string' || m.content.length > MAX_MSG_LEN) {
+        return { success: false, reply: '', error: `Message too long (max ${MAX_MSG_LEN} chars)` };
+      }
+      if (!['system', 'user', 'assistant'].includes(m.role)) {
+        return { success: false, reply: '', error: 'Invalid message role' };
+      }
+    }
+    if (model && (typeof model !== 'string' || !/^[a-zA-Z0-9:.\-_]+$/.test(model) || model.length > 128)) {
+      return { success: false, reply: '', error: 'Invalid model name' };
+    }
     try {
       const reply = await ollamaManager.chat(
         messages as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
@@ -98,6 +114,10 @@ export function registerOllamaHandlers(): void {
   });
 
   ipcMain.handle('ollama:delete-model', async (_event, modelName: string) => {
+    // L2: Validate modelName — same check as pull-model
+    if (typeof modelName !== 'string' || !/^[a-zA-Z0-9:.\-_]+$/.test(modelName) || modelName.length > 128) {
+      return { success: false, error: 'Invalid model name' };
+    }
     try {
       await ollamaManager.deleteModel(modelName);
       return { success: true };
