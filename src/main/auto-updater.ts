@@ -78,26 +78,26 @@ class AppAutoUpdater extends EventEmitter {
       this.status.version = info.version;
       this._send('updater:status', this.getStatus());
 
+      // Show dialog to user on startup auto-check
+      if (!this.manualCheck) {
+        const win = this.getWindow?.() ?? undefined;
+        dialog.showMessageBox(win as BrowserWindow, {
+          type: 'info',
+          title: 'Update Available',
+          message: `ASRP Desktop v${info.version} is available`,
+          detail: `You are running v${app.getVersion()}. The update will download in the background and you\'ll be prompted to restart when ready.`,
+          buttons: ['Download Now', 'Later'],
+          defaultId: 0,
+        }).then(({ response }) => {
+          if (response === 0) {
+            this.downloadUpdate().catch(() => { /* handled by error event */ });
+          }
+        });
+      }
+
       if (this.manualCheck) {
         this.manualCheck = false;
-        // Auto-start download when user manually checked
         this.downloadUpdate().catch(() => { /* handled by error event */ });
-      } else {
-        // Silent check — auto-start download in background
-        // The update bar in renderer will show progress
-        this.downloadUpdate().catch(() => { /* handled by error event */ });
-
-        if (Notification.isSupported()) {
-          const notif = new Notification({
-            title: 'ASRP Update Available',
-            body: `Downloading v${info.version} in the background...`,
-          });
-          notif.on('click', () => {
-            this.getWindow?.()?.show();
-            this.getWindow?.()?.focus();
-          });
-          notif.show();
-        }
       }
 
       // Update the app menu to show update available
@@ -135,13 +135,20 @@ class AppAutoUpdater extends EventEmitter {
       this.status.progress = 100;
       this._send('updater:status', this.getStatus());
 
-      // Notification — the update bar in renderer handles the restart button
-      if (Notification.isSupported()) {
-        new Notification({
-          title: 'ASRP Ready to Update',
-          body: `v${info.version} downloaded. Click "Restart Now" in the app to install.`,
-        }).show();
-      }
+      // Show prominent dialog asking user to restart
+      const win = this.getWindow?.() ?? undefined;
+      dialog.showMessageBox(win as BrowserWindow, {
+        type: 'info',
+        title: 'Update Ready',
+        message: `ASRP Desktop v${info.version} is ready to install`,
+        detail: 'Restart now to apply the update, or restart later at your convenience.',
+        buttons: ['Restart Now', 'Later'],
+        defaultId: 0,
+      }).then(({ response }) => {
+        if (response === 0) {
+          this.installUpdate();
+        }
+      });
 
       // Update menu
       this._updateMenu();
