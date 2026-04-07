@@ -4,7 +4,7 @@
   "description": "ASRP Desktop — Agent Science Research Platform",
   "main": "dist/main/index.js",
   "author": {
-    "name": "Jian Zhou",
+    "name": "JZ Institute of Science",
     "email": "jackzhou.sci@gmail.com"
   },
   "license": "Apache-2.0",

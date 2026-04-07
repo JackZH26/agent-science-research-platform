@@ -56,4 +56,4 @@ npm run dist:linux    # Linux (.AppImage)
 
 ## License
 
-Apache-2.0 · Copyright © 2026 Jian Zhou
+Apache-2.0 · Copyright © 2026 JZ Institute of Science
