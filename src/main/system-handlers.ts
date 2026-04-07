@@ -307,6 +307,12 @@ export function registerGatewayHandlers(): void {
     return { hasConfig: hasConfig() };
   });
 
+  // Gateway logs (for debugging)
+  ipcMain.handle('gateway:logs', async () => {
+    const status = openclawManager.getStatus();
+    return { status, installed: openclawManager.isInstalled(), binary: openclawManager.findBinary() };
+  });
+
   // Key validation
   ipcMain.handle('keys:validate-provider', async (_event, provider: string, key: string) => {
     return keyValidator.validateKey(provider, key);

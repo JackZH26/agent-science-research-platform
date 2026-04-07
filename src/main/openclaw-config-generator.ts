@@ -119,8 +119,7 @@ export function generateAllConfigs(
         fs.writeFileSync(soulPath, soulTemplate(agent.customName || agent.name), 'utf-8');
       }
 
-      // Build config — use env refs for secrets (not inline)
-      const envPrefix = `ASRP_${agent.name.toUpperCase().replace(/[^A-Z0-9]/g, '')}_`;
+      // Build config — tokens inline (file is mode 0o600)
       const config: Record<string, unknown> = {
         agents: {
           defaults: {
@@ -131,7 +130,7 @@ export function generateAllConfigs(
         channels: {
           discord: {
             enabled: true,
-            token: { source: 'env', provider: 'default', id: `${envPrefix}DISCORD_TOKEN` },
+            token: agent.discordToken,
             groupPolicy: 'allowlist',
             guilds: {
               [guildId]: { enabled: true },
@@ -147,14 +146,15 @@ export function generateAllConfigs(
       const configPath = path.join(profileDir, 'openclaw.json');
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
 
-      // Write env file for secrets (permissions restricted)
+      // Write env file for API keys (permissions restricted)
       const envLines: string[] = [];
-      envLines.push(`${envPrefix}DISCORD_TOKEN=${agent.discordToken}`);
       if (openrouterKey) envLines.push(`OPENROUTER_API_KEY=${openrouterKey}`);
       if (anthropicKey) envLines.push(`ANTHROPIC_API_KEY=${anthropicKey}`);
       if (googleKey) envLines.push(`GOOGLE_AI_API_KEY=${googleKey}`);
-      const envPath = path.join(profileDir, '.env');
-      fs.writeFileSync(envPath, envLines.join('\n') + '\n', { encoding: 'utf-8', mode: 0o600 });
+      if (envLines.length > 0) {
+        const envPath = path.join(profileDir, '.env');
+        fs.writeFileSync(envPath, envLines.join('\n') + '\n', { encoding: 'utf-8', mode: 0o600 });
+      }
 
       // Register with manager
       openclawManager.registerAgent(agent.name, agent.role, index);

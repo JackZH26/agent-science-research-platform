@@ -389,24 +389,14 @@ app.whenReady().then(() => {
 
   // Auto-start OpenClaw gateways if configs exist (setup was completed)
   if (hasConfig()) {
-    // Load saved agent configs from settings to re-register agents
-    const settingsFile = path.join(app.getPath('userData'), 'settings.json');
-    try {
-      if (fs.existsSync(settingsFile)) {
-        const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
-        const agentConfigs = settings.agentConfigs as Array<{ agentId: string; role: string }> | undefined;
-        if (agentConfigs) {
-          agentConfigs.forEach((cfg, idx) => {
-            openclawManager.registerAgent(cfg.agentId || `Agent${idx}`, cfg.role || 'Assistant', idx);
-          });
-        }
-      }
-    } catch { /* ignore settings parse errors */ }
-
+    // startAll() auto-loads agents from settings.json if none registered
     openclawManager.startAll().then((res) => {
       const ok = res.results.filter(r => r.success).length;
       const fail = res.results.filter(r => !r.success).length;
       console.log(`[ASRP] OpenClaw gateways: ${ok} started, ${fail} failed`);
+      res.results.filter(r => !r.success).forEach(r => {
+        console.warn(`[ASRP]   ${r.name}: ${r.error}`);
+      });
     }).catch((err) => {
       console.warn('[ASRP] OpenClaw gateway start error:', err);
     });

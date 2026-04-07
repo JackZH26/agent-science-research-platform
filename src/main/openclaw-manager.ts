@@ -111,6 +111,24 @@ class OpenClawManager extends EventEmitter {
   // ---- Instance lifecycle ----
 
   /**
+   * Load and register agents from settings.json (for app restart)
+   */
+  loadAgentsFromSettings(): void {
+    try {
+      const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+      if (!fs.existsSync(settingsPath)) return;
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      const configs = settings.agentConfigs as Array<{ agentId?: string; role?: string }> | undefined;
+      if (!Array.isArray(configs)) return;
+      configs.forEach((cfg, idx) => {
+        if (cfg && cfg.agentId) {
+          this.registerAgent(cfg.agentId, cfg.role || 'Assistant', idx);
+        }
+      });
+    } catch { /* ignore */ }
+  }
+
+  /**
    * Register an agent (call before start). Does not start the gateway.
    */
   registerAgent(name: string, role: string, index: number): void {
@@ -151,10 +169,29 @@ class OpenClawManager extends EventEmitter {
     inst.lastError = null;
 
     try {
+      // Load .env file from profile dir to inject Discord token + API keys
+      const envFromFile: Record<string, string> = {};
+      const envFilePath = path.join(inst.profileDir, '.env');
+      try {
+        if (fs.existsSync(envFilePath)) {
+          const lines = fs.readFileSync(envFilePath, 'utf-8').split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const eqIdx = trimmed.indexOf('=');
+            if (eqIdx > 0) {
+              envFromFile[trimmed.slice(0, eqIdx)] = trimmed.slice(eqIdx + 1);
+            }
+          }
+        }
+      } catch { /* ignore .env read errors */ }
+
       const env = {
         ...process.env,
+        ...envFromFile,
         OPENCLAW_STATE_DIR: inst.profileDir,
         OPENCLAW_CONFIG_PATH: configPath,
+        PATH: '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:' + (process.env.PATH || ''),
       };
 
       inst.process = spawn(bin, [
@@ -225,6 +262,15 @@ class OpenClawManager extends EventEmitter {
   async startAll(): Promise<{ results: Array<{ name: string; success: boolean; error?: string }> }> {
     this.stopping = false;
     if (!this.version) this.detectVersion();
+
+    // Auto-load agents from settings if none registered
+    if (this.instances.size === 0) {
+      this.loadAgentsFromSettings();
+    }
+
+    if (this.instances.size === 0) {
+      return { results: [{ name: 'all', success: false, error: 'No agents configured. Complete setup first.' }] };
+    }
 
     const results: Array<{ name: string; success: boolean; error?: string }> = [];
     for (const [name] of this.instances) {

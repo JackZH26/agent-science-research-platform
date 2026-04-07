@@ -538,7 +538,7 @@
         }));
       }
 
-      // Fallback: read saved agent configs from settings
+      // Fallback: read saved agent configs from settings (show as stopped)
       if (agents.length === 0 && window.asrp.settings) {
         const settings = await window.asrp.settings.get();
         const savedConfigs = settings.agentConfigs;
@@ -551,9 +551,30 @@
             sessions: 0,
             tokenUsage: { input: 0, output: 0, cost: 0 },
             uptime: 0,
-            recentLogs: ['Gateway not running'],
+            recentLogs: ['Click Start to connect to Discord'],
           }));
         }
+      }
+
+      // Add a Start All button if agents exist but none are running
+      if (agents.length > 0 && agents.every(a => a.status === 'stopped')) {
+        container.innerHTML = '';
+        const banner = document.createElement('div');
+        banner.style.cssText = 'background:rgba(74,140,106,0.08);border:1px solid var(--accent);border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between';
+        banner.innerHTML = '<span style="font-size:13px;color:var(--text-secondary)">Agents are configured but not running.</span>';
+        const startBtn = document.createElement('button');
+        startBtn.className = 'btn btn-primary btn-sm';
+        startBtn.textContent = '▶ Start All Agents';
+        startBtn.onclick = async function() {
+          startBtn.disabled = true;
+          startBtn.textContent = 'Starting...';
+          try {
+            if (window.asrp.gateway) await window.asrp.gateway.start();
+            setTimeout(loadAgents, 3000);
+          } catch { startBtn.textContent = 'Failed'; }
+        };
+        banner.appendChild(startBtn);
+        container.appendChild(banner);
       }
 
       currentAgents = agents;
