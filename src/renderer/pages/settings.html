@@ -255,6 +255,10 @@
       alert.textContent = '✅ Settings saved successfully';
       alert.className = 'alert success show';
       Toast.show('Settings saved', 'success');
+      // Refresh sidebar workspace path display
+      if (typeof Sidebar !== 'undefined' && Sidebar.refreshWorkspace) {
+        Sidebar.refreshWorkspace();
+      }
       setTimeout(() => { alert.className = 'alert'; }, 3000);
     } else {
       alert.textContent = '❌ Failed to save settings: ' + result.error;

@@ -235,7 +235,7 @@ const Sidebar = (() => {
     setTimeout(function() { Router.navigate('/login'); }, 300);
   }
 
-  return { init, render, setActive, toggleCollapse, handleLogout };
+  return { init, render, setActive, toggleCollapse, handleLogout, refreshWorkspace: loadWorkspaceInfo };
 })();
 
 // Toast notification helper (global)

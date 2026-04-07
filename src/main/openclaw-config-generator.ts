@@ -139,7 +139,8 @@ export function generateAllConfigs(
             token: agent.discordToken,
             groupPolicy: 'allowlist',
             guilds: {
-              [guildId]: { requireMention: false },
+              // Theorist always replies; other roles only reply when @mentioned
+              [guildId]: { requireMention: (agent.role || '').toLowerCase() !== 'theorist' },
             },
           },
         },
