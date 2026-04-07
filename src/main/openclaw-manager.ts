@@ -60,14 +60,19 @@ class OpenClawManager extends EventEmitter {
       : path.join(app.getAppPath(), 'resources', 'openclaw', 'openclaw.mjs');
     if (fs.existsSync(resourceBin)) return resourceBin;
 
-    // 2. Local node_modules
+    // 2. Auto-installed in userData
+    const localInstall = path.join(this.getLocalInstallDir(), 'package', 'openclaw.mjs');
+    if (fs.existsSync(localInstall)) return localInstall;
+
+    // 3. Local node_modules
     const localBin = path.join(app.getAppPath(), 'node_modules', '.bin', 'openclaw');
     if (fs.existsSync(localBin)) return localBin;
 
-    // 3. System PATH
+    // 4. System PATH (with extended PATH for macOS GUI apps)
     try {
+      const envPath = '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:' + (process.env.PATH || '');
       const cmd = process.platform === 'win32' ? 'where openclaw' : 'which openclaw';
-      const result = execSync(cmd, { timeout: 5000, stdio: 'pipe' }).toString().trim();
+      const result = execSync(cmd, { timeout: 5000, stdio: 'pipe', env: { ...process.env, PATH: envPath } }).toString().trim();
       if (result) return result.split('\n')[0];
     } catch { /* not found */ }
 
@@ -352,40 +357,127 @@ class OpenClawManager extends EventEmitter {
   // ---- Install ----
 
   /**
-   * Install OpenClaw via npm (non-blocking spawn)
+   * Get the local install directory for OpenClaw
    */
-  install(onProgress?: (msg: string) => void): Promise<{ success: boolean; error?: string }> {
-    return new Promise((resolve) => {
-      const child = spawn('npm', ['install', '-g', 'openclaw', '--registry', 'https://registry.npmjs.org'], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
+  getLocalInstallDir(): string {
+    return path.join(app.getPath('userData'), 'openclaw');
+  }
+
+  /**
+   * Install OpenClaw by downloading npm tarball directly.
+   * No npm CLI required. Works in sandboxed Electron apps.
+   */
+  async install(onProgress?: (msg: string) => void): Promise<{ success: boolean; error?: string }> {
+    const installDir = this.getLocalInstallDir();
+    const binPath = path.join(installDir, 'package', 'openclaw.mjs');
+
+    try {
+      if (onProgress) onProgress('Fetching package info...');
+
+      // 1. Get tarball URL from npm registry
+      const https = require('https') as typeof import('https');
+      const tarballUrl = await new Promise<string>((resolve, reject) => {
+        https.get('https://registry.npmjs.org/openclaw/latest', (res: import('http').IncomingMessage) => {
+          let data = '';
+          res.on('data', (c: Buffer) => { data += c.toString(); });
+          res.on('end', () => {
+            try {
+              const pkg = JSON.parse(data);
+              resolve(pkg.dist?.tarball || '');
+            } catch { reject(new Error('Failed to parse npm registry response')); }
+          });
+        }).on('error', reject);
       });
 
-      let stderr = '';
-      if (child.stdout && onProgress) {
-        child.stdout.on('data', (d: Buffer) => onProgress(d.toString().trim()));
+      if (!tarballUrl) return { success: false, error: 'Could not find openclaw tarball URL' };
+
+      if (onProgress) onProgress('Downloading OpenClaw...');
+
+      // 2. Download tarball to temp file
+      const tmpDir = path.join(app.getPath('temp'), 'asrp-openclaw-install');
+      fs.mkdirSync(tmpDir, { recursive: true });
+      const tarPath = path.join(tmpDir, 'openclaw.tgz');
+
+      await new Promise<void>((resolve, reject) => {
+        const follow = (url: string) => {
+          https.get(url, (res: import('http').IncomingMessage) => {
+            // Follow redirects
+            if (res.statusCode === 301 || res.statusCode === 302) {
+              const loc = res.headers.location;
+              if (loc) { follow(loc); return; }
+            }
+            const file = fs.createWriteStream(tarPath);
+            res.pipe(file);
+            file.on('finish', () => { file.close(); resolve(); });
+          }).on('error', reject);
+        };
+        follow(tarballUrl);
+      });
+
+      if (onProgress) onProgress('Extracting...');
+
+      // 3. Extract tarball using tar (available on macOS/Linux)
+      //    On Windows, use built-in tar (available since Win10 1803)
+      fs.mkdirSync(installDir, { recursive: true });
+
+      await new Promise<void>((resolve, reject) => {
+        const tar = spawn('tar', ['xzf', tarPath, '-C', installDir], {
+          stdio: 'pipe',
+        });
+        tar.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error('tar extract failed with code ' + code));
+        });
+        tar.on('error', reject);
+      });
+
+      // 4. Install dependencies (openclaw needs them)
+      if (onProgress) onProgress('Installing dependencies...');
+      const pkgDir = path.join(installDir, 'package');
+
+      // Find npm binary - check common locations
+      let npmBin = '';
+      const npmPaths = [
+        '/usr/local/bin/npm',
+        '/opt/homebrew/bin/npm',
+        path.join(os.homedir(), '.nvm/versions/node', 'npm'), // nvm
+        'npm', // PATH fallback
+      ];
+      for (const p of npmPaths) {
+        try {
+          execSync(`"${p}" --version`, { timeout: 3000, stdio: 'pipe' });
+          npmBin = p;
+          break;
+        } catch { /* try next */ }
       }
-      if (child.stderr) {
-        child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+      if (npmBin) {
+        await new Promise<void>((resolve) => {
+          const npmInstall = spawn(npmBin, ['install', '--production', '--no-optional'], {
+            cwd: pkgDir,
+            stdio: 'pipe',
+            shell: true,
+            env: { ...process.env, PATH: '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:' + (process.env.PATH || '') },
+          });
+          npmInstall.on('close', () => resolve());
+          npmInstall.on('error', () => resolve()); // non-fatal
+          setTimeout(() => { try { npmInstall.kill(); } catch {} resolve(); }, 120000);
+        });
       }
 
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve({ success: true });
-        } else {
-          resolve({ success: false, error: `npm install failed (code ${code}): ${stderr.slice(0, 200)}` });
-        }
-      });
-      child.on('error', (err) => {
-        resolve({ success: false, error: err.message });
-      });
+      // 5. Verify
+      if (fs.existsSync(binPath)) {
+        if (onProgress) onProgress('OpenClaw installed successfully!');
+        // Clear cached binary path
+        this.detectVersion();
+        return { success: true };
+      } else {
+        return { success: false, error: 'Installation completed but binary not found' };
+      }
 
-      // Timeout after 3 minutes
-      setTimeout(() => {
-        try { child.kill(); } catch { /* ignore */ }
-        resolve({ success: false, error: 'Installation timed out (3 minutes)' });
-      }, 180000);
-    });
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 }
 

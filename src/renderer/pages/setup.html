@@ -130,23 +130,16 @@
         <div id="s3-phase-a">
           <h3 style="margin-bottom:6px">🦞 OpenClaw Runtime</h3>
           <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
-            ASRP uses OpenClaw to manage your AI agents. Let's make sure it's installed.
+            Setting up the AI agent runtime. This is automatic.
           </p>
 
-          <div id="s3-openclaw-status" style="padding:16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:16px">
-            <div style="font-size:13px;color:var(--text-secondary)">🔄 Checking OpenClaw installation...</div>
-          </div>
-
-          <div id="s3-openclaw-install" style="display:none;padding:16px;border:1px solid var(--border-hover);border-radius:10px;background:var(--accent-light);margin-bottom:16px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:8px">❌ OpenClaw Not Found</div>
-            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
-              OpenClaw is required to run ASRP agents. Click the button below to install it (requires npm).
-            </p>
-            <button class="btn btn-primary btn-sm" onclick="s3InstallOpenClaw()" id="s3-install-btn">📦 Install OpenClaw</button>
-            <div style="font-size:11px;color:var(--text-tertiary);margin-top:8px">
-              Or manually install: <code style="background:white;padding:2px 6px;border-radius:4px">npm install -g openclaw</code>
+          <div id="s3-openclaw-status" style="padding:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:16px;text-align:center">
+            <div style="font-size:24px;margin-bottom:8px">🔄</div>
+            <div style="font-size:13px;color:var(--text-secondary)" id="s3-status-text">Checking OpenClaw...</div>
+            <div style="margin-top:12px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+              <div id="s3-progress-bar" style="height:100%;width:0%;background:var(--gradient);border-radius:2px;transition:width 0.4s"></div>
             </div>
-            <div id="s3-install-progress" style="display:none;margin-top:12px;font-size:12px;color:var(--accent)"></div>
+            <div id="s3-progress-detail" style="font-size:11px;color:var(--text-tertiary);margin-top:6px"></div>
           </div>
 
           <div class="alert" id="s3a-alert"></div>
@@ -728,72 +721,79 @@
   ];
 
   function swInitStep3() {
-    // Check OpenClaw installation
-    var statusDiv = document.getElementById('s3-openclaw-status');
-    var installDiv = document.getElementById('s3-openclaw-install');
+    var statusText = document.getElementById('s3-status-text');
+    var statusIcon = document.querySelector('#s3-openclaw-status > div:first-child');
+    var progressBar = document.getElementById('s3-progress-bar');
+    var progressDetail = document.getElementById('s3-progress-detail');
     var continueBtn = document.getElementById('s3-continue-to-init');
+    var statusDiv = document.getElementById('s3-openclaw-status');
 
-    if (window.asrp && window.asrp.gateway) {
-      window.asrp.gateway.status().then(function(res) {
-        if (res.installed) {
-          // OpenClaw found
-          if (statusDiv) {
-            statusDiv.innerHTML = '<div style="font-size:13px;color:var(--success)">✅ OpenClaw v' + (res.version || 'unknown') + ' found</div>';
-            statusDiv.style.borderColor = 'var(--success)';
-            statusDiv.style.background = 'rgba(74,140,106,0.08)';
-          }
-          if (continueBtn) continueBtn.disabled = false;
-        } else {
-          // Not found
-          if (statusDiv) statusDiv.style.display = 'none';
-          if (installDiv) installDiv.style.display = 'block';
-        }
-      }).catch(function() {
-        // Assume not installed
-        if (statusDiv) statusDiv.style.display = 'none';
-        if (installDiv) installDiv.style.display = 'block';
-      });
-    } else {
-      // IPC not available, show manual install
-      if (statusDiv) statusDiv.style.display = 'none';
-      if (installDiv) installDiv.style.display = 'block';
+    function setProgress(pct, text, detail) {
+      if (progressBar) progressBar.style.width = pct + '%';
+      if (statusText) statusText.textContent = text;
+      if (progressDetail) progressDetail.textContent = detail || '';
     }
+
+    function setDone(version) {
+      if (statusIcon) statusIcon.textContent = '✅';
+      if (statusDiv) { statusDiv.style.borderColor = 'var(--success)'; statusDiv.style.background = 'rgba(74,140,106,0.08)'; }
+      setProgress(100, 'OpenClaw ' + (version || '') + ' ready', '');
+      if (continueBtn) continueBtn.disabled = false;
+    }
+
+    function setError(msg) {
+      if (statusIcon) statusIcon.textContent = '❌';
+      if (statusDiv) { statusDiv.style.borderColor = 'var(--error)'; statusDiv.style.background = 'rgba(200,92,92,0.08)'; }
+      setProgress(0, 'Setup failed', msg);
+      if (progressDetail) { progressDetail.style.color = 'var(--error)'; progressDetail.textContent = msg; }
+      // Still allow continue (gateway can be set up later)
+      if (continueBtn) continueBtn.disabled = false;
+    }
+
+    if (!window.asrp || !window.asrp.gateway) {
+      setError('IPC not available');
+      return;
+    }
+
+    setProgress(10, 'Checking for OpenClaw...', '');
+
+    window.asrp.gateway.status().then(function(res) {
+      if (res.installed) {
+        // Already installed
+        setDone(res.version || '');
+      } else {
+        // Auto-install
+        setProgress(20, 'OpenClaw not found — installing automatically...', 'This may take 1–2 minutes');
+        window.asrp.gateway.install().then(function(installRes) {
+          if (installRes.success) {
+            setProgress(90, 'Verifying installation...', '');
+            // Re-check
+            window.asrp.gateway.status().then(function(res2) {
+              setDone(res2.version || 'installed');
+            }).catch(function() {
+              setDone('installed');
+            });
+          } else {
+            setError(installRes.error || 'Installation failed');
+          }
+        }).catch(function(err) {
+          setError(String(err));
+        });
+      }
+    }).catch(function(err) {
+      // Can't even check — try installing anyway
+      setProgress(20, 'Installing OpenClaw...', '');
+      window.asrp.gateway.install().then(function(installRes) {
+        if (installRes.success) {
+          setDone('installed');
+        } else {
+          setError(installRes.error || 'Installation failed');
+        }
+      }).catch(function(err2) {
+        setError(String(err2));
+      });
+    });
   }
-
-  window.s3InstallOpenClaw = function() {
-    var btn = document.getElementById('s3-install-btn');
-    var progress = document.getElementById('s3-install-progress');
-    if (btn) btn.disabled = true;
-    if (progress) {
-      progress.style.display = 'block';
-      progress.textContent = '📦 Installing OpenClaw... (this may take a minute)';
-    }
-
-    if (window.asrp && window.asrp.gateway) {
-      window.asrp.gateway.install().then(function(res) {
-        if (res.success) {
-          if (progress) {
-            progress.style.color = 'var(--success)';
-            progress.textContent = '✅ OpenClaw installed successfully!';
-          }
-          // Re-check status
-          setTimeout(function() { swInitStep3(); }, 1000);
-        } else {
-          if (progress) {
-            progress.style.color = 'var(--error)';
-            progress.textContent = '❌ Installation failed: ' + (res.error || 'Unknown error');
-          }
-          if (btn) btn.disabled = false;
-        }
-      }).catch(function(err) {
-        if (progress) {
-          progress.style.color = 'var(--error)';
-          progress.textContent = '❌ Error: ' + String(err);
-        }
-        if (btn) btn.disabled = false;
-      });
-    }
-  };
 
   window.s3StartAgentInit = function() {
     document.getElementById('s3-phase-a').style.display = 'none';
