@@ -189,12 +189,11 @@ class AppAutoUpdater extends EventEmitter {
       this.checkForUpdates().catch(() => { /* ignore periodic check errors */ });
     }, CHECK_INTERVAL_MS);
 
-    // Install on quit if update ready
+    // Clean up on quit
     app.on('before-quit', () => {
       if (this.periodicTimer) clearInterval(this.periodicTimer);
-      if (this.status.ready && this.lib) {
-        this.lib.quitAndInstall(false, true);
-      }
+      // autoInstallOnAppQuit=true handles installation automatically
+      // No need to call quitAndInstall here (it would cause double-call)
     });
   }
 
@@ -234,24 +233,35 @@ class AppAutoUpdater extends EventEmitter {
     }
     console.log('[AutoUpdater] Calling quitAndInstall...');
 
-    // Set isQuitting BEFORE quit so window close handler doesn't block
+    // CRITICAL: Set isQuitting so window close handler doesn't preventDefault()
     this.emit('before-quit-for-update');
 
-    // autoInstallOnAppQuit is already true — the update will install when app exits.
-    // We try quitAndInstall first (works for zip-based updates),
-    // then fall back to app.exit() which triggers autoInstallOnAppQuit.
+    // On macOS, quitAndInstall with isSilent=true works more reliably:
+    // it extracts the zip, replaces the .app bundle, and relaunches.
+    // isSilent=true: don't open DMG/installer UI
+    // isForceRunAfter=true: relaunch after install
+    //
+    // The 500ms delay ensures the IPC response reaches the renderer.
     setTimeout(() => {
       try {
-        this.lib.quitAndInstall(false, true);
-      } catch (err) {
-        console.error('[AutoUpdater] quitAndInstall threw:', err);
-      }
+        // Close all windows first to ensure clean quit
+        const { BrowserWindow: BW } = require('electron') as typeof import('electron');
+        for (const win of BW.getAllWindows()) {
+          win.removeAllListeners('close');
+          win.close();
+        }
+      } catch { /* ignore */ }
 
-      // If still alive after 2s, force exit (autoInstallOnAppQuit handles the rest)
       setTimeout(() => {
-        console.log('[AutoUpdater] Force exiting for update install...');
-        app.exit(0);
-      }, 2000);
+        try {
+          console.log('[AutoUpdater] Executing quitAndInstall(true, true)...');
+          this.lib.quitAndInstall(true, true);
+        } catch (err) {
+          console.error('[AutoUpdater] quitAndInstall failed:', err);
+          // Last resort: use app.quit() which triggers autoInstallOnAppQuit
+          app.quit();
+        }
+      }, 300);
     }, 500);
   }
 
