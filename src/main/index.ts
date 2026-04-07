@@ -365,10 +365,25 @@ app.whenReady().then(() => {
     createAppMenu();
   });
 
-  // When auto-updater is about to quit for install, set isQuitting
-  // so the window close handler doesn't block with e.preventDefault()
+  // When auto-updater is about to quit for install, perform full cleanup
+  // so nothing blocks the quit: timers, child processes, shortcuts.
   autoUpdater.on('before-quit-for-update', () => {
+    console.log('[ASRP] before-quit-for-update: cleaning up...');
     isQuitting = true;
+
+    // Clear polling timer so it doesn't hold the event loop
+    if (statusPollInterval) {
+      clearInterval(statusPollInterval);
+      statusPollInterval = null;
+    }
+
+    // Stop all OpenClaw gateway child processes
+    openclawManager.stopAll();
+
+    // Unregister global shortcuts
+    globalShortcut.unregisterAll();
+
+    console.log('[ASRP] Cleanup complete, ready for quit');
   });
 
   // T-027: Agent status polling every 30s

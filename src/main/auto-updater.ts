@@ -188,10 +188,16 @@ class AppAutoUpdater extends EventEmitter {
   }
 
   /**
-   * Install downloaded update. The ONLY reliable approach on macOS:
-   * 1. Set isQuitting flag (so window close handlers don't block)
-   * 2. Call quitAndInstall which internally does app.quit() + install
-   * 3. If still alive after 3s, force process.exit()
+   * Install downloaded update.
+   *
+   * Key insight: Do NOT destroy windows or force-kill the process before
+   * quitAndInstall(). electron-updater needs the normal app lifecycle
+   * (before-quit → will-quit → quit) to complete the update installation.
+   *
+   * Flow:
+   * 1. Emit signal so window close handlers don't minimize-to-tray
+   * 2. Call quitAndInstall() — it handles install + quit + relaunch
+   * 3. Fallback: if still alive after 10s, use app.exit() (last resort)
    */
   installUpdate(): void {
     if (!this.lib || !this.status.ready) {
@@ -200,39 +206,40 @@ class AppAutoUpdater extends EventEmitter {
     }
 
     console.log('[Updater] === INSTALLING UPDATE ===');
+    console.log('[Updater] Version:', this.status.version);
+    console.log('[Updater] Platform:', process.platform);
 
-    // Step 1: Signal that we're quitting (prevents minimize-to-tray)
+    // Step 1: Signal that we're quitting for update.
+    // This sets isQuitting=true, clears timers, stops child processes,
+    // so the quit won't be blocked.
     this.emit('before-quit-for-update');
 
-    // Step 2: Destroy all windows (not just close — DESTROY)
-    try {
-      for (const win of BrowserWindow.getAllWindows()) {
-        win.removeAllListeners('close');
-        win.destroy(); // destroy() is immediate, unlike close()
-      }
-    } catch (e) {
-      console.error('[Updater] Error destroying windows:', e);
-    }
-
-    // Step 3: Call quitAndInstall
-    // On macOS: extracts zip, replaces .app bundle, relaunches
-    // On Windows: runs NSIS installer after quit
-    // On Linux: replaces AppImage
-    console.log('[Updater] Calling quitAndInstall...');
+    // Step 2: Call quitAndInstall — electron-updater handles everything:
+    //   macOS:   extracts zip → replaces .app → relaunches
+    //   Windows: queues NSIS installer → quits → installer runs
+    //   Linux:   replaces AppImage → relaunches
+    //
+    // Do NOT manually destroy windows — quitAndInstall triggers app.quit()
+    // which closes windows through the normal lifecycle.
+    console.log('[Updater] Calling quitAndInstall(isSilent=false, isForceRunAfter=true)...');
     try {
       this.lib.quitAndInstall(false, true);
     } catch (err) {
       console.error('[Updater] quitAndInstall threw:', err);
+      // If quitAndInstall fails, try a direct app.quit() — autoInstallOnAppQuit
+      // should still handle the installation during quit.
+      console.log('[Updater] Falling back to app.quit()...');
+      app.quit();
     }
 
-    // Step 4: Nuclear fallback — if still alive after 3s, force exit
-    // process.exit() is the absolute last resort. It bypasses ALL
-    // event handlers and guarantees the process terminates.
-    // autoInstallOnAppQuit should have already queued the install.
+    // Step 3: Fallback — if the process is STILL alive after 10s, something
+    // is holding the event loop open. Use app.exit() as last resort.
+    // By this point, quitAndInstall should have already completed the
+    // platform-specific install, so the update files are in place.
     setTimeout(() => {
-      console.log('[Updater] Still alive after 3s — force exiting');
-      process.exit(0);
-    }, 3000);
+      console.log('[Updater] Still alive after 10s — force exiting via app.exit(0)');
+      app.exit(0);
+    }, 10000).unref(); // unref so this timer doesn't block the quit itself
   }
 
   getStatus(): UpdaterStatus { return { ...this.status }; }

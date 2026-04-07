@@ -179,7 +179,7 @@ export function registerUpdaterHandlers(): void {
 
   ipcMain.handle('updater:check', async () => {
     try {
-      await autoUpdater.checkForUpdates();
+      await autoUpdater.checkForUpdatesManual();
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: String(err) };

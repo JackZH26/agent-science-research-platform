@@ -283,13 +283,35 @@ class OpenClawManager extends EventEmitter {
   }
 
   /**
-   * Stop a single agent
+   * Stop a single agent. Properly cleans up the child process so it doesn't
+   * hold event loop references that prevent app.quit() from completing.
    */
   stopAgent(name: string): void {
     const inst = this.instances.get(name);
     if (!inst) return;
     if (inst.process) {
-      try { inst.process.kill('SIGTERM'); } catch { /* already dead */ }
+      const proc = inst.process;
+
+      // Remove all listeners to prevent restart-on-close logic
+      proc.removeAllListeners('close');
+      proc.removeAllListeners('error');
+
+      // Destroy stdio streams to release event loop references
+      try { proc.stdout?.destroy(); } catch { /* ignore */ }
+      try { proc.stderr?.destroy(); } catch { /* ignore */ }
+      try { proc.stdin?.destroy(); } catch { /* ignore */ }
+
+      // Send SIGTERM, then SIGKILL after 2s if still alive
+      try { proc.kill('SIGTERM'); } catch { /* already dead */ }
+      setTimeout(() => {
+        try {
+          if (!proc.killed) proc.kill('SIGKILL');
+        } catch { /* already dead */ }
+      }, 2000).unref();
+
+      // Unref so this child process doesn't prevent app.quit()
+      try { proc.unref(); } catch { /* ignore */ }
+
       inst.process = null;
     }
     inst.running = false;
