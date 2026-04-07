@@ -118,42 +118,24 @@ export function registerOpenClawHandlers(): void {
   });
 
   // Issue #13: Validate agentName to prevent path traversal
-  // Issue #8: Read user-modified SOUL from userData/agents/ first, then fallback to packaged resources
+  // Reads SOUL.md from the agent's workspace directory (where OpenClaw reads it)
+  // Resolves displayName (e.g. "ASRP-Albert") to internal agentId (e.g. "Albert")
   ipcMain.handle('agents:get-soul', async (_event, agentName: string) => {
     if (!isValidAgentName(agentName)) {
       return { success: false, error: 'Invalid agent name' };
     }
-    const userDataPath = app.getPath('userData');
-    const userSoulPath = path.join(userDataPath, 'agents', `${agentName.toLowerCase()}-soul.md`);
-    try {
-      if (fs.existsSync(userSoulPath)) {
-        return { success: true, content: fs.readFileSync(userSoulPath, 'utf-8') };
-      }
-    } catch { /* fall through */ }
-    try {
-      const soulPath = path.join(RESOURCES_PATH, 'agents', `${agentName.toLowerCase()}-soul.md`);
-      if (fs.existsSync(soulPath)) {
-        return { success: true, content: fs.readFileSync(soulPath, 'utf-8') };
-      }
-    } catch { /* fall through */ }
-    return { success: true, content: openclawBridge.getAgentSoul(agentName) };
+    // Use the bridge's SOUL loader which resolves names and checks workspace paths
+    const content = openclawBridge.getAgentSoul(agentName);
+    return { success: true, content };
   });
 
-  // Issue #8: Write to userData/agents/ (writable location), not resources/ (read-only in packaged ASAR)
+  // Save SOUL to the agent's workspace directory (where OpenClaw reads it)
   // Issue #13: Validate agentName to prevent path traversal
   ipcMain.handle('agents:save-soul', async (_event, agentName: string, content: string) => {
     if (!isValidAgentName(agentName)) {
       return { success: false, error: 'Invalid agent name' };
     }
-    try {
-      const userDataPath = app.getPath('userData');
-      const soulPath = path.join(userDataPath, 'agents', `${agentName.toLowerCase()}-soul.md`);
-      fs.mkdirSync(path.dirname(soulPath), { recursive: true });
-      fs.writeFileSync(soulPath, content, 'utf-8');
-      return { success: true };
-    } catch (err: unknown) {
-      return { success: false, error: String(err) };
-    }
+    return openclawBridge.saveAgentSoul(agentName, content);
   });
 
   // Issue #H1: Mutating agent actions require auth

@@ -1,6 +1,7 @@
 import { ipcMain, app, shell, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { autoUpdater } from './auto-updater';
 import { runSelfTest } from './self-test';
 import * as safeKeyStore from './safe-key-store';
@@ -64,6 +65,64 @@ export function registerSystemHandlers(): void {
       uptime: process.uptime(),
     };
   });
+}
+
+// ============================================================
+// Workspace sync — propagates workspace changes to agent configs
+// ============================================================
+
+/**
+ * When the user changes workspace in settings, update every agent's
+ * openclaw.json to point to the new workspace, and copy SOUL.md files.
+ */
+function syncAgentWorkspaces(
+  settings: Record<string, unknown>,
+  newWorkspace: string,
+  oldWorkspace: string,
+): void {
+  const configs = settings.agentConfigs as Array<{ agentId?: string; name?: string }> | undefined;
+  if (!Array.isArray(configs)) return;
+
+  for (const cfg of configs) {
+    const agentId = (cfg as Record<string, string>).agentId;
+    if (!agentId) continue;
+
+    const safeName = agentId.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const profileDir = path.join(os.homedir(), `.openclaw-asrp-${safeName}`);
+    const configPath = path.join(profileDir, 'openclaw.json');
+
+    // Agent subdirectory name (matches what openclaw-config-generator uses)
+    const agentDirName = `agent-${agentId.toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+    const newAgentWs = path.join(newWorkspace, agentDirName);
+    const oldAgentWs = oldWorkspace ? path.join(oldWorkspace, agentDirName) : '';
+
+    try {
+      // 1. Create new agent workspace directory
+      fs.mkdirSync(newAgentWs, { recursive: true });
+
+      // 2. Copy SOUL.md from old to new if it exists and new doesn't have one
+      if (oldAgentWs) {
+        const oldSoul = path.join(oldAgentWs, 'SOUL.md');
+        const newSoul = path.join(newAgentWs, 'SOUL.md');
+        if (fs.existsSync(oldSoul) && !fs.existsSync(newSoul)) {
+          fs.copyFileSync(oldSoul, newSoul);
+          console.log(`[Workspace] Copied SOUL.md for ${agentId}: ${oldSoul} → ${newSoul}`);
+        }
+      }
+
+      // 3. Update openclaw.json workspace path
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        if (config.agents && config.agents.defaults) {
+          config.agents.defaults.workspace = newAgentWs;
+          fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
+          console.log(`[Workspace] Updated ${agentId} config: workspace → ${newAgentWs}`);
+        }
+      }
+    } catch (err) {
+      console.error(`[Workspace] Failed to sync ${agentId}:`, err);
+    }
+  }
 }
 
 // ============================================================
@@ -149,6 +208,16 @@ export function registerSettingsHandlers(): void {
         }
       }
       const current = loadSettings();
+
+      // ── Workspace change: sync to all agent openclaw.json configs ──
+      if (typeof filteredUpdates.workspace === 'string') {
+        const newWs = path.resolve(filteredUpdates.workspace as string);
+        const oldWs = current.workspace ? path.resolve(current.workspace as string) : '';
+        if (newWs !== oldWs) {
+          syncAgentWorkspaces(current, newWs, oldWs);
+        }
+      }
+
       const updated = { ...current, ...filteredUpdates };
       fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
       fs.writeFileSync(settingsPath, JSON.stringify(updated, null, 2), 'utf-8');

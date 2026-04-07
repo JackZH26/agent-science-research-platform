@@ -52,6 +52,9 @@ class OpenClawManager extends EventEmitter {
   private healthTimer: ReturnType<typeof setInterval> | null = null;
   private version: string | null = null;
   private stopping = false;
+  // Per-agent circular log buffer (max 200 lines per agent)
+  private logBuffers: Map<string, string[]> = new Map();
+  private static readonly MAX_LOG_LINES = 200;
 
   // ---- Binary detection ----
 
@@ -156,7 +159,20 @@ class OpenClawManager extends EventEmitter {
     const bin = this.findBinary();
     if (!bin) return null;
     try {
-      const result = execSync(`"${bin}" --version`, { timeout: 5000, stdio: 'pipe' }).toString().trim();
+      // For .mjs/.js files, we need to run with node explicitly
+      const isMjs = bin.endsWith('.mjs') || bin.endsWith('.js');
+      let cmd: string;
+      if (isMjs) {
+        const nodeBin = this.findNode();
+        if (!nodeBin) return null;
+        cmd = `"${nodeBin}" "${bin}" --version`;
+      } else {
+        cmd = `"${bin}" --version`;
+      }
+      const result = execSync(cmd, {
+        timeout: 10000, stdio: 'pipe',
+        env: { ...process.env, PATH: this.getExtendedPath() },
+      }).toString().trim();
       this.version = result;
       return result;
     } catch { return null; }
@@ -216,6 +232,20 @@ class OpenClawManager extends EventEmitter {
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
       const configs = settings.agentConfigs as Array<{ agentId?: string; discordBotName?: string; role?: string }> | undefined;
       if (!Array.isArray(configs)) return;
+
+      // Migration: ensure every agent config has a role field
+      let needsSave = false;
+      for (const cfg of configs) {
+        if (cfg && cfg.agentId && !cfg.role) {
+          cfg.role = 'Assistant';
+          needsSave = true;
+        }
+      }
+      if (needsSave) {
+        try { fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8'); }
+        catch { /* ignore write errors */ }
+      }
+
       configs.forEach((cfg, idx) => {
         if (cfg && cfg.agentId) {
           this.registerAgent(cfg.agentId, cfg.role || 'Assistant', idx, cfg.discordBotName);
@@ -331,19 +361,26 @@ class OpenClawManager extends EventEmitter {
       inst.pid = inst.process.pid ?? null;
       console.log(`[OpenClaw] ${name} spawned with PID ${inst.pid}`);
 
+      // Initialize log buffer for this agent
+      if (!this.logBuffers.has(name)) this.logBuffers.set(name, []);
+
       if (inst.process.stdout) {
         inst.process.stdout.on('data', (data: Buffer) => {
           const msg = data.toString().trim();
+          if (!msg) return;
           console.log(`[OpenClaw:${name}:stdout] ${msg}`);
+          this._appendLog(name, msg);
           this.emit('log', { agent: name, level: 'info', message: msg });
         });
       }
       if (inst.process.stderr) {
         inst.process.stderr.on('data', (data: Buffer) => {
           const msg = data.toString().trim();
+          if (!msg) return;
           console.error(`[OpenClaw:${name}:stderr] ${msg}`);
           // Capture early stderr for error diagnosis
           if (earlyStderr.length < 2000) earlyStderr += msg + '\n';
+          this._appendLog(name, msg);
           this.emit('log', { agent: name, level: 'error', message: msg });
         });
       }
@@ -503,6 +540,51 @@ class OpenClawManager extends EventEmitter {
 
   getAgentInstance(name: string): AgentInstance | undefined {
     return this.instances.get(name);
+  }
+
+  // ---- Log buffer ----
+
+  private _appendLog(agentName: string, message: string): void {
+    const buf = this.logBuffers.get(agentName) || [];
+    // Split multi-line messages and add timestamp
+    const ts = new Date().toISOString().slice(11, 19); // HH:MM:SS
+    for (const line of message.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      buf.push(`[${ts}] ${trimmed}`);
+    }
+    // Trim to max
+    while (buf.length > OpenClawManager.MAX_LOG_LINES) buf.shift();
+    this.logBuffers.set(agentName, buf);
+  }
+
+  /**
+   * Get captured logs for an agent. Accepts either internal name or displayName.
+   */
+  getAgentLogs(nameOrDisplay: string): string[] {
+    // Try direct match first
+    if (this.logBuffers.has(nameOrDisplay)) {
+      return [...(this.logBuffers.get(nameOrDisplay) || [])];
+    }
+    // Try matching by displayName
+    for (const [name, inst] of this.instances) {
+      if (inst.displayName === nameOrDisplay) {
+        return [...(this.logBuffers.get(name) || [])];
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Resolve a displayName (e.g. "ASRP-Albert") to the internal agentId (e.g. "Albert").
+   * Returns the input if no match found.
+   */
+  resolveAgentName(nameOrDisplay: string): string {
+    if (this.instances.has(nameOrDisplay)) return nameOrDisplay;
+    for (const [name, inst] of this.instances) {
+      if (inst.displayName === nameOrDisplay) return name;
+    }
+    return nameOrDisplay;
   }
 
   // ---- HTTP helpers ----

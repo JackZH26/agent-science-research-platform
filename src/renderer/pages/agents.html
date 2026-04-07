@@ -291,32 +291,36 @@
 
           <!-- T-040: Expandable details -->
           <div class="agent-detail-section ${isExpanded ? 'open' : ''}" id="detail-${safeName}">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-              <!-- Left: token breakdown + uptime -->
+            <!-- Stats row: 3 columns -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:14px">
               <div>
                 <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">TOKEN USAGE</div>
                 ${a.tokenUsage ? `
-                  <div class="health-item"><span class="icon">📥</span> Input: ${escHtml((a.tokenUsage.input/1000).toFixed(1))}K tokens</div>
-                  <div class="health-item"><span class="icon">📤</span> Output: ${escHtml((a.tokenUsage.output/1000).toFixed(1))}K tokens</div>
-                  <div class="health-item"><span class="icon">💰</span> Cost today: $${escHtml(a.tokenUsage.cost.toFixed(2))}</div>
-                ` : '<div class="health-item">No data</div>'}
-                <div style="margin-top:12px">
-                  <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">UPTIME</div>
-                  <div class="health-item"><span class="icon">⏱️</span> ${escHtml(uptimeStr(a.uptime))}</div>
-                </div>
-                <div style="margin-top:12px">
-                  <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">OPENCLAW</div>
-                  <div class="health-item"><span class="icon">📦</span> ${a.openclawVersion ? escHtml(a.openclawVersion) : 'Not detected'}</div>
-                </div>
+                  <div class="health-item"><span class="icon">📥</span> Input: ${escHtml((a.tokenUsage.input/1000).toFixed(1))}K</div>
+                  <div class="health-item"><span class="icon">📤</span> Output: ${escHtml((a.tokenUsage.output/1000).toFixed(1))}K</div>
+                  <div class="health-item"><span class="icon">💰</span> $${escHtml(a.tokenUsage.cost.toFixed(2))}</div>
+                ` : '<div class="health-item" style="color:var(--text-tertiary)">No usage data yet</div>'}
               </div>
-              <!-- Right: log viewer (T-045) -->
               <div>
-                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">RECENT LOGS</div>
-                <div class="agent-log-viewer" id="log-${safeName}">
-                  ${(a.recentLogs || []).map(line => formatLogLine(line)).join('')}
-                  ${(!a.recentLogs || a.recentLogs.length === 0) ? '<span class="log-line info">No logs available.</span>' : ''}
-                </div>
-                <button class="btn btn-ghost btn-sm mt-1" onclick="refreshLogs('${jsName}')">↻ Refresh logs</button>
+                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">UPTIME</div>
+                <div class="health-item"><span class="icon">⏱️</span> ${escHtml(uptimeStr(a.uptime))}</div>
+                <div class="health-item"><span class="icon">📡</span> Port ${escHtml(String(a.port || '—'))}</div>
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">OPENCLAW</div>
+                <div class="health-item"><span class="icon">📦</span> ${a.openclawVersion ? escHtml(a.openclawVersion) : '<span style="color:var(--text-tertiary)">Detecting...</span>'}</div>
+                <div class="health-item"><span class="icon">🧠</span> ${escHtml(shortModel(a.model) || '—')}</div>
+              </div>
+            </div>
+            <!-- Full-width log viewer at bottom -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <div style="font-size:12px;font-weight:600;color:var(--text-secondary)">LOGS</div>
+                <button class="btn btn-ghost btn-sm" onclick="refreshLogs('${jsName}')" style="font-size:11px;padding:2px 8px">↻ Refresh</button>
+              </div>
+              <div class="agent-log-viewer" id="log-${safeName}" style="max-height:220px">
+                ${(a.recentLogs || []).map(line => formatLogLine(line)).join('')}
+                ${(!a.recentLogs || a.recentLogs.length === 0) ? '<span class="log-line info">No logs yet — logs appear when agents are running.</span>' : ''}
               </div>
             </div>
           </div>
