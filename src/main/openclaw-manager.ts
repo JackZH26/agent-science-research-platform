@@ -53,6 +53,71 @@ class OpenClawManager extends EventEmitter {
 
   // ---- Binary detection ----
 
+  /**
+   * Build a comprehensive PATH that includes common Node.js install locations.
+   * macOS GUI apps have minimal PATH, so we must add brew, nvm, etc.
+   */
+  private getExtendedPath(): string {
+    const extra: string[] = [
+      '/usr/local/bin',
+      '/opt/homebrew/bin',
+      '/usr/bin',
+      '/bin',
+    ];
+    // Add nvm current version bin dir
+    const nvmDir = process.env.NVM_DIR || path.join(os.homedir(), '.nvm');
+    try {
+      const nodeVersions = path.join(nvmDir, 'versions', 'node');
+      if (fs.existsSync(nodeVersions)) {
+        // Find the latest installed node version
+        const versions = fs.readdirSync(nodeVersions)
+          .filter(v => v.startsWith('v'))
+          .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+        if (versions.length > 0) {
+          extra.push(path.join(nodeVersions, versions[0], 'bin'));
+        }
+      }
+    } catch { /* ignore */ }
+    return extra.join(':') + ':' + (process.env.PATH || '');
+  }
+
+  /**
+   * Find a working `node` executable. Needed to run openclaw.mjs reliably
+   * (shebang resolution is unreliable in packaged GUI apps on macOS).
+   */
+  private findNode(): string | null {
+    // 1. nvm-installed node (most common for developers)
+    const nvmDir = process.env.NVM_DIR || path.join(os.homedir(), '.nvm');
+    try {
+      const nodeVersions = path.join(nvmDir, 'versions', 'node');
+      if (fs.existsSync(nodeVersions)) {
+        const versions = fs.readdirSync(nodeVersions)
+          .filter(v => v.startsWith('v'))
+          .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+        for (const ver of versions) {
+          const nodeBin = path.join(nodeVersions, ver, 'bin', 'node');
+          if (fs.existsSync(nodeBin)) return nodeBin;
+        }
+      }
+    } catch { /* ignore */ }
+
+    // 2. Common system paths
+    for (const p of ['/opt/homebrew/bin/node', '/usr/local/bin/node', '/usr/bin/node']) {
+      if (fs.existsSync(p)) return p;
+    }
+
+    // 3. which node (with extended PATH)
+    try {
+      const result = execSync('which node', {
+        timeout: 3000, stdio: 'pipe',
+        env: { ...process.env, PATH: this.getExtendedPath() },
+      }).toString().trim();
+      if (result) return result;
+    } catch { /* not found */ }
+
+    return null;
+  }
+
   findBinary(): string | null {
     // 1. Bundled in app resources (extraResources)
     const resourceBin = app.isPackaged
@@ -70,9 +135,11 @@ class OpenClawManager extends EventEmitter {
 
     // 4. System PATH (with extended PATH for macOS GUI apps)
     try {
-      const envPath = '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:' + (process.env.PATH || '');
       const cmd = process.platform === 'win32' ? 'where openclaw' : 'which openclaw';
-      const result = execSync(cmd, { timeout: 5000, stdio: 'pipe', env: { ...process.env, PATH: envPath } }).toString().trim();
+      const result = execSync(cmd, {
+        timeout: 5000, stdio: 'pipe',
+        env: { ...process.env, PATH: this.getExtendedPath() },
+      }).toString().trim();
       if (result) return result.split('\n')[0];
     } catch { /* not found */ }
 
@@ -106,6 +173,33 @@ class OpenClawManager extends EventEmitter {
 
   getPortForAgent(index: number): number {
     return BASE_PORT + index;
+  }
+
+  /**
+   * Kill any stale process listening on the given port.
+   * This prevents port conflicts when restarting after a crash or unclean exit.
+   */
+  private killProcessOnPort(port: number): void {
+    try {
+      // lsof finds the PID of whatever is listening on this port
+      const cmd = process.platform === 'win32'
+        ? `netstat -ano | findstr :${port}`
+        : `lsof -ti TCP:${port} -sTCP:LISTEN`;
+      const output = execSync(cmd, { timeout: 3000, stdio: 'pipe' }).toString().trim();
+      if (output) {
+        const pids = output.split('\n').map(s => parseInt(s.trim(), 10)).filter(n => n > 0);
+        for (const pid of pids) {
+          // Don't kill ourselves
+          if (pid === process.pid) continue;
+          console.log(`[OpenClaw] Killing stale process ${pid} on port ${port}`);
+          try { process.kill(pid, 'SIGTERM'); } catch { /* already dead */ }
+        }
+        // Brief wait for process to die
+        if (pids.length > 0) {
+          try { execSync('sleep 1', { timeout: 2000, stdio: 'ignore' }); } catch { /* ignore */ }
+        }
+      }
+    } catch { /* no process on this port — good */ }
   }
 
   // ---- Instance lifecycle ----
@@ -151,7 +245,10 @@ class OpenClawManager extends EventEmitter {
   }
 
   /**
-   * Start a single agent's gateway
+   * Start a single agent's gateway.
+   *
+   * Uses explicit `node` to run openclaw.mjs instead of relying on shebang,
+   * because macOS GUI apps have minimal PATH and shebang resolution is unreliable.
    */
   async startAgent(name: string): Promise<{ success: boolean; error?: string }> {
     const inst = this.instances.get(name);
@@ -166,7 +263,28 @@ class OpenClawManager extends EventEmitter {
       return { success: false, error: `Config not found for ${name}` };
     }
 
+    // For .mjs files, we need an explicit node binary (shebang is unreliable in GUI apps)
+    let nodeBin: string | null = null;
+    const isMjs = bin.endsWith('.mjs') || bin.endsWith('.js');
+    if (isMjs) {
+      nodeBin = this.findNode();
+      if (!nodeBin) {
+        const errMsg = 'Cannot find Node.js to run OpenClaw. Install Node.js >= 20 or add it to PATH.';
+        console.error(`[OpenClaw] ${errMsg}`);
+        inst.lastError = errMsg;
+        return { success: false, error: errMsg };
+      }
+      console.log(`[OpenClaw] Using node: ${nodeBin}`);
+    }
+
+    console.log(`[OpenClaw] Starting ${name}: bin=${bin}, port=${inst.port}`);
     inst.lastError = null;
+
+    // Kill any stale process on this port from a previous unclean exit
+    this.killProcessOnPort(inst.port);
+
+    // Collect early stderr output for error diagnosis
+    let earlyStderr = '';
 
     try {
       // Load .env file from profile dir to inject Discord token + API keys
@@ -191,14 +309,16 @@ class OpenClawManager extends EventEmitter {
         ...envFromFile,
         OPENCLAW_STATE_DIR: inst.profileDir,
         OPENCLAW_CONFIG_PATH: configPath,
-        PATH: '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:' + (process.env.PATH || ''),
+        PATH: this.getExtendedPath(),
       };
 
-      inst.process = spawn(bin, [
-        '--profile', inst.profileName,
-        'gateway',
-        '--port', String(inst.port),
-      ], {
+      // Build spawn command: use explicit node for .mjs files
+      const spawnCmd = isMjs && nodeBin ? nodeBin : bin;
+      const spawnArgs = isMjs && nodeBin
+        ? [bin, '--profile', inst.profileName, 'gateway', '--port', String(inst.port)]
+        : ['--profile', inst.profileName, 'gateway', '--port', String(inst.port)];
+
+      inst.process = spawn(spawnCmd, spawnArgs, {
         detached: false,
         stdio: ['ignore', 'pipe', 'pipe'],
         env,
@@ -206,19 +326,27 @@ class OpenClawManager extends EventEmitter {
 
       inst.startTime = Date.now();
       inst.pid = inst.process.pid ?? null;
+      console.log(`[OpenClaw] ${name} spawned with PID ${inst.pid}`);
 
       if (inst.process.stdout) {
         inst.process.stdout.on('data', (data: Buffer) => {
-          this.emit('log', { agent: name, level: 'info', message: data.toString().trim() });
+          const msg = data.toString().trim();
+          console.log(`[OpenClaw:${name}:stdout] ${msg}`);
+          this.emit('log', { agent: name, level: 'info', message: msg });
         });
       }
       if (inst.process.stderr) {
         inst.process.stderr.on('data', (data: Buffer) => {
-          this.emit('log', { agent: name, level: 'error', message: data.toString().trim() });
+          const msg = data.toString().trim();
+          console.error(`[OpenClaw:${name}:stderr] ${msg}`);
+          // Capture early stderr for error diagnosis
+          if (earlyStderr.length < 2000) earlyStderr += msg + '\n';
+          this.emit('log', { agent: name, level: 'error', message: msg });
         });
       }
 
       inst.process.on('close', (code) => {
+        console.log(`[OpenClaw] ${name} exited with code ${code}`);
         inst.running = false;
         inst.process = null;
         inst.pid = null;
@@ -234,24 +362,32 @@ class OpenClawManager extends EventEmitter {
       });
 
       inst.process.on('error', (err) => {
+        console.error(`[OpenClaw] ${name} spawn error:`, err.message);
         inst.running = false;
         inst.lastError = err.message;
       });
 
-      // Wait for health
-      const healthy = await this.waitForHealth(inst.port, 15000);
+      // Wait for health (increased to 20s — first start can be slow)
+      const healthy = await this.waitForHealth(inst.port, 20000);
       if (healthy) {
         inst.running = true;
         inst.restartCount = 0;
+        console.log(`[OpenClaw] ${name} is healthy on port ${inst.port}`);
         this.emit('agent-started', { name, port: inst.port });
         return { success: true };
       } else {
-        inst.lastError = `Gateway did not become healthy within 15s`;
+        // Include early stderr in error message for diagnosis
+        const detail = earlyStderr.trim()
+          ? `\nProcess output:\n${earlyStderr.trim().slice(0, 500)}`
+          : '';
+        inst.lastError = `Gateway did not become healthy within 20s` + detail;
+        console.error(`[OpenClaw] ${name} failed health check. stderr: ${earlyStderr.trim().slice(0, 500)}`);
         this.stopAgent(name);
         return { success: false, error: inst.lastError };
       }
     } catch (err) {
       inst.lastError = err instanceof Error ? err.message : String(err);
+      console.error(`[OpenClaw] ${name} start exception:`, inst.lastError);
       return { success: false, error: inst.lastError };
     }
   }
@@ -503,52 +639,105 @@ class OpenClawManager extends EventEmitter {
       if (onProgress) onProgress('Installing dependencies...');
       const pkgDir = path.join(installDir, 'package');
 
-      // Find npm binary - check common locations
+      // Find npm binary — scan nvm versions, brew, system
       let npmBin = '';
-      const npmPaths = [
+      const npmCandidates: string[] = [
         '/usr/local/bin/npm',
         '/opt/homebrew/bin/npm',
-        path.join(os.homedir(), '.nvm/versions/node', 'npm'), // nvm
-        'npm', // PATH fallback
       ];
-      for (const p of npmPaths) {
+
+      // Add nvm npm paths (scan all installed node versions, newest first)
+      const nvmDir = process.env.NVM_DIR || path.join(os.homedir(), '.nvm');
+      try {
+        const nodeVersionsDir = path.join(nvmDir, 'versions', 'node');
+        if (fs.existsSync(nodeVersionsDir)) {
+          const versions = fs.readdirSync(nodeVersionsDir)
+            .filter(v => v.startsWith('v'))
+            .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+          for (const ver of versions) {
+            npmCandidates.push(path.join(nodeVersionsDir, ver, 'bin', 'npm'));
+          }
+        }
+      } catch { /* ignore */ }
+
+      npmCandidates.push('npm'); // PATH fallback (last resort)
+
+      for (const p of npmCandidates) {
         try {
-          execSync(`"${p}" --version`, { timeout: 3000, stdio: 'pipe' });
+          execSync(`"${p}" --version`, { timeout: 5000, stdio: 'pipe' });
           npmBin = p;
+          console.log(`[OpenClaw] Found npm: ${p}`);
           break;
         } catch { /* try next */ }
       }
 
       if (npmBin) {
-        await new Promise<void>((resolve) => {
-          const npmInstall = spawn(npmBin, ['install', '--production', '--no-optional'], {
+        const extendedPath = this.getExtendedPath();
+        let npmStderr = '';
+        const npmExitCode = await new Promise<number>((resolve) => {
+          const npmInstall = spawn(npmBin, ['install', '--omit=dev'], {
             cwd: pkgDir,
-            stdio: 'pipe',
+            stdio: ['ignore', 'pipe', 'pipe'],
             shell: true,
-            env: { ...process.env, PATH: '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:' + (process.env.PATH || '') },
+            env: { ...process.env, PATH: extendedPath },
           });
-          npmInstall.on('close', () => resolve());
-          npmInstall.on('error', () => resolve()); // non-fatal
-          setTimeout(() => { try { npmInstall.kill(); } catch {} resolve(); }, 120000);
+          npmInstall.stderr?.on('data', (d: Buffer) => { npmStderr += d.toString(); });
+          npmInstall.on('close', (code) => resolve(code ?? 1));
+          npmInstall.on('error', (err) => {
+            console.error('[OpenClaw] npm install error:', err.message);
+            resolve(1);
+          });
+          // Timeout after 3 minutes
+          setTimeout(() => { try { npmInstall.kill(); } catch {} resolve(1); }, 180000);
         });
+
+        if (npmExitCode !== 0) {
+          console.warn(`[OpenClaw] npm install exited with code ${npmExitCode}`);
+          if (npmStderr) console.warn(`[OpenClaw] npm stderr: ${npmStderr.slice(0, 500)}`);
+        } else {
+          console.log('[OpenClaw] npm install completed successfully');
+        }
+      } else {
+        console.warn('[OpenClaw] npm not found — dependencies not installed');
       }
 
-      // 5. Verify by actually running it
+      // 5. Verify by actually running it with a real node (not Electron's node)
       if (fs.existsSync(binPath)) {
+        const nodeExe = this.findNode() || process.execPath;
         try {
-          const nodeExe = process.execPath; // Use Electron's Node to run the mjs
           const versionOut = execSync(`"${nodeExe}" "${binPath}" --version`, {
             timeout: 10000,
             stdio: 'pipe',
-            env: { ...process.env, PATH: '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:' + (process.env.PATH || '') },
+            env: { ...process.env, PATH: this.getExtendedPath() },
           }).toString().trim();
           if (onProgress) onProgress('OpenClaw ' + versionOut + ' installed!');
           this.version = versionOut;
+          console.log(`[OpenClaw] Verified: ${versionOut}`);
           return { success: true };
         } catch (verifyErr) {
           // Binary exists but can't run — likely missing dependencies
           const errMsg = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
-          if (onProgress) onProgress('Downloaded but verification failed');
+          console.error('[OpenClaw] Verification failed:', errMsg);
+          if (onProgress) onProgress('Downloaded but verification failed — retrying npm install...');
+
+          // Retry: try npm install again with --force
+          if (npmBin) {
+            try {
+              execSync(`"${npmBin}" install --omit=dev --force`, {
+                cwd: pkgDir, timeout: 180000, stdio: 'pipe',
+                env: { ...process.env, PATH: this.getExtendedPath() },
+              });
+              // Re-verify
+              const retryOut = execSync(`"${nodeExe}" "${binPath}" --version`, {
+                timeout: 10000, stdio: 'pipe',
+                env: { ...process.env, PATH: this.getExtendedPath() },
+              }).toString().trim();
+              this.version = retryOut;
+              if (onProgress) onProgress('OpenClaw ' + retryOut + ' installed!');
+              return { success: true };
+            } catch { /* fall through to error */ }
+          }
+
           return {
             success: false,
             error: 'OpenClaw downloaded but cannot run (missing dependencies). '
