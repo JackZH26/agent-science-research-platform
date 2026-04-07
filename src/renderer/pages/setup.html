@@ -449,7 +449,7 @@
     profile: {},
     keysData: {},
     guildId: '',
-    agentConfigs: [{}, {}, {}, {}, {}],
+    agentConfigs: [{}, {}, {}],
   };
 
   // Load session
@@ -1119,6 +1119,7 @@
 
     var existing = state.agentConfigs[currentAgentIdx] || {};
     existing.agentId       = CONFIG_AGENTS[currentAgentIdx].name;
+    existing.role          = CONFIG_AGENTS[currentAgentIdx].role;
     existing.customName    = name;
     existing.model         = model;
     existing.researchFocus = focusEl ? focusEl.value.trim() : '';
@@ -1432,14 +1433,14 @@
       }
 
       // Build agent configs for gateway
-      var gwAgents = (state.agentConfigs || []).map(function(cfg) {
+      var gwAgents = (state.agentConfigs || []).map(function(cfg, idx) {
+        var ca = CONFIG_AGENTS[idx] || {};
         return {
-          name: cfg.agentId || cfg.customName || 'Agent',
-          role: cfg.role || 'Assistant',
-          model: cfg.model || 'claude-sonnet-4-6',
+          name: cfg.agentId || ca.name || 'Agent',
+          role: cfg.role || ca.role || 'Assistant',
+          model: cfg.model || ca.defaultModel || 'claude-sonnet-4-6',
           discordToken: cfg.discordToken || '',
-          channelId: cfg.channelId || '',
-          customName: cfg.customName || '',
+          customName: cfg.customName || ca.defaultName || '',
         };
       }).filter(function(a) { return a.discordToken; });
 

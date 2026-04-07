@@ -194,11 +194,24 @@
     } catch (e) { console.error('experiments load error', e); }
 
     try {
-      // Load agents
-      const statusData = window.asrp.openclaw
-        ? await window.asrp.openclaw.agentStatuses()
-        : await window.asrp.agents.status();
-      const agents = statusData.agents || [];
+      // Load agents — try live status, then saved configs
+      let agents = [];
+      try {
+        const statusData = window.asrp.openclaw
+          ? await window.asrp.openclaw.agentStatuses()
+          : await window.asrp.agents.status();
+        agents = statusData.agents || [];
+      } catch { /* ignore */ }
+      // Fallback to saved agent configs
+      if (agents.length === 0 && window.asrp.settings) {
+        const s = await window.asrp.settings.get();
+        if (Array.isArray(s.agentConfigs)) {
+          agents = s.agentConfigs.filter(c => c && c.agentId).map(c => ({
+            name: c.customName || c.agentId, role: c.role || 'Assistant',
+            status: 'stopped', model: c.model || '',
+          }));
+        }
+      }
       const badge = document.getElementById('agent-count-badge');
       if (badge) badge.textContent = agents.length + ' agents';
 

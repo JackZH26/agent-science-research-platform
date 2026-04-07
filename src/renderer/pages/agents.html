@@ -524,16 +524,38 @@
     container.innerHTML = '<div class="loading"><div class="spinner"></div> Loading agents...</div>';
 
     try {
-      let agents;
+      let agents = [];
+
+      // Try live status from gateway manager first
       if (window.asrp.openclaw) {
         const res = await window.asrp.openclaw.agentStatuses();
         agents = res.agents || [];
-      } else {
+      }
+      if (agents.length === 0 && window.asrp.agents) {
         const res = await window.asrp.agents.status();
         agents = (res.agents || []).map(a => ({
           ...a, sessions: 0, tokenUsage: { input: 0, output: 0, cost: 0 }, uptime: 0, recentLogs: []
         }));
       }
+
+      // Fallback: read saved agent configs from settings
+      if (agents.length === 0 && window.asrp.settings) {
+        const settings = await window.asrp.settings.get();
+        const savedConfigs = settings.agentConfigs;
+        if (Array.isArray(savedConfigs)) {
+          agents = savedConfigs.filter(c => c && c.agentId).map(c => ({
+            name: c.customName || c.agentId || 'Agent',
+            role: c.role || 'Assistant',
+            status: 'stopped',
+            model: c.model || '',
+            sessions: 0,
+            tokenUsage: { input: 0, output: 0, cost: 0 },
+            uptime: 0,
+            recentLogs: ['Gateway not running'],
+          }));
+        }
+      }
+
       currentAgents = agents;
       renderCards(agents);
     } catch (e) {
