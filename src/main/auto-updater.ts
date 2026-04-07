@@ -126,7 +126,7 @@ class AppAutoUpdater extends EventEmitter {
           type: 'info',
           title: 'Update Ready',
           message: `v${info.version} is ready to install`,
-          detail: 'The app will quit, install the update, and relaunch.',
+          detail: 'The app will quit, install the update, and relaunch. This may take a few seconds.',
           buttons: ['Restart Now', 'Later'],
           defaultId: 0,
         }).then(({ response }) => {
@@ -190,14 +190,22 @@ class AppAutoUpdater extends EventEmitter {
   /**
    * Install downloaded update.
    *
-   * Key insight: Do NOT destroy windows or force-kill the process before
-   * quitAndInstall(). electron-updater needs the normal app lifecycle
-   * (before-quit → will-quit → quit) to complete the update installation.
+   * macOS (Squirrel.Mac) flow:
+   *   1. electron-updater downloads ZIP and fires our `update-downloaded`
+   *   2. Concurrently, it starts a local HTTP proxy and tells Squirrel.Mac
+   *      to fetch the update from it (`nativeUpdater.checkForUpdates()`)
+   *   3. Squirrel.Mac downloads from proxy → sets `squirrelDownloadedUpdate`
+   *   4. On `quitAndInstall()`, if Squirrel finished → quits + ShipIt replaces .app
    *
-   * Flow:
-   * 1. Emit signal so window close handlers don't minimize-to-tray
-   * 2. Call quitAndInstall() — it handles install + quit + relaunch
-   * 3. Fallback: if still alive after 10s, use app.exit() (last resort)
+   *   CRITICAL: We must NOT call `app.exit()` — it force-kills the process
+   *   and bypasses Squirrel's ShipIt installation. We must let the quit
+   *   complete through the normal lifecycle.
+   *
+   *   A delay before quitAndInstall gives Squirrel time to finish its
+   *   internal download from the proxy (our `update-downloaded` event fires
+   *   BEFORE Squirrel finishes).
+   *
+   * Windows/Linux: quitAndInstall() handles everything synchronously.
    */
   installUpdate(): void {
     if (!this.lib || !this.status.ready) {
@@ -210,36 +218,35 @@ class AppAutoUpdater extends EventEmitter {
     console.log('[Updater] Platform:', process.platform);
 
     // Step 1: Signal that we're quitting for update.
-    // This sets isQuitting=true, clears timers, stops child processes,
-    // so the quit won't be blocked.
+    // Sets isQuitting=true so window close handlers don't minimize to tray.
     this.emit('before-quit-for-update');
 
-    // Step 2: Call quitAndInstall — electron-updater handles everything:
-    //   macOS:   extracts zip → replaces .app → relaunches
-    //   Windows: queues NSIS installer → quits → installer runs
-    //   Linux:   replaces AppImage → relaunches
-    //
-    // Do NOT manually destroy windows — quitAndInstall triggers app.quit()
-    // which closes windows through the normal lifecycle.
-    console.log('[Updater] Calling quitAndInstall(isSilent=false, isForceRunAfter=true)...');
-    try {
-      this.lib.quitAndInstall(false, true);
-    } catch (err) {
-      console.error('[Updater] quitAndInstall threw:', err);
-      // If quitAndInstall fails, try a direct app.quit() — autoInstallOnAppQuit
-      // should still handle the installation during quit.
-      console.log('[Updater] Falling back to app.quit()...');
-      app.quit();
-    }
+    const doQuitAndInstall = () => {
+      console.log('[Updater] Calling quitAndInstall()...');
+      try {
+        this.lib.quitAndInstall(false, true);
+      } catch (err) {
+        console.error('[Updater] quitAndInstall threw:', err);
+        // Fallback: use app.quit() which triggers autoInstallOnAppQuit
+        app.quit();
+      }
 
-    // Step 3: Fallback — if the process is STILL alive after 10s, something
-    // is holding the event loop open. Use app.exit() as last resort.
-    // By this point, quitAndInstall should have already completed the
-    // platform-specific install, so the update files are in place.
-    setTimeout(() => {
-      console.log('[Updater] Still alive after 10s — force exiting via app.exit(0)');
-      app.exit(0);
-    }, 10000).unref(); // unref so this timer doesn't block the quit itself
+      // Last-resort fallback: if still alive after 60s, use app.quit().
+      // NEVER use app.exit() — it bypasses Squirrel's install on macOS.
+      setTimeout(() => {
+        console.log('[Updater] Still alive after 60s — calling app.quit()');
+        app.quit();
+      }, 60000).unref();
+    };
+
+    if (process.platform === 'darwin') {
+      // On macOS, delay 5s to let Squirrel.Mac finish downloading
+      // from the local proxy before triggering the quit sequence.
+      console.log('[Updater] macOS: waiting 5s for Squirrel.Mac to stage update...');
+      setTimeout(doQuitAndInstall, 5000);
+    } else {
+      doQuitAndInstall();
+    }
   }
 
   getStatus(): UpdaterStatus { return { ...this.status }; }
