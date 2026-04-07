@@ -133,7 +133,7 @@ export function generateAllConfigs(
             token: agent.discordToken,
             groupPolicy: 'allowlist',
             guilds: {
-              [guildId]: { enabled: true },
+              [guildId]: { requireMention: false },
             },
           },
         },
