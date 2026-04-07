@@ -13,7 +13,7 @@
       <div style="text-align:center;margin-bottom:24px">
         <div style="font-size:44px;margin-bottom:10px">🔬</div>
         <h1 style="font-size:24px;font-weight:700;margin-bottom:6px">Configure Your Research Environment</h1>
-        <p style="color:var(--text-secondary);font-size:14px">Set up ASRP Desktop to start running AI-powered researchs</p>
+        <p style="color:var(--text-secondary);font-size:14px">Set up ASRP Desktop to start running AI-powered research</p>
       </div>
 
       <!-- Step Progress Bar -->
@@ -193,7 +193,7 @@
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
             <div style="font-weight:600;font-size:14px;margin-bottom:4px">🔗 Step 1 of 3 — Discord Server</div>
             <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">
-              All 5 agents will join one Discord server. Enter your server's Guild ID below.
+              All 3 agents will join one Discord server. Enter your server's Guild ID below.
             </p>
             <div class="form-group" style="margin-bottom:8px">
               <label for="s4-guild-id" style="font-size:12px;font-weight:600">Discord Server (Guild) ID</label>
@@ -1404,125 +1404,109 @@
 
   // ── Step 5: Complete ──────────────────────────────────────
   function swInitStep5() {
-    // Save agent config via IPC before completing
-    if (window.asrp && state.token) {
-      // Save agent configs AND guildId to settings
-      window.asrp.setup.saveAgentConfig(state.token, state.agentConfigs).catch(function() {});
-      if (state.guildId && window.asrp.settings) {
-        window.asrp.settings.set({ guildId: state.guildId }).catch(function() {});
-      }
-    }
-
-    // Hardware detection placeholder
-    var ramEl  = document.getElementById('s5-ram');
-    var gpuEl  = document.getElementById('s5-gpu');
+    // Hardware detection
+    var ramEl = document.getElementById('s5-ram');
+    var gpuEl = document.getElementById('s5-gpu');
     var diskEl = document.getElementById('s5-disk');
-
-    // Simulate detection delay
     setTimeout(function() {
-      if (ramEl)  ramEl.textContent  = '≥ 16 GB (detected via OS)';
-      if (gpuEl)  gpuEl.textContent  = 'Integrated / Unknown';
+      if (ramEl) ramEl.textContent = '≥ 16 GB';
+      if (gpuEl) gpuEl.textContent = 'Integrated / Unknown';
       if (diskEl) diskEl.textContent = 'Checking…';
     }, 800);
-    setTimeout(function() {
-      if (diskEl) diskEl.textContent = 'Available';
-    }, 1400);
+    setTimeout(function() { if (diskEl) diskEl.textContent = 'Available'; }, 1400);
 
-    // Mark setup complete
+    // Gateway status element
+    var gwStatus = document.createElement('div');
+    gwStatus.id = 's5-gw-status';
+    gwStatus.style.cssText = 'margin-top:16px;padding:12px 16px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:13px;color:var(--text-secondary)';
+    gwStatus.textContent = '🔄 Saving configuration...';
+    var step5El = document.getElementById('sw-step-5');
+    if (step5El) step5El.appendChild(gwStatus);
+
+    // B3 FIX: Save ALL data first, THEN start gateway
+    var savePromises = [];
     if (window.asrp && state.token) {
-      window.asrp.setup.complete(state.token).then(function() {
-        // Update localStorage user record
-        var userJson = localStorage.getItem(STORAGE_USER);
-        if (userJson) {
-          try {
-            var u = JSON.parse(userJson);
-            u.setupComplete = true;
-            localStorage.setItem(STORAGE_USER, JSON.stringify(u));
-          } catch(e) {}
-        }
-      }).catch(function() {});
+      savePromises.push(
+        window.asrp.setup.saveAgentConfig(state.token, state.agentConfigs)
+          .catch(function(e) { console.error('[S5] saveAgentConfig failed:', e); })
+      );
+      if (state.guildId && window.asrp.settings) {
+        savePromises.push(
+          window.asrp.settings.set({ guildId: state.guildId })
+            .catch(function(e) { console.error('[S5] save guildId failed:', e); })
+        );
+      }
+      savePromises.push(
+        window.asrp.setup.complete(state.token).then(function() {
+          var uj = localStorage.getItem(STORAGE_USER);
+          if (uj) { try { var u = JSON.parse(uj); u.setupComplete = true; localStorage.setItem(STORAGE_USER, JSON.stringify(u)); } catch(e) {} }
+        }).catch(function(e) { console.error('[S5] complete failed:', e); })
+      );
     }
 
-    // Generate OpenClaw config and start gateway
-    if (window.asrp && window.asrp.gateway) {
-      var gwStatus = document.createElement('div');
-      gwStatus.id = 's5-gw-status';
-      gwStatus.style.cssText = 'margin-top:16px;padding:12px 16px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:13px;color:var(--text-secondary)';
+    Promise.all(savePromises).then(function() {
+      console.log('[S5] All saves done. Building gateway config...');
       gwStatus.textContent = '🔄 Starting OpenClaw gateway...';
-      var step5 = document.getElementById('sw-step-5');
-      if (step5) {
-        // Insert before the CTA buttons
-        var ctaDiv = step5.querySelector('div:last-child');
-        if (ctaDiv) step5.insertBefore(gwStatus, ctaDiv);
+
+      if (!window.asrp || !window.asrp.gateway) {
+        gwStatus.textContent = '⚠️ Gateway API not available';
+        return;
       }
 
-      // Build agent configs for gateway
-      var gwAgents = (state.agentConfigs || []).map(function(cfg, idx) {
-        var ca = CONFIG_AGENTS[idx] || {};
+      // Use CONFIG_AGENTS as source of truth for name/role (B8 fix)
+      var gwAgents = CONFIG_AGENTS.map(function(ca, idx) {
+        var cfg = state.agentConfigs[idx] || {};
         return {
-          name: cfg.agentId || ca.name || 'Agent',
-          role: cfg.role || ca.role || 'Assistant',
-          model: cfg.model || ca.defaultModel || 'claude-sonnet-4-6',
+          name: ca.name,
+          role: ca.role,
+          model: cfg.model || ca.defaultModel,
           discordToken: cfg.discordToken || '',
-          customName: cfg.customName || ca.defaultName || '',
+          customName: cfg.customName || ca.defaultName,
         };
       }).filter(function(a) { return a.discordToken; });
 
       var gwGuildId = state.guildId || '';
+      console.log('[S5] gwAgents:', gwAgents.length, 'guildId:', gwGuildId);
+      console.log('[S5] tokens:', gwAgents.map(function(a) { return a.name + ':' + (a.discordToken ? 'yes' : 'no'); }));
 
-      console.log('[Setup] gwAgents:', JSON.stringify(gwAgents.map(function(a) { return {name:a.name, role:a.role, hasToken:!!a.discordToken}; })));
-      console.log('[Setup] gwGuildId:', gwGuildId);
-      console.log('[Setup] state.agentConfigs:', JSON.stringify(state.agentConfigs.map(function(c) { return {id:c.agentId, token:c.discordToken?'yes':'no', valid:c.discordTokenValid}; })));
-
-      if (gwAgents.length > 0 && gwGuildId) {
-        var _gwToken = localStorage.getItem('asrp_token') || '';
-        console.log('[Setup] Calling gateway:setup-and-start with', gwAgents.length, 'agents');
-        window.asrp.gateway.setupAndStart(_gwToken, gwAgents, gwGuildId).then(function(res) {
-          console.log('[Setup] gateway:setup-and-start result:', JSON.stringify(res));
-          if (gwStatus) {
-            if (res.success) {
-              gwStatus.style.background = 'rgba(74,140,106,0.08)';
-              gwStatus.style.borderColor = 'var(--success)';
-              gwStatus.style.color = 'var(--success)';
-              gwStatus.textContent = '✅ OpenClaw gateway is running — agents are online!';
-            } else {
-              gwStatus.style.background = 'rgba(200,92,92,0.08)';
-              gwStatus.style.borderColor = 'var(--error)';
-              gwStatus.style.color = 'var(--error)';
-              gwStatus.textContent = '⚠️ Gateway start failed: ' + (res.error || 'Unknown error') + '. You can start it later from Settings.';
-            }
-          }
-        }).catch(function(err) {
-          if (gwStatus) {
-            gwStatus.textContent = '⚠️ Could not start gateway: ' + String(err);
-            gwStatus.style.color = 'var(--error)';
-          }
-        });
-      } else {
-        console.log('[Setup] SKIP: gwAgents.length=' + gwAgents.length + ', gwGuildId=' + gwGuildId);
-        if (gwStatus) gwStatus.textContent = 'ℹ️ Gateway not started: ' + gwAgents.length + ' agents with tokens, guildId=' + (gwGuildId || 'empty');
+      if (gwAgents.length === 0) {
+        gwStatus.textContent = '⚠️ No agents with Discord tokens. Go back to Step 4.';
+        gwStatus.style.color = 'var(--warning)';
+        return;
       }
-    }
+      if (!gwGuildId) {
+        gwStatus.textContent = '⚠️ No Guild ID. Go back to Step 4.';
+        gwStatus.style.color = 'var(--warning)';
+        return;
+      }
+
+      var _gwToken = localStorage.getItem('asrp_token') || '';
+      window.asrp.gateway.setupAndStart(_gwToken, gwAgents, gwGuildId).then(function(res) {
+        console.log('[S5] gateway result:', JSON.stringify(res));
+        if (res.success) {
+          gwStatus.style.cssText += ';background:rgba(74,140,106,0.08);border-color:var(--success);color:var(--success)';
+          gwStatus.textContent = '✅ OpenClaw gateway running — agents are online!';
+        } else {
+          gwStatus.style.cssText += ';background:rgba(200,92,92,0.08);border-color:var(--error);color:var(--error)';
+          gwStatus.textContent = '⚠️ ' + (res.error || 'Gateway start failed');
+        }
+      }).catch(function(err) {
+        gwStatus.textContent = '⚠️ ' + String(err);
+        gwStatus.style.color = 'var(--error)';
+      });
+    });
   }
 
-  window.swOllamaDownload = function() {
-    console.log('[Setup] Ollama download requested — Phase 7.5 integration pending');
-    swShowAlert('s5-placeholder', 'Ollama download will be available in a future update.', 'warning');
-  };
-  window.swOllamaLater = function() {
-    console.log('[Setup] Ollama download deferred');
-  };
+  window.swOllamaDownload = function() {};
+  window.swOllamaLater = function() {};
 
   window.swFinish = function() {
-    // Show toast
-    if (window.showToast) {
-      window.showToast('Welcome to ASRP Desktop! Your research environment is ready.', 'success');
-    }
+    if (window.showToast) window.showToast('Welcome to ASRP Desktop!', 'success');
     Router.navigate('/dashboard');
   };
 
   window.swNewResearch = function() {
-    Router.navigate('/researchs');
+    Router.navigate('/researches');
   };
 
   // Start on step 1
