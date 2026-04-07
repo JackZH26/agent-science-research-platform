@@ -511,12 +511,29 @@ class OpenClawManager extends EventEmitter {
         });
       }
 
-      // 5. Verify
+      // 5. Verify by actually running it
       if (fs.existsSync(binPath)) {
-        if (onProgress) onProgress('OpenClaw installed successfully!');
-        // Clear cached binary path
-        this.detectVersion();
-        return { success: true };
+        try {
+          const nodeExe = process.execPath; // Use Electron's Node to run the mjs
+          const versionOut = execSync(`"${nodeExe}" "${binPath}" --version`, {
+            timeout: 10000,
+            stdio: 'pipe',
+            env: { ...process.env, PATH: '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:' + (process.env.PATH || '') },
+          }).toString().trim();
+          if (onProgress) onProgress('OpenClaw ' + versionOut + ' installed!');
+          this.version = versionOut;
+          return { success: true };
+        } catch (verifyErr) {
+          // Binary exists but can't run — likely missing dependencies
+          const errMsg = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
+          if (onProgress) onProgress('Downloaded but verification failed');
+          return {
+            success: false,
+            error: 'OpenClaw downloaded but cannot run (missing dependencies). '
+              + 'Please install manually: npm install -g openclaw\n'
+              + 'Detail: ' + errMsg.slice(0, 200),
+          };
+        }
       } else {
         return { success: false, error: 'Installation completed but binary not found' };
       }

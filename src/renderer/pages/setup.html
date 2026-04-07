@@ -744,9 +744,29 @@
     function setError(msg) {
       if (statusIcon) statusIcon.textContent = '❌';
       if (statusDiv) { statusDiv.style.borderColor = 'var(--error)'; statusDiv.style.background = 'rgba(200,92,92,0.08)'; }
-      setProgress(0, 'Setup failed', msg);
-      if (progressDetail) { progressDetail.style.color = 'var(--error)'; progressDetail.textContent = msg; }
-      // Still allow continue (gateway can be set up later)
+      setProgress(0, 'Auto-install failed', '');
+      if (progressDetail) {
+        progressDetail.style.color = 'var(--error)';
+        progressDetail.innerHTML = '';
+        var errText = document.createElement('div');
+        errText.textContent = msg;
+        errText.style.marginBottom = '8px';
+        var helpText = document.createElement('div');
+        helpText.style.cssText = 'margin-top:8px;padding:8px 12px;background:var(--surface);border-radius:6px;font-family:monospace;font-size:12px;color:var(--text);cursor:pointer';
+        helpText.textContent = 'npm install -g openclaw';
+        helpText.title = 'Click to copy';
+        helpText.onclick = function() {
+          navigator.clipboard.writeText('npm install -g openclaw').then(function() {
+            helpText.textContent = 'Copied! Run this in Terminal, then restart ASRP Desktop.';
+          });
+        };
+        var label = document.createElement('div');
+        label.textContent = 'Manual install (click to copy):';
+        label.style.cssText = 'font-size:11px;color:var(--text-secondary);margin-top:6px';
+        progressDetail.appendChild(errText);
+        progressDetail.appendChild(label);
+        progressDetail.appendChild(helpText);
+      }
       if (continueBtn) continueBtn.disabled = false;
     }
 
