@@ -1406,7 +1406,11 @@
   function swInitStep5() {
     // Save agent config via IPC before completing
     if (window.asrp && state.token) {
+      // Save agent configs AND guildId to settings
       window.asrp.setup.saveAgentConfig(state.token, state.agentConfigs).catch(function() {});
+      if (state.guildId && window.asrp.settings) {
+        window.asrp.settings.set({ guildId: state.guildId }).catch(function() {});
+      }
     }
 
     // Hardware detection placeholder
@@ -1466,9 +1470,15 @@
 
       var gwGuildId = state.guildId || '';
 
+      console.log('[Setup] gwAgents:', JSON.stringify(gwAgents.map(function(a) { return {name:a.name, role:a.role, hasToken:!!a.discordToken}; })));
+      console.log('[Setup] gwGuildId:', gwGuildId);
+      console.log('[Setup] state.agentConfigs:', JSON.stringify(state.agentConfigs.map(function(c) { return {id:c.agentId, token:c.discordToken?'yes':'no', valid:c.discordTokenValid}; })));
+
       if (gwAgents.length > 0 && gwGuildId) {
         var _gwToken = localStorage.getItem('asrp_token') || '';
+        console.log('[Setup] Calling gateway:setup-and-start with', gwAgents.length, 'agents');
         window.asrp.gateway.setupAndStart(_gwToken, gwAgents, gwGuildId).then(function(res) {
+          console.log('[Setup] gateway:setup-and-start result:', JSON.stringify(res));
           if (gwStatus) {
             if (res.success) {
               gwStatus.style.background = 'rgba(74,140,106,0.08)';
@@ -1489,7 +1499,8 @@
           }
         });
       } else {
-        if (gwStatus) gwStatus.textContent = 'ℹ️ No Discord bots configured — gateway not started.';
+        console.log('[Setup] SKIP: gwAgents.length=' + gwAgents.length + ', gwGuildId=' + gwGuildId);
+        if (gwStatus) gwStatus.textContent = 'ℹ️ Gateway not started: ' + gwAgents.length + ' agents with tokens, guildId=' + (gwGuildId || 'empty');
       }
     }
   }

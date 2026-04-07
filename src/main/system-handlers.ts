@@ -85,6 +85,7 @@ export function registerSettingsHandlers(): void {
     minimizeToTray: true,
     autoStart: false,
     setupComplete: false,
+    guildId: '',
   };
 
   // Issue #19: Allowlist of valid setting keys — prevents renderer from polluting settings.json
@@ -253,6 +254,29 @@ export function registerGatewayHandlers(): void {
   });
 
   ipcMain.handle('gateway:start', async () => {
+    // If no configs exist yet, try to generate from saved setup data
+    if (!hasConfig()) {
+      try {
+        const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+        if (fs.existsSync(settingsFile)) {
+          const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
+          const configs = settings.agentConfigs as Array<{ agentId?: string; role?: string; model?: string; discordToken?: string; customName?: string }> | undefined;
+          const guildId = settings.guildId as string | undefined;
+          if (Array.isArray(configs) && guildId) {
+            const agents = configs.filter(c => c && c.discordToken).map(c => ({
+              name: c.agentId || 'Agent',
+              role: c.role || 'Assistant',
+              model: c.model || 'claude-sonnet-4-6',
+              discordToken: c.discordToken || '',
+              customName: c.customName || '',
+            }));
+            if (agents.length > 0) {
+              generateAllConfigs(agents, guildId, getWorkspaceBase());
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    }
     return openclawManager.startAll();
   });
 
