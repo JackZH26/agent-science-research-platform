@@ -331,6 +331,14 @@ export function registerGatewayHandlers(): void {
     return { hasConfig: hasConfig() };
   });
 
+  ipcMain.handle('gateway:check-update', async () => {
+    try {
+      return await openclawManager.checkForUpdate();
+    } catch (err: unknown) {
+      return { updateAvailable: false, currentVersion: null, latestVersion: null, error: String(err) };
+    }
+  });
+
   // Gateway logs (for debugging)
   ipcMain.handle('gateway:logs', async () => {
     const status = openclawManager.getStatus();

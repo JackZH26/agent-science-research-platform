@@ -324,9 +324,8 @@
     var el = document.getElementById('ap-model-info');
     var badge = document.getElementById('ap-model-badge');
     if (!el) return;
-    var icon = currentModel.type === 'local' ? '🟢' : '☁️';
-    el.textContent = icon + ' ' + currentModel.model;
-    if (badge) badge.textContent = currentModel.type === 'local' ? 'Local' : 'Cloud';
+    el.textContent = '☁️ ' + currentModel.model;
+    if (badge) badge.textContent = 'Cloud';
   }
 
   // ---- Render messages ----
@@ -422,47 +421,16 @@
     } catch (e) { /* ignore */ }
 
     if (window.asrp && window.asrp.assistant) {
-      // T-076: Try local Ollama first if model is local, fallback to cloud
-      var useLocal = currentModel.type === 'local' && window.asrp.ollama;
-
-      var doCloudChat = function () {
-        window.asrp.assistant.chat(text, context, currentModel.model).then(function (res) {
-          setLoading(false);
-          var reply = (res && res.reply) ? res.reply : 'Sorry, I could not process that request.';
-          messages.push({ role: 'assistant', content: reply });
-          renderMessages();
-        }).catch(function () {
-          setLoading(false);
-          messages.push({ role: 'assistant', content: 'Error connecting to assistant.' });
-          renderMessages();
-        });
-      };
-
-      if (useLocal) {
-        var localTimeout = new Promise(function (_, reject) {
-          setTimeout(function () { reject(new Error('local timeout')); }, 3000);
-        });
-        var localCall = window.asrp.ollama.chat(
-          [{ role: 'user', content: text }],
-          'gemma3:27b'
-        );
-        Promise.race([localCall, localTimeout]).then(function (res) {
-          setLoading(false);
-          var reply = (res && res.reply) ? res.reply : 'Sorry, I could not process that.';
-          messages.push({ role: 'assistant', content: reply });
-          renderMessages();
-        }).catch(function () {
-          // Fallback to cloud
-          if (currentModel.type === 'local') {
-            currentModel = { model: 'Claude Sonnet 4.6', type: 'cloud' };
-            renderModelInfo();
-            showToast('Local model unavailable, using cloud', 'info', 3000);
-          }
-          doCloudChat();
-        });
-      } else {
-        doCloudChat();
-      }
+      window.asrp.assistant.chat(text, context, currentModel.model).then(function (res) {
+        setLoading(false);
+        var reply = (res && res.reply) ? res.reply : 'Sorry, I could not process that request.';
+        messages.push({ role: 'assistant', content: reply });
+        renderMessages();
+      }).catch(function () {
+        setLoading(false);
+        messages.push({ role: 'assistant', content: 'Error connecting to assistant.' });
+        renderMessages();
+      });
     } else {
       // Fallback when asrp bridge not ready
       setTimeout(function () {
@@ -519,18 +487,6 @@
     }).catch(function () { /* ignore */ });
   }
 
-  // ---- T-073/T-076: Check Ollama availability and update model preference ----
-  function checkLocalModel() {
-    if (!window.asrp || !window.asrp.ollama) return;
-    window.asrp.ollama.status().then(function (status) {
-      var hasGemma = status.models && status.models.some(function (m) { return m.includes('gemma'); });
-      if (status.running && hasGemma) {
-        currentModel = { model: 'Gemma 27B (local)', type: 'local' };
-        renderModelInfo();
-      }
-    }).catch(function () { /* ignore — stay on cloud */ });
-  }
-
   // ---- Load model info ----
   function loadModel() {
     if (!window.asrp || !window.asrp.assistant) return;
@@ -538,8 +494,6 @@
       if (res) {
         currentModel = { model: res.model, type: res.type };
         renderModelInfo();
-        // T-073: Check if local model is available and prefer it
-        checkLocalModel();
       }
     }).catch(function () { /* ignore */ });
   }
@@ -626,7 +580,7 @@
       });
     }
 
-    // Model toggle button — cycle through available cloud models + local if available
+    // Model toggle button — cycle through available cloud models
     var CLOUD_MODELS = [
       { model: 'Gemini 2.5 Flash', type: 'cloud' },
       { model: 'Claude Sonnet 4.6', type: 'cloud' },
@@ -636,34 +590,14 @@
     var modelToggle = document.getElementById('ap-model-toggle');
     if (modelToggle) {
       modelToggle.addEventListener('click', function () {
-        // Build available model list: cloud models + local if available
-        var available = CLOUD_MODELS.slice();
-
-        // Find current index
         var curIdx = -1;
-        for (var i = 0; i < available.length; i++) {
-          if (available[i].model === currentModel.model) { curIdx = i; break; }
+        for (var i = 0; i < CLOUD_MODELS.length; i++) {
+          if (CLOUD_MODELS[i].model === currentModel.model) { curIdx = i; break; }
         }
-
-        // Cycle to next
-        var nextIdx = (curIdx + 1) % available.length;
-        currentModel = available[nextIdx];
+        var nextIdx = (curIdx + 1) % CLOUD_MODELS.length;
+        currentModel = CLOUD_MODELS[nextIdx];
         renderModelInfo();
         showToast('Switched to ' + currentModel.model, 'success', 2000);
-
-        // Also check if local model is available and add to cycle
-        if (window.asrp && window.asrp.ollama && currentModel.type !== 'local') {
-          window.asrp.ollama.status().then(function (status) {
-            var hasGemma = status.models && status.models.some(function (m) { return m.includes('gemma'); });
-            if (status.running && hasGemma) {
-              // Local is available — it will appear on next cycle
-              var hasLocal = available.some(function (m) { return m.type === 'local'; });
-              if (!hasLocal) {
-                CLOUD_MODELS.push({ model: 'Gemma 27B (local)', type: 'local' });
-              }
-            }
-          }).catch(function () { /* ignore */ });
-        }
       });
     }
 

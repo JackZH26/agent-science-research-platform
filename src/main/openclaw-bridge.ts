@@ -13,6 +13,7 @@ export interface AgentStatus {
   tokenUsage: { input: number; output: number; cost: number };
   uptime: number;
   recentLogs: string[];
+  openclawVersion: string | null;
 }
 
 export interface WorkspaceStats {
@@ -43,6 +44,7 @@ export interface GatewayStatus {
 
 export function getAgentStatuses(): AgentStatus[] {
   const status = openclawManager.getStatus();
+  const ocVersion = status.version || null;
   return status.agents.map(a => ({
     name: a.name,
     role: a.role,
@@ -52,6 +54,7 @@ export function getAgentStatuses(): AgentStatus[] {
     tokenUsage: { input: 0, output: 0, cost: 0 },
     uptime: a.uptime,
     recentLogs: a.error ? [a.error] : [],
+    openclawVersion: ocVersion,
   }));
 }
 
@@ -93,4 +96,60 @@ export function getAgentSoul(agentName: string): string {
 }
 export function saveAgentSoul(_n: string, _c: string): { success: boolean } { return { success: true }; }
 export function renameAgent(_o: string, _n: string): { success: boolean } { return { success: true }; }
-export function setAgentModel(_n: string, _m: string): { success: boolean } { return { success: true }; }
+export function setAgentModel(agentName: string, model: string): { success: boolean; error?: string } {
+  try {
+    const { app } = require('electron');
+    const path = require('path');
+    const fs = require('fs');
+    const os = require('os');
+
+    // Ensure model has provider prefix
+    let modelId = model;
+    if (modelId.startsWith('claude-') && !modelId.includes('/')) {
+      modelId = 'anthropic/' + modelId;
+    }
+
+    // 1. Update settings.json agentConfigs
+    const userDataPath = app.getPath('userData');
+    const settingsPath = path.join(userDataPath, 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      if (Array.isArray(settings.agentConfigs)) {
+        for (const cfg of settings.agentConfigs) {
+          // Match by agentId or discordBotName (display name)
+          if (cfg && (cfg.agentId === agentName || cfg.discordBotName === agentName)) {
+            cfg.model = model;
+            break;
+          }
+        }
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+      }
+    }
+
+    // 2. Update the agent's openclaw.json config file
+    // Find agent's internal name (agentId) from settings to locate profile dir
+    let internalName = agentName;
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      if (Array.isArray(settings.agentConfigs)) {
+        const cfg = settings.agentConfigs.find(
+          (c: Record<string, unknown>) => c && (c.agentId === agentName || c.discordBotName === agentName)
+        );
+        if (cfg && cfg.agentId) internalName = cfg.agentId;
+      }
+    }
+    const safeName = internalName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const configPath = path.join(os.homedir(), `.openclaw-asrp-${safeName}`, 'openclaw.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (config.agents && config.agents.defaults) {
+        config.agents.defaults.model = modelId;
+      }
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: String(err) };
+  }
+}

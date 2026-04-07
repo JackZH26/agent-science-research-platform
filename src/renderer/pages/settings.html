@@ -98,40 +98,6 @@
     </div>
   </div>
 
-  <!-- T-075: Local AI Model -->
-  <div class="panel">
-    <h3>🧠 Local AI Model</h3>
-    <div id="local-ai-hw-info" style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;line-height:1.8">
-      Detecting hardware...
-    </div>
-
-    <div style="margin-bottom:12px">
-      <div style="font-weight:600;font-size:13px;margin-bottom:4px">Gemma 3 27B (~17 GB)</div>
-      <div id="local-ai-model-status" style="font-size:12px;color:var(--text-secondary)">Checking...</div>
-      <div id="local-ai-dl-wrap" style="display:none;margin-top:8px">
-        <div style="height:8px;background:var(--surface);border-radius:4px;overflow:hidden;border:1px solid var(--border)">
-          <div id="local-ai-dl-bar" style="height:100%;background:#4a8c6a;border-radius:4px;transition:width 0.4s;width:0%"></div>
-        </div>
-        <div id="local-ai-dl-label" style="font-size:11px;color:var(--text-tertiary);margin-top:3px">0%</div>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <button class="btn btn-primary btn-sm" id="btn-download-model" onclick="downloadLocalModel()">Download Model</button>
-      <button class="btn btn-outline btn-sm" id="btn-delete-model" onclick="deleteLocalModel()" style="display:none">Delete Model</button>
-      <button class="btn btn-outline btn-sm" id="btn-cancel-dl" onclick="cancelDownload()" style="display:none">Cancel</button>
-    </div>
-
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-      <div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-secondary)">Ollama Server</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span id="ollama-server-status" style="font-size:12px">Checking...</span>
-        <button class="btn btn-outline btn-sm" id="btn-ollama-start" onclick="startOllamaServer()" style="display:none">Start</button>
-        <button class="btn btn-outline btn-sm" id="btn-ollama-stop" onclick="stopOllamaServer()" style="display:none">Stop</button>
-      </div>
-    </div>
-  </div>
-
   <!-- T-083: Updates -->
   <div class="panel">
     <h3>🔄 Updates</h3>
@@ -280,139 +246,6 @@
     if (!result.canceled && result.path) {
       document.getElementById('setting-workspace').value = result.path;
     }
-  };
-
-  // T-075: Load local AI / Ollama status
-  async function loadLocalAi() {
-    if (!window.asrp || !window.asrp.ollama) return;
-
-    // Hardware info
-    const hwResult = await window.asrp.ollama.detectHardware().catch(() => null);
-    const hwEl = document.getElementById('local-ai-hw-info');
-    if (hwEl && hwResult && hwResult.hardware) {
-      const hw = hwResult.hardware;
-      const ramOk = hw.ram >= 16;
-      const gpuOk = hw.gpuVram >= 8 || hw.gpu !== 'none';
-      const recText = { recommended: '✅ Recommended', possible_slow: '⚠️ May be slow', not_recommended: '❌ Not recommended' }[hwResult.recommendation || 'not_recommended'];
-      hwEl.innerHTML = [
-        '<span>RAM: ' + hw.ram + ' GB ' + (ramOk ? '✅' : '⚠️') + '</span>',
-        '<span style="margin-left:12px">GPU: ' + (hw.gpu !== 'none' ? hw.gpu + (hw.gpuVram ? ' (' + hw.gpuVram + ' GB VRAM) ' : ' ') + (gpuOk ? '✅' : '⚠️') : 'CPU only ⚠️') + '</span>',
-        '<div style="margin-top:4px;font-weight:600">' + recText + '</div>',
-      ].join('');
-    }
-
-    // Model status
-    const status = await window.asrp.ollama.status().catch(() => null);
-    if (!status) return;
-
-    const statusEl = document.getElementById('local-ai-model-status');
-    const btnDl = document.getElementById('btn-download-model');
-    const btnDel = document.getElementById('btn-delete-model');
-    const btnCancel = document.getElementById('btn-cancel-dl');
-    const dlWrap = document.getElementById('local-ai-dl-wrap');
-
-    const hasGemma = status.models.some(function(m) { return m.includes('gemma'); });
-
-    if (!status.installed) {
-      if (statusEl) statusEl.textContent = 'Ollama not installed. ' + window.asrp.ollama.installInstructions ? '' : '';
-      if (btnDl) btnDl.textContent = 'Install Ollama';
-      if (btnDl) btnDl.onclick = async function() {
-        const inst = await window.asrp.ollama.installInstructions();
-        Toast.show(inst.instructions, 'info');
-      };
-    } else if (status.downloading) {
-      if (statusEl) statusEl.textContent = 'Downloading...';
-      if (dlWrap) dlWrap.style.display = 'block';
-      if (btnDl) btnDl.style.display = 'none';
-      if (btnCancel) btnCancel.style.display = '';
-    } else if (hasGemma) {
-      if (statusEl) statusEl.innerHTML = 'Ready <span style="color:var(--success)">&#9679;</span>';
-      if (btnDl) btnDl.style.display = 'none';
-      if (btnDel) btnDel.style.display = '';
-    } else {
-      if (statusEl) statusEl.textContent = 'Not downloaded';
-    }
-
-    // Ollama server status
-    const serverEl = document.getElementById('ollama-server-status');
-    const btnStart = document.getElementById('btn-ollama-start');
-    const btnStop = document.getElementById('btn-ollama-stop');
-    if (serverEl) {
-      if (!status.installed) {
-        serverEl.textContent = 'Ollama not installed';
-      } else if (status.running) {
-        serverEl.innerHTML = '<span style="color:var(--success)">&#9679;</span> Running (localhost:11434)';
-        if (btnStart) btnStart.style.display = 'none';
-        if (btnStop) btnStop.style.display = '';
-      } else {
-        serverEl.innerHTML = '<span style="color:var(--text-tertiary)">&#9679;</span> Stopped';
-        if (btnStart) btnStart.style.display = '';
-        if (btnStop) btnStop.style.display = 'none';
-      }
-    }
-
-    // Subscribe to progress events
-    if (window.asrp.ollama.onDownloadProgress) {
-      window.asrp.ollama.onDownloadProgress(function(data) {
-        var bar = document.getElementById('local-ai-dl-bar');
-        var label = document.getElementById('local-ai-dl-label');
-        var wrap = document.getElementById('local-ai-dl-wrap');
-        if (wrap) wrap.style.display = 'block';
-        if (bar) bar.style.width = data.progress + '%';
-        if (label) label.textContent = data.progress + '% ' + (data.speed ? '· ' + data.speed : '') + (data.eta ? ' · ETA ' + data.eta : '');
-      });
-      window.asrp.ollama.onDownloadComplete(function() {
-        loadLocalAi();
-        Toast.show('Gemma 27B downloaded successfully', 'success');
-      });
-    }
-  }
-
-  window.downloadLocalModel = async function() {
-    if (!window.asrp || !window.asrp.ollama) return;
-    const r = await window.asrp.ollama.pullModel('gemma3:27b');
-    if (r.success) {
-      Toast.show('Downloading Gemma 27B (~17 GB)...', 'info');
-      const btnDl = document.getElementById('btn-download-model');
-      const btnCancel = document.getElementById('btn-cancel-dl');
-      if (btnDl) btnDl.style.display = 'none';
-      if (btnCancel) btnCancel.style.display = '';
-    } else {
-      Toast.show('Failed: ' + r.error, 'error');
-    }
-  };
-
-  window.deleteLocalModel = async function() {
-    if (!confirm('Delete Gemma 27B model from disk?')) return;
-    if (!window.asrp || !window.asrp.ollama) return;
-    const r = await window.asrp.ollama.deleteModel('gemma3:27b');
-    if (r.success) {
-      Toast.show('Model deleted', 'success');
-      loadLocalAi();
-    } else {
-      Toast.show('Delete failed: ' + r.error, 'error');
-    }
-  };
-
-  window.cancelDownload = async function() {
-    if (!window.asrp || !window.asrp.ollama) return;
-    await window.asrp.ollama.cancelPull();
-    Toast.show('Download cancelled', 'info');
-    loadLocalAi();
-  };
-
-  window.startOllamaServer = async function() {
-    if (!window.asrp || !window.asrp.ollama) return;
-    Toast.show('Starting Ollama server...', 'info');
-    await window.asrp.ollama.start();
-    setTimeout(loadLocalAi, 2500);
-  };
-
-  window.stopOllamaServer = async function() {
-    if (!window.asrp || !window.asrp.ollama) return;
-    await window.asrp.ollama.stop();
-    Toast.show('Ollama server stopped', 'info');
-    setTimeout(loadLocalAi, 500);
   };
 
   // T-083: Updater functions
@@ -571,7 +404,6 @@
   };
 
   loadSettings();
-  loadLocalAi();
   loadUpdaterStatus();
   loadDeploymentMode();
 })();

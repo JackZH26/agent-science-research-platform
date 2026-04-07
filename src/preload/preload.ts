@@ -452,6 +452,11 @@ const gateway = {
 
   hasConfig: () =>
     invoke<{ hasConfig: boolean }>('gateway:has-config'),
+
+  checkUpdate: () =>
+    invoke<{ updateAvailable: boolean; currentVersion: string | null; latestVersion: string | null }>(
+      'gateway:check-update'
+    ),
 };
 
 // ---- Navigation events from main process ----

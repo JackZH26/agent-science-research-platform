@@ -563,6 +563,36 @@ class OpenClawManager extends EventEmitter {
     }
   }
 
+  // ---- Version check ----
+
+  /**
+   * Check npm registry for a newer version of OpenClaw.
+   * Returns { updateAvailable, currentVersion, latestVersion }.
+   */
+  async checkForUpdate(): Promise<{ updateAvailable: boolean; currentVersion: string | null; latestVersion: string | null }> {
+    const current = this.version || this.detectVersion();
+    const https = require('https') as typeof import('https');
+    const latestVersion = await new Promise<string | null>((resolve) => {
+      https.get('https://registry.npmjs.org/openclaw/latest', (res: import('http').IncomingMessage) => {
+        let data = '';
+        res.on('data', (c: Buffer) => { data += c.toString(); });
+        res.on('end', () => {
+          try {
+            const pkg = JSON.parse(data);
+            resolve(pkg.version || null);
+          } catch { resolve(null); }
+        });
+      }).on('error', () => resolve(null));
+    });
+    if (!current || !latestVersion) {
+      return { updateAvailable: false, currentVersion: current, latestVersion };
+    }
+    // Simple semver comparison: strip leading 'v' and compare
+    const norm = (v: string) => v.replace(/^v/i, '').trim();
+    const updateAvailable = norm(latestVersion) !== norm(current);
+    return { updateAvailable, currentVersion: current, latestVersion };
+  }
+
   // ---- Install ----
 
   /**

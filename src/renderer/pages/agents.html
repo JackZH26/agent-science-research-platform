@@ -180,7 +180,6 @@
     { value: 'claude-opus-4-6',   label: 'Opus 4.6' },
     { value: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
     { value: 'claude-haiku-4-5',  label: 'Haiku 4.5' },
-    { value: 'gemma-27b-local',   label: 'Gemma 27B (local)' },
   ];
 
   const AGENT_META = {
@@ -198,7 +197,6 @@
     if (m.includes('opus'))   return 'Opus 4.6';
     if (m.includes('sonnet')) return 'Sonnet 4.6';
     if (m.includes('haiku'))  return 'Haiku 4.5';
-    if (m.includes('gemma'))  return 'Gemma 27B';
     return m;
   }
 
@@ -305,6 +303,10 @@
                 <div style="margin-top:12px">
                   <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">UPTIME</div>
                   <div class="health-item"><span class="icon">⏱️</span> ${escHtml(uptimeStr(a.uptime))}</div>
+                </div>
+                <div style="margin-top:12px">
+                  <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">OPENCLAW</div>
+                  <div class="health-item"><span class="icon">📦</span> ${a.openclawVersion ? escHtml(a.openclawVersion) : 'Not detected'}</div>
                 </div>
               </div>
               <!-- Right: log viewer (T-045) -->

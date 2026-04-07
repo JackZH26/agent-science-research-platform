@@ -64,21 +64,6 @@
   </div>
 </div>
 
-<!-- T-074: Local AI Model Status Card -->
-<div class="panel mb-3" id="local-ai-card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-  <div style="flex:1;min-width:180px">
-    <div style="font-weight:600;font-size:13px;margin-bottom:4px">🧠 Local AI Model</div>
-    <div id="local-ai-status-text" style="font-size:12px;color:var(--text-secondary)">Checking...</div>
-    <div id="local-ai-progress-wrap" style="display:none;margin-top:6px">
-      <div style="height:6px;background:var(--surface);border-radius:4px;overflow:hidden;border:1px solid var(--border)">
-        <div id="local-ai-progress-bar" style="height:100%;background:#4a8c6a;border-radius:4px;transition:width 0.4s ease;width:0%"></div>
-      </div>
-      <div id="local-ai-progress-label" style="font-size:11px;color:var(--text-tertiary);margin-top:3px">0%</div>
-    </div>
-  </div>
-  <div id="local-ai-actions" style="display:flex;gap:8px;flex-shrink:0"></div>
-</div>
-
 <!-- Audit Log + Token Budget -->
 <div class="grid-2 mb-3">
   <div class="panel">
@@ -350,81 +335,6 @@
     return model;
   }
 
-  // T-074: Load local AI model status
-  async function loadLocalAiStatus() {
-    if (!window.asrp || !window.asrp.ollama) return;
-    try {
-      const status = await window.asrp.ollama.status();
-      const textEl = document.getElementById('local-ai-status-text');
-      const actionsEl = document.getElementById('local-ai-actions');
-      const progressWrap = document.getElementById('local-ai-progress-wrap');
-
-      if (!textEl || !actionsEl) return;
-
-      if (!status.installed) {
-        textEl.textContent = 'Local AI: Not installed';
-        actionsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="Router.navigate(\'/settings\')">Setup</button>';
-        return;
-      }
-
-      if (status.downloading) {
-        textEl.textContent = 'Downloading ' + (status.downloadModel || 'model') + '...';
-        if (progressWrap) {
-          progressWrap.style.display = 'block';
-          var bar = document.getElementById('local-ai-progress-bar');
-          var label = document.getElementById('local-ai-progress-label');
-          if (bar) bar.style.width = status.downloadProgress + '%';
-          if (label) label.textContent = status.downloadProgress + '% ' + (status.downloadSpeed ? '· ' + status.downloadSpeed : '') + (status.downloadEta ? ' · ETA ' + status.downloadEta : '');
-        }
-        actionsEl.innerHTML = '<button class="btn btn-outline btn-sm" onclick="window.asrp.ollama.cancelPull()">Cancel</button>';
-        return;
-      }
-
-      const hasGemma = status.models.some(function(m) { return m.includes('gemma'); });
-      if (hasGemma) {
-        // Static template with no user-supplied data — innerHTML is safe here
-        textEl.innerHTML = 'Gemma 27B <span style="color:var(--success)">&#9679;</span> Ready' + (!status.running ? ' <span style="color:var(--text-tertiary)">(server stopped)</span>' : '');
-        actionsEl.innerHTML = '';
-      } else if (status.installed) {
-        textEl.textContent = 'Ollama installed · Model not downloaded';
-        actionsEl.innerHTML = '<button class="btn btn-primary btn-sm" onclick="startOllamaDownload()">Download Gemma 27B</button><button class="btn btn-ghost btn-sm" onclick="Router.navigate(\'/settings\')">Settings</button>';
-      }
-
-      // T-072: Subscribe to download progress
-      if (window.asrp.ollama.onDownloadProgress) {
-        window.asrp.ollama.onDownloadProgress(function(data) {
-          var b = document.getElementById('local-ai-progress-bar');
-          var l = document.getElementById('local-ai-progress-label');
-          var t = document.getElementById('local-ai-status-text');
-          var w = document.getElementById('local-ai-progress-wrap');
-          if (w) w.style.display = 'block';
-          if (b) b.style.width = data.progress + '%';
-          if (l) l.textContent = data.progress + '% ' + (data.speed ? '\u00b7 ' + data.speed : '') + (data.eta ? ' \u00b7 ETA ' + data.eta : '');
-          if (t) t.textContent = 'Downloading ' + (data.model || 'model') + '...';
-        });
-        window.asrp.ollama.onDownloadComplete(function(data) {
-          var w = document.getElementById('local-ai-progress-wrap');
-          if (w) w.style.display = 'none';
-          var t = document.getElementById('local-ai-status-text');
-          if (t) t.innerHTML = 'Gemma 27B <span style="color:var(--success)">&#9679;</span> Ready';
-          Toast.show('Local AI model ready: ' + data.model, 'success');
-          loadLocalAiStatus();
-        });
-      }
-    } catch (e) { console.error('local AI status error', e); }
-  }
-
-  window.startOllamaDownload = async function() {
-    if (!window.asrp || !window.asrp.ollama) return;
-    var result = await window.asrp.ollama.pullModel('gemma3:27b');
-    if (result.success) {
-      Toast.show('Downloading Gemma 27B — this may take a while', 'info');
-      loadLocalAiStatus();
-    } else {
-      Toast.show('Download failed: ' + result.error, 'error');
-    }
-  };
-
   window.refreshDashboard = loadDashboard;
 
   // T-027: Subscribe to real-time agent status updates
@@ -467,7 +377,6 @@
   })();
 
   loadDashboard();
-  loadLocalAiStatus();
 
   // Gateway status check
   async function checkGatewayStatus() {
@@ -554,5 +463,24 @@
   checkGatewayStatus();
   // Refresh gateway status every 30 seconds
   setInterval(checkGatewayStatus, 30000);
+
+  // Check for OpenClaw updates on dashboard load
+  (async function checkOpenClawUpdate() {
+    if (!window.asrp || !window.asrp.gateway || !window.asrp.gateway.checkUpdate) return;
+    try {
+      var result = await window.asrp.gateway.checkUpdate();
+      if (result.updateAvailable && result.latestVersion) {
+        // Save to assistant chat history so user sees the notification
+        if (window.asrp.assistant && window.asrp.assistant.saveMessage) {
+          var msg = '📦 **OpenClaw Update Available**\n\n' +
+            'Current: `' + (result.currentVersion || 'unknown') + '`\n' +
+            'Latest: `' + result.latestVersion + '`\n\n' +
+            'Go to **Settings → Gateway** and click "Update OpenClaw" to install the latest version, or I can do it for you — just say "update openclaw".';
+          await window.asrp.assistant.saveMessage('assistant', msg);
+        }
+        Toast.show('OpenClaw update available: ' + result.latestVersion, 'info');
+      }
+    } catch (e) { /* ignore */ }
+  })();
 })();
 </script>
