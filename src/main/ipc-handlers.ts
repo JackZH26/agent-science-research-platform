@@ -9,6 +9,7 @@ import { registerFileHandlers } from './file-handlers';
 import { registerAgentHandlers, registerOpenClawHandlers, registerAssistantHandlers, registerDiscordHandlers } from './agent-handlers';
 import { registerPaperHandlers } from './paper-handlers';
 import { registerExperimentHandlers } from './experiment-handlers';
+import { registerAuthorHandlers } from './author-handlers';
 import { registerAuditHandlers } from './audit-handlers';
 import { registerSystemHandlers, registerSettingsHandlers, registerUpdaterHandlers, registerSelfTestHandlers, registerGatewayHandlers } from './system-handlers';
 import { registerOllamaHandlers } from './ollama-handlers';
@@ -113,6 +114,7 @@ export function registerIpcHandlers(): void {
   registerFileHandlers();
   registerPaperHandlers();
   registerExperimentHandlers();
+  registerAuthorHandlers();
   registerAuditHandlers();
   registerSettingsHandlers();
   registerOpenClawHandlers();

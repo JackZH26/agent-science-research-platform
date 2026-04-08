@@ -1,556 +1,435 @@
-<!-- H4: Demo mode banner -->
-<div id="demo-banner" style="background:#e8f4fd;border:1px solid #b8daff;border-radius:8px;padding:8px 16px;margin-bottom:14px;font-size:13px;color:#004085;display:flex;align-items:center;gap:8px">
-  <span>ℹ️</span>
-  <span><strong>Standalone Mode</strong> — Connect to OpenClaw for live data.</span>
-</div>
 
 <div class="page-header">
   <div>
     <h1>Papers</h1>
-    <p>Research papers with version management, pipeline tracking, and submission history</p>
+    <p>Browse agent-written papers organized by research project</p>
   </div>
   <div class="actions">
-    <button class="btn btn-primary btn-sm" onclick="showNewPaperWizard()">+ New Paper</button>
+    <button class="btn btn-outline btn-sm" onclick="refreshPapers()">Refresh</button>
   </div>
 </div>
 
-<!-- Papers Grid -->
-<div id="papers-list-view">
-  <div id="papers-grid">
-    <div class="loading"><div class="spinner"></div> Loading papers...</div>
-  </div>
+<!-- Top tabs: Papers | Authors -->
+<div class="paper-tabs-bar">
+  <button class="paper-main-tab active" data-mtab="papers" onclick="switchMainTab('papers')">Papers</button>
+  <button class="paper-main-tab" data-mtab="authors" onclick="switchMainTab('authors')">Authors</button>
 </div>
 
-<!-- Paper Detail View (hidden until card clicked) -->
-<div id="paper-detail-view" style="display:none">
-  <div style="margin-bottom:14px">
-    <button class="btn btn-ghost btn-sm" onclick="backToList()">← Back to Papers</button>
-    <span id="detail-title" style="font-size:16px;font-weight:700;margin-left:12px;color:var(--text)"></span>
-  </div>
-
-  <!-- Tabs -->
-  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">
-    <button class="paper-tab active" data-tab="pipeline" onclick="switchTab('pipeline')">Pipeline</button>
-    <button class="paper-tab" data-tab="versions" onclick="switchTab('versions')">Versions</button>
-    <button class="paper-tab" data-tab="diff" onclick="switchTab('diff')">Diff</button>
-    <button class="paper-tab" data-tab="reviews" onclick="switchTab('reviews')">Reviews</button>
-    <button class="paper-tab" data-tab="submission" onclick="switchTab('submission')">Submission</button>
-    <button class="paper-tab" data-tab="preview" onclick="switchTab('preview')">PDF Preview</button>
-  </div>
-
-  <!-- Pipeline Tab (T-055) -->
-  <div id="tab-pipeline" class="paper-tab-content">
-    <div class="panel">
-      <h3 style="margin-bottom:20px">Pipeline Status</h3>
-      <div id="pipeline-viz" style="overflow-x:auto;padding-bottom:8px"></div>
-      <p style="font-size:12px;color:var(--text-tertiary);margin-top:16px" id="pipeline-note"></p>
-    </div>
-  </div>
-
-  <!-- Versions Tab (T-056) -->
-  <div id="tab-versions" class="paper-tab-content" style="display:none">
-    <div style="display:flex;gap:12px">
-      <div class="panel" style="width:220px;min-width:180px;padding:0">
-        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text-secondary)">VERSION HISTORY</div>
-        <div id="versions-timeline" style="padding:8px 0"></div>
+<!-- ============ Papers Tab ============ -->
+<div id="mtab-papers">
+  <div style="display:flex;gap:12px;min-height:520px">
+    <!-- Left: directory tree -->
+    <div class="panel" style="width:260px;min-width:200px;overflow-y:auto;padding:0">
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12px;font-weight:600;color:var(--text-secondary)">PROJECTS</span>
       </div>
-      <div class="panel" style="flex:1;min-width:0">
-        <div id="version-preview-content" style="font-family:var(--font-mono);font-size:12px;line-height:1.7;white-space:pre-wrap;color:var(--text-secondary);padding:4px">Select a version to preview</div>
+      <div id="paper-tree" style="padding:6px 0">
+        <div class="loading" style="padding:20px;justify-content:center"><div class="spinner"></div></div>
       </div>
     </div>
-  </div>
 
-  <!-- Diff Tab (T-057) -->
-  <div id="tab-diff" class="paper-tab-content" style="display:none">
-    <div class="panel mb-2" style="padding:12px 14px">
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:13px;font-weight:500">Version A:</label>
-          <select id="diff-version-a" class="select-sm"></select>
+    <!-- Right: paper list for selected directory -->
+    <div class="panel" style="flex:1;min-width:0;padding:0;display:flex;flex-direction:column">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:14px;font-weight:600;color:var(--text)" id="papers-dir-title">Select a project</span>
+        <span style="font-size:12px;color:var(--text-tertiary)" id="papers-dir-count"></span>
+      </div>
+      <div id="papers-file-list" style="flex:1;overflow-y:auto;padding:0">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);padding:40px">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;opacity:0.4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+          <p style="font-size:13px">Select a project folder to browse papers</p>
+          <p style="font-size:11px;margin-top:4px">Papers are created by agents during the research pipeline</p>
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:13px;font-weight:500">Version B:</label>
-          <select id="diff-version-b" class="select-sm"></select>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="runDiff()">Compare →</button>
-      </div>
-    </div>
-    <div id="diff-result" class="panel" style="padding:0;overflow:auto">
-      <div style="padding:20px;color:var(--text-tertiary);font-size:13px;text-align:center">Select two versions and click Compare</div>
-    </div>
-  </div>
-
-  <!-- Reviews Tab (T-058) -->
-  <div id="tab-reviews" class="paper-tab-content" style="display:none">
-    <div id="reviews-accordion"></div>
-  </div>
-
-  <!-- Submission Tab (T-060) -->
-  <div id="tab-submission" class="paper-tab-content" style="display:none">
-    <div class="panel" style="padding:0">
-      <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-        <span style="font-weight:600;font-size:14px">Submission History</span>
-        <button class="btn btn-primary btn-sm" onclick="addSubmissionRow()">+ Add Entry</button>
-      </div>
-      <div style="overflow-x:auto">
-        <table id="submission-table">
-          <thead><tr>
-            <th>Journal</th>
-            <th>Submitted</th>
-            <th>Status</th>
-            <th>Response Date</th>
-            <th>Notes</th>
-            <th style="width:60px">Save</th>
-          </tr></thead>
-          <tbody id="submission-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- PDF Preview Tab (T-059) -->
-  <div id="tab-preview" class="paper-tab-content" style="display:none">
-    <div class="panel" style="padding:0;min-height:500px">
-      <iframe id="paper-pdf-iframe" style="width:100%;height:550px;border:none" title="Paper PDF"></iframe>
-      <div id="paper-pdf-fallback" style="padding:32px;text-align:center">
-        <div style="font-size:32px;margin-bottom:12px">📕</div>
-        <p style="color:var(--text-secondary);margin-bottom:12px">No compiled PDF found for this paper.</p>
-        <button class="btn btn-outline btn-sm" onclick="openPaperInExplorer()">Open Paper Directory</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- New Paper Wizard Modal (T-061) -->
-<div id="new-paper-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center">
-  <div class="panel" style="width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:0">
-    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <h3 style="margin:0">New Paper Wizard</h3>
-      <button class="btn btn-ghost btn-sm" onclick="closeWizard()">✕</button>
+<!-- ============ Authors Tab ============ -->
+<div id="mtab-authors" style="display:none">
+  <div class="panel" style="padding:0">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:14px;font-weight:600;color:var(--text)">Author Profiles</span>
+      <button class="btn btn-primary btn-sm" onclick="showAuthorForm()">+ Add Author</button>
     </div>
-    <div style="padding:20px">
-      <div class="alert" id="wizard-alert"></div>
-      <div class="form-group">
-        <label>Paper Title <span style="color:var(--error)">*</span></label>
-        <input type="text" id="wiz-title" placeholder="e.g. Double-Delta DFT Corrections for Multi-Well Systems">
+    <div id="authors-list" style="padding:0">
+      <div class="loading" style="padding:20px;justify-content:center"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- Project Default Authors -->
+  <div class="panel mt-2" style="padding:0">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <span style="font-size:14px;font-weight:600;color:var(--text)">Default Authors per Project</span>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">Select authors to be auto-assigned when agents create papers for each project</div>
+    </div>
+    <div id="project-authors-list" style="padding:12px 16px">
+      <div class="loading" style="padding:8px"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- Author Form Modal -->
+  <div id="author-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);align-items:center;justify-content:center">
+    <div class="panel" style="width:440px;max-width:95vw;padding:0">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <h3 style="margin:0" id="author-modal-title">Add Author</h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeAuthorForm()">×</button>
       </div>
-      <div class="form-group">
-        <label>Core Claims (one per line, up to 3)</label>
-        <textarea id="wiz-claims" rows="3" placeholder="1. LDA over-binds by >1% in multi-well case&#10;2. DD correction with exact KS gap restores accuracy&#10;3. Result scales to N-well systems" style="resize:vertical"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Target Journal</label>
-        <input type="text" id="wiz-journal" placeholder="e.g. Physical Review B, J. Chem. Phys.">
-      </div>
-      <div class="form-group">
-        <label>Evidence Level per Claim</label>
-        <div style="display:flex;gap:16px;margin-top:4px">
-          <label style="font-size:13px"><input type="radio" name="evidence" value="A" checked> A — Strong (confirmed experiments)</label>
-          <label style="font-size:13px"><input type="radio" name="evidence" value="B"> B — Moderate (preliminary)</label>
-          <label style="font-size:13px"><input type="radio" name="evidence" value="C"> C — Weak (hypothesis only)</label>
+      <div style="padding:18px">
+        <input type="hidden" id="author-edit-id">
+        <div class="form-group">
+          <label>Name <span style="color:var(--error)">*</span></label>
+          <input type="text" id="author-name" placeholder="e.g. John Smith">
         </div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn btn-primary" onclick="submitWizard()">Create Paper & Start Pipeline</button>
-        <button class="btn btn-outline" onclick="closeWizard()">Cancel</button>
+        <div class="form-group">
+          <label>Title / Honorific</label>
+          <input type="text" id="author-title" placeholder="e.g. Prof., Dr., PhD">
+        </div>
+        <div class="form-group">
+          <label>Institution</label>
+          <input type="text" id="author-institution" placeholder="e.g. MIT, University of Cambridge">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="author-email" placeholder="e.g. john@university.edu">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-primary" onclick="saveAuthor()">Save</button>
+          <button class="btn btn-outline" onclick="closeAuthorForm()">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <style>
-.paper-tab {
-  padding:8px 16px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-secondary);border-bottom:2px solid transparent;margin-bottom:-1px
+.paper-tabs-bar {
+  display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px;
 }
-.paper-tab.active,.paper-tab:hover { color:var(--accent);border-bottom-color:var(--accent) }
-.paper-tab-content { }
-.select-sm { padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-secondary);color:var(--text) }
-.pipeline-stage {
-  display:flex;flex-direction:column;align-items:center;min-width:80px
+.paper-main-tab {
+  padding:8px 20px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;
+  color:var(--text-secondary);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s;
 }
-.pipeline-circle {
-  width:36px;height:36px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:var(--bg-secondary);color:var(--text-tertiary);transition:all 0.2s
+.paper-main-tab.active,.paper-main-tab:hover { color:var(--accent);border-bottom-color:var(--accent); }
+.paper-tree-item {
+  display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:13px;
+  color:var(--text-secondary);border-left:3px solid transparent;transition:all 0.1s;
 }
-.pipeline-circle.done { background:var(--success,#2a7a4b);color:#fff;border-color:var(--success) }
-.pipeline-circle.current { background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,140,106,0.2) }
-.pipeline-label { font-size:11px;text-align:center;margin-top:5px;color:var(--text-secondary);max-width:72px }
-.pipeline-line { height:2px;flex:1;background:var(--border);min-width:16px;align-self:center;margin-bottom:20px }
-.pipeline-line.done { background:var(--success) }
-.version-item {
-  padding:8px 14px;cursor:pointer;border-left:3px solid transparent;font-size:13px
+.paper-tree-item:hover { background:var(--hover-bg,rgba(0,0,0,0.03)); }
+.paper-tree-item.active { background:var(--accent-subtle,rgba(74,140,106,0.08));color:var(--accent);border-left-color:var(--accent);font-weight:600; }
+.paper-tree-icon { flex-shrink:0;display:flex;align-items:center; }
+.paper-tree-count { font-size:11px;color:var(--text-tertiary);margin-left:auto; }
+.paper-file-row {
+  display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border-light,rgba(0,0,0,0.05));
+  cursor:pointer;transition:background 0.1s;
 }
-.version-item:hover { background:var(--hover-bg,rgba(0,0,0,0.04)) }
-.version-item.current-v { border-left-color:var(--accent);background:var(--accent-subtle,rgba(74,140,106,0.07)) }
-.diff-line { font-family:var(--font-mono);font-size:12px;line-height:1.6;white-space:pre;padding:0 14px }
-.diff-added { background:#d4edda;color:#155724 }
-.diff-removed { background:#f8d7da;color:#721c24 }
-.diff-changed { background:#fff3cd;color:#004085 }
-.diff-header { background:var(--bg-secondary);color:var(--text-secondary);padding:4px 14px;font-size:11px;font-family:var(--font-mono) }
-.review-section { border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden }
-.review-header {
-  padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--bg-secondary);user-select:none
+.paper-file-row:hover { background:var(--hover-bg,rgba(0,0,0,0.02)); }
+.paper-file-row:last-child { border-bottom:none; }
+.paper-file-icon { flex-shrink:0;display:flex;align-items:center;color:var(--text-tertiary); }
+.paper-file-info { flex:1;min-width:0; }
+.paper-file-name { font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.paper-file-meta { font-size:11px;color:var(--text-tertiary);margin-top:2px; }
+.paper-file-size { font-size:11px;color:var(--text-tertiary);flex-shrink:0; }
+.author-card {
+  display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border-light,rgba(0,0,0,0.05));
 }
-.review-header:hover { background:var(--hover-bg) }
-.review-body { padding:16px;border-top:1px solid var(--border);display:none }
-.review-body.open { display:block }
-.sub-status { padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600 }
-.sub-status.Submitted { background:#cce5ff;color:#004085 }
-.sub-status.Accepted { background:#d4edda;color:#155724 }
-.sub-status.Rejected { background:#f8d7da;color:#721c24 }
-.sub-status.Revision { background:#fff3cd;color:#004085 }
-.sub-status.Review { background:#e2d9f3;color:#4a0080 }
-.sub-status.Desk { background:#fde;color:#7a0020 }
-.sub-editable { border:1px solid transparent;border-radius:4px;padding:2px 4px;background:transparent;min-width:60px;font-size:13px;cursor:pointer }
-.sub-editable:hover,.sub-editable:focus { border-color:var(--border);background:var(--bg-secondary);outline:none;cursor:text }
+.author-card:last-child { border-bottom:none; }
+.author-avatar { width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0; }
+.author-info { flex:1;min-width:0; }
+.author-name-line { font-size:14px;font-weight:600;color:var(--text); }
+.author-detail-line { font-size:12px;color:var(--text-tertiary);margin-top:2px; }
+.author-actions { display:flex;gap:6px;flex-shrink:0; }
+.project-author-row { display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border-light,rgba(0,0,0,0.04)); }
+.project-author-row:last-child { border-bottom:none; }
+.project-label { font-size:13px;font-weight:600;color:var(--text);min-width:140px; }
 </style>
 
 <script>
 (function() {
-  let papers = [];
-  let currentPaper = null;
-  let paperVersions = [];
-  let submissionData = [];
-  const workspacePath = { path: '' };
-
-  // Pipeline stage definitions
-  const STAGES = [
-    { label: 'Pre-write', short: 'PW' },
-    { label: 'Draft', short: 'Dr' },
-    { label: 'Self-Review', short: 'SR' },
-    { label: 'Albert\nReview', short: 'AR' },
-    { label: 'Revision', short: 'Rv' },
-    { label: 'Tech QA', short: 'QA' },
-    { label: 'Submit', short: 'Sub' },
-  ];
-
-  // Mock versions data
-  const MOCK_VERSIONS = {
-    'paper-001': [
-      { ver: 'v0', date: '2026-03-28', size: '4.2 KB', note: 'Initial outline from experiments' },
-      { ver: 'v1', date: '2026-03-30', size: '8.7 KB', note: 'Draft introduction + methods' },
-      { ver: 'v2', date: '2026-04-01', size: '14.3 KB', note: 'Results section added' },
-      { ver: 'v3', date: '2026-04-02', size: '17.8 KB', note: 'Self-review corrections' },
-    ],
-    'paper-002': [
-      { ver: 'v0', date: '2026-03-20', size: '3.1 KB', note: 'Outline' },
-      { ver: 'v1', date: '2026-03-25', size: '11.5 KB', note: 'Full draft' },
-    ],
+  // SVG icons
+  const IC = {
+    folder: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+    file: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    edit: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    trash: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>',
+    open: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
   };
 
-  const MOCK_VERSION_CONTENT = {
-    'v0': `\\documentclass{article}\n\\title{Double-Delta DFT Corrections}\n\\begin{document}\n\\maketitle\n\n\\section{Introduction}\nOutline: LDA binding energy corrections for multi-well potential...\n\n% TODO: expand\n\\end{document}`,
-    'v1': `\\documentclass{article}\n\\title{Double-Delta DFT Corrections}\n\\author{ASRP System}\n\\begin{document}\n\\maketitle\n\n\\section{Introduction}\nDensity functional theory (DFT) systematically over-binds in multi-well systems.\nThe double-delta (DD) correction addresses this via the exact Kohn-Sham gap.\n\n\\section{Methods}\nWe use the iDEA code to compute reverse-engineered KS potentials.\nThe DD correction is $\\Delta E = E_{DD} - E_{LDA}$.\n\n\\end{document}`,
-    'v2': `\\documentclass{article}\n\\title{Double-Delta DFT Corrections for Multi-Well Systems}\n\\author{ASRP System}\n\\date{\\today}\n\\begin{document}\n\\maketitle\n\n\\section{Introduction}\nDensity functional theory (DFT) systematically over-binds in multi-well systems.\nThe double-delta (DD) correction addresses this via the exact Kohn-Sham gap.\n\n\\section{Methods}\nWe use the iDEA code with tolerance $10^{-6}$ to compute the exact KS potential.\nThe correction is applied per equation (3).\n\n\\section{Results}\nFor $d = 5, 6, 7$: $\\Delta E_{DD} = +0.215, +0.198, +0.176$ Hartree respectively.\nLDA over-binds by $1.3\\%$ relative to exact result.\n\n\\end{document}`,
-    'v3': `\\documentclass{article}\n\\title{Double-Delta DFT Corrections for Multi-Well Systems}\n\\author{ASRP System}\n\\date{\\today}\n\\begin{document}\n\\maketitle\n\n\\section{Introduction}\nDensity functional theory (DFT) systematically over-binds in multi-well systems.\nThe double-delta (DD) correction addresses this via the exact Kohn-Sham gap [1].\nHere we demonstrate the correction for $N$-well systems with $N=1\\ldots7$.\n\n\\section{Methods}\nWe use the iDEA reverse-KS code with convergence tolerance $10^{-6}$.\nCorrection term: $\\Delta E_{DD} = -\\frac{1}{2}\\Delta v_{xc} \\cdot N_e$.\n\n\\section{Results}\nFor well separations $d = 5, 6, 7$ Bohr:\n$\\Delta E_{DD} = +0.215, +0.198, +0.176$ Hartree.\nLDA over-binds by $1.3\\%$; DD correction restores accuracy to $<0.01\\%$.\n\n\\section{Conclusion}\nDD corrections are necessary for multi-well DFT; exact KS gap is obtainable via iDEA.\n\n\\end{document}`,
+  let paperDirs = [];
+  let allAuthors = [];
+  let projectDefaults = [];
+  let allResearches = [];
+  let selectedDir = null;
+
+  function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/1048576).toFixed(1) + ' MB';
+  }
+
+  // ===== Main tab switch =====
+  window.switchMainTab = function(tab) {
+    document.querySelectorAll('.paper-main-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelector('[data-mtab="'+tab+'"]').classList.add('active');
+    document.getElementById('mtab-papers').style.display = tab === 'papers' ? '' : 'none';
+    document.getElementById('mtab-authors').style.display = tab === 'authors' ? '' : 'none';
+    if (tab === 'authors') loadAuthors();
   };
 
-  // Mock reviews
-  const MOCK_REVIEWS = [
-    { title: 'Self-Review R1 (Structure)', status: 'Passed', content: '## Structure Review\n\n**Introduction**: Clear motivation, appropriate length.\n\n**Methods**: iDEA code version pinned. Tolerance stated.\n\n**Results**: Figures needed for $d$-series plot.\n\n**Conclusion**: Matches claims. ✓\n\n*Overall: Minor revisions — add figures.*' },
-    { title: 'Self-Review R2 (Adversarial)', status: 'Minor Issues', content: '## Adversarial Review\n\n**Claim 1** (LDA over-binds >1%): Confirmed by EXP-001. ✓\n\n**Claim 2** (DD restores accuracy): EXP-003 in progress — cannot fully confirm yet.\n\n**Potential critique**: DD sign depends on KS gap definition (see Reviewer comment in EXP-002). Needs clarification.\n\n*Hold for EXP-003 completion.*' },
-    { title: 'Albert Review', status: 'Major Issues', content: '## Theorist Review (Albert)\n\n**Theoretical consistency**: DD correction derivation needs to cite original Perdew 1982 framework.\n\n**Numerical**: iDEA tolerance $10^{-6}$ — verify this is tight enough for 5-digit accuracy in DD value.\n\n**Issue**: Equation (3) has sign ambiguity. Please clarify convention.\n\n*Recommend: Revise before submission.*' },
-    { title: 'Revision Response', status: 'Minor Issues', content: '## Response to Albert Review\n\n1. Added Perdew 1982 citation in §1.\n2. Verified: $10^{-6}$ tolerance gives DD accurate to $\\pm 0.0001$ Hartree.\n3. Equation (3) sign convention clarified with footnote.\n\n*Ready for Tech QA.*' },
-  ];
-
-  // Mock submissions
-  const MOCK_SUBMISSIONS = {
-    'paper-002': [
-      { journal: 'Physical Review B', submitted: '2026-03-28', status: 'Under Review', response: '', notes: 'Preprint on arXiv 2026.03.123' },
-    ],
-  };
-
-  // ---- Load papers ----
-  async function loadPapers() {
+  // ===== Papers tab =====
+  async function loadPaperTree() {
     if (!window.asrp) return;
-    const ws = await window.asrp.system.workspace();
-    workspacePath.path = ws.path;
-    const { papers: p } = await window.asrp.papers.list();
-    papers = p;
-    renderPapers(papers);
-  }
+    var tree = document.getElementById('paper-tree');
+    tree.innerHTML = '<div class="loading" style="padding:20px;justify-content:center"><div class="spinner"></div></div>';
 
-  function renderPapers(list) {
-    const container = document.getElementById('papers-grid');
-    if (!list.length) {
-      container.innerHTML = `<div class="empty-state"><span class="icon">📄</span><h3>No papers yet</h3><p>Create your first paper to begin the pipeline</p><button class="btn btn-primary" onclick="showNewPaperWizard()">+ New Paper</button></div>`;
-      return;
-    }
-    const statusColor = { draft:'var(--warning)', submitted:'var(--accent)', published:'var(--success)', reviewing:'var(--orange)', 'self-review':'var(--orange)', revision:'#e06c00' };
-    const stageMap = { draft: 1, 'self-review': 2, reviewing: 3, revision: 4, submitted: 5, published: 6 };
+    try {
+      // Load researches for labels
+      var expRes = await window.asrp.experiments.list();
+      allResearches = expRes.experiments || [];
 
-    container.innerHTML = '<div class="grid-2">' + list.map(p => {
-      const stage = stageMap[p.status] || 1;
-      const versions = MOCK_VERSIONS[p.id] || [];
-      return `<div class="card" style="cursor:pointer" onclick="openPaperDetail('${p.id}')">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:28px">📄</div>
-          <span class="badge" style="background:rgba(0,0,0,0.04);color:${statusColor[p.status]||'var(--text-secondary)'};border:1px solid currentColor">${capitalize(p.status)}</span>
-        </div>
-        <h3 style="font-size:14px;font-weight:600;margin-bottom:6px;line-height:1.4">${p.title}</h3>
-        <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:8px">Stage ${stage}/6 · ${versions.length} version${versions.length !== 1 ? 's' : ''} · ${p.created}</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
-          ${STAGES.slice(0,7).map((s, i) => `<span style="font-size:10px;padding:2px 6px;border-radius:8px;background:${i < stage ? 'var(--success)' : i === stage ? 'var(--accent)' : 'var(--bg-secondary)'};color:${i <= stage ? '#fff' : 'var(--text-tertiary)'}">${s.short}</span>`).join('')}
-        </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();openPaperDetail('${p.id}')">Open →</button>
-        </div>
-      </div>`;
-    }).join('') + '</div>';
-  }
+      // Scan paper directories
+      var res = await window.asrp.papers.scan();
+      paperDirs = res.directories || [];
 
-  // ---- Detail View ----
-  window.openPaperDetail = function(paperId) {
-    currentPaper = papers.find(p => p.id === paperId);
-    if (!currentPaper) return;
-    document.getElementById('papers-list-view').style.display = 'none';
-    document.getElementById('paper-detail-view').style.display = 'block';
-    document.getElementById('detail-title').textContent = currentPaper.title;
-    switchTab('pipeline');
-    loadPipelineTab(paperId);
-  };
-
-  window.backToList = function() {
-    document.getElementById('paper-detail-view').style.display = 'none';
-    document.getElementById('papers-list-view').style.display = 'block';
-    currentPaper = null;
-  };
-
-  window.switchTab = function(name) {
-    document.querySelectorAll('.paper-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.paper-tab-content').forEach(t => t.style.display = 'none');
-    document.querySelector(`[data-tab="${name}"]`).classList.add('active');
-    document.getElementById('tab-' + name).style.display = 'block';
-    if (name === 'versions') loadVersionsTab();
-    if (name === 'diff') loadDiffTab();
-    if (name === 'reviews') loadReviewsTab();
-    if (name === 'submission') loadSubmissionTab();
-    if (name === 'preview') loadPDFPreviewTab();
-  };
-
-  // Pipeline Tab
-  function loadPipelineTab(paperId) {
-    const stageMap = { draft: 1, 'self-review': 2, reviewing: 3, revision: 4, submitted: 5, published: 6 };
-    const current = stageMap[currentPaper.status] || 1;
-    const viz = document.getElementById('pipeline-viz');
-
-    let html = '<div style="display:flex;align-items:flex-start;gap:0">';
-    STAGES.forEach((s, i) => {
-      const done = i < current;
-      const active = i === current;
-      html += `<div class="pipeline-stage"><div class="pipeline-circle ${done ? 'done' : active ? 'current' : ''}">${done ? '✓' : i}</div><div class="pipeline-label">${s.label}</div></div>`;
-      if (i < STAGES.length - 1) html += `<div class="pipeline-line ${done ? 'done' : ''}"></div>`;
-    });
-    html += '</div>';
-    viz.innerHTML = html;
-    document.getElementById('pipeline-note').textContent = `Current stage: ${STAGES[current]?.label || STAGES[current-1]?.label} (Stage ${current}/6)`;
-  }
-
-  // Versions Tab
-  function loadVersionsTab() {
-    if (!currentPaper) return;
-    paperVersions = MOCK_VERSIONS[currentPaper.id] || [];
-    const timeline = document.getElementById('versions-timeline');
-    if (!paperVersions.length) { timeline.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-tertiary)">No versions yet</div>'; return; }
-    const lastVer = paperVersions[paperVersions.length - 1].ver;
-    timeline.innerHTML = paperVersions.slice().reverse().map(v => `
-      <div class="version-item ${v.ver === lastVer ? 'current-v' : ''}" onclick="loadVersionContent('${v.ver}')">
-        <div style="font-weight:600;color:var(--text)">${v.ver} ${v.ver === lastVer ? '<span style="font-size:10px;color:var(--accent)">(current)</span>' : ''}</div>
-        <div style="font-size:12px;color:var(--text-secondary)">${v.date}</div>
-        <div style="font-size:11px;color:var(--text-tertiary)">${v.size} · ${v.note}</div>
-      </div>
-    `).join('');
-  }
-
-  window.loadVersionContent = function(ver) {
-    const content = MOCK_VERSION_CONTENT[ver] || `% Version ${ver} content not available`;
-    document.getElementById('version-preview-content').textContent = content;
-    document.querySelectorAll('.version-item').forEach(item => {
-      item.classList.toggle('current-v', item.textContent.includes(ver + ' '));
-    });
-  };
-
-  // Diff Tab
-  function loadDiffTab() {
-    if (!currentPaper) return;
-    const versions = MOCK_VERSIONS[currentPaper.id] || [];
-    const vA = document.getElementById('diff-version-a');
-    const vB = document.getElementById('diff-version-b');
-    vA.innerHTML = versions.map(v => `<option value="${v.ver}">${v.ver}</option>`).join('');
-    vB.innerHTML = versions.map(v => `<option value="${v.ver}">${v.ver}</option>`).join('');
-    if (versions.length >= 2) {
-      vA.value = versions[versions.length - 2].ver;
-      vB.value = versions[versions.length - 1].ver;
-    }
-  }
-
-  // LCS-based line diff (T-057, no external deps)
-  function computeDiff(textA, textB) {
-    const linesA = textA.split('\n');
-    const linesB = textB.split('\n');
-    const m = linesA.length, n = linesB.length;
-    // Build LCS table
-    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-    for (let i = 1; i <= m; i++) {
-      for (let j = 1; j <= n; j++) {
-        dp[i][j] = linesA[i-1] === linesB[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
-      }
-    }
-    // Trace back
-    const ops = [];
-    let i = m, j = n;
-    while (i > 0 || j > 0) {
-      if (i > 0 && j > 0 && linesA[i-1] === linesB[j-1]) { ops.unshift({ type: 'same', lineA: i, lineB: j, text: linesA[i-1] }); i--; j--; }
-      else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { ops.unshift({ type: 'added', lineB: j, text: linesB[j-1] }); j--; }
-      else { ops.unshift({ type: 'removed', lineA: i, text: linesA[i-1] }); i--; }
-    }
-    return ops;
-  }
-
-  window.runDiff = function() {
-    const verA = document.getElementById('diff-version-a').value;
-    const verB = document.getElementById('diff-version-b').value;
-    const textA = MOCK_VERSION_CONTENT[verA] || '';
-    const textB = MOCK_VERSION_CONTENT[verB] || '';
-    const ops = computeDiff(textA, textB);
-    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-    let left = '', right = '';
-    const leftNums = [], rightNums = [];
-    let la = 0, lb = 0;
-    ops.forEach(op => {
-      if (op.type === 'same') {
-        la++; lb++;
-        left += `<div class="diff-line"><span style="color:var(--text-tertiary);user-select:none;display:inline-block;width:32px;text-align:right;padding-right:10px;font-size:10px">${la}</span>${esc(op.text)}</div>`;
-        right += `<div class="diff-line"><span style="color:var(--text-tertiary);user-select:none;display:inline-block;width:32px;text-align:right;padding-right:10px;font-size:10px">${lb}</span>${esc(op.text)}</div>`;
-      } else if (op.type === 'removed') {
-        la++;
-        left += `<div class="diff-line diff-removed"><span style="user-select:none;display:inline-block;width:32px;text-align:right;padding-right:10px;font-size:10px">${la}</span>${esc(op.text)}</div>`;
-        right += `<div class="diff-line" style="opacity:0.3"><span style="display:inline-block;width:32px">&nbsp;</span>&nbsp;</div>`;
+      // If scan returned empty, show all research dirs + General as placeholders
+      if (paperDirs.length === 0) {
+        paperDirs = allResearches.filter(function(r) { return r.status !== 'archived'; }).map(function(r) {
+          return { researchId: r.id, researchLabel: (r.code || r.id) + ' — ' + (r.title || 'Untitled'), papers: [] };
+        });
+        paperDirs.push({ researchId: 'general', researchLabel: 'General', papers: [] });
       } else {
-        lb++;
-        left += `<div class="diff-line" style="opacity:0.3"><span style="display:inline-block;width:32px">&nbsp;</span>&nbsp;</div>`;
-        right += `<div class="diff-line diff-added"><span style="user-select:none;display:inline-block;width:32px;text-align:right;padding-right:10px;font-size:10px">${lb}</span>${esc(op.text)}</div>`;
+        // Enhance labels with research title and code
+        paperDirs = paperDirs.map(function(d) {
+          if (d.researchId === 'general') return d;
+          var research = allResearches.find(function(r) { return r.id === d.researchId; });
+          if (research) {
+            d.researchLabel = (research.code || d.researchId) + ' — ' + (research.title || d.researchId);
+          }
+          return d;
+        });
       }
-    });
 
-    document.getElementById('diff-result').innerHTML = `
-      <div class="diff-header" style="display:flex"><div style="flex:1;border-right:1px solid var(--border);padding:6px 14px">${verA}</div><div style="flex:1;padding:6px 14px">${verB}</div></div>
-      <div style="display:flex">
-        <div style="flex:1;overflow-x:auto;border-right:1px solid var(--border)">${left}</div>
-        <div style="flex:1;overflow-x:auto">${right}</div>
-      </div>`;
-  };
-
-  // Reviews Tab
-  function loadReviewsTab() {
-    const container = document.getElementById('reviews-accordion');
-    const reviewStatusColor = { 'Passed': 'var(--success)', 'Minor Issues': 'var(--warning)', 'Major Issues': 'var(--error)' };
-    container.innerHTML = MOCK_REVIEWS.map((r, i) => `
-      <div class="review-section">
-        <div class="review-header" onclick="toggleReview(${i})">
-          <span style="font-weight:600;font-size:14px">${r.title}</span>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="badge" style="background:rgba(0,0,0,0.05);color:${reviewStatusColor[r.status]||'var(--text-secondary)'};border:1px solid currentColor">${r.status}</span>
-            <span id="review-toggle-${i}" style="color:var(--text-tertiary)">▶</span>
-          </div>
-        </div>
-        <div class="review-body" id="review-body-${i}" style="display:none">
-          <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--text-secondary)">${r.content}</div>
-        </div>
-      </div>
-    `).join('');
+      renderPaperTree();
+    } catch (e) {
+      tree.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--error)">Error: ' + escHtml(e.message) + '</div>';
+    }
   }
 
-  window.toggleReview = function(i) {
-    const body = document.getElementById('review-body-' + i);
-    const tog = document.getElementById('review-toggle-' + i);
-    const open = body.style.display !== 'none';
-    body.style.display = open ? 'none' : 'block';
-    tog.textContent = open ? '▶' : '▼';
-  };
-
-  // Submission Tab
-  function loadSubmissionTab() {
-    if (!currentPaper) return;
-    submissionData = (MOCK_SUBMISSIONS[currentPaper.id] || []).map((s, i) => ({ ...s, id: i }));
-    renderSubmissions();
-  }
-
-  function renderSubmissions() {
-    const tbody = document.getElementById('submission-tbody');
-    const statusOptions = ['Submitted','Under Review','Revision Requested','Accepted','Rejected','Desk Reject'];
-    if (!submissionData.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-tertiary);padding:20px;font-size:13px">No submissions yet</td></tr>';
+  function renderPaperTree() {
+    var tree = document.getElementById('paper-tree');
+    if (!paperDirs.length) {
+      tree.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--text-tertiary)">No paper directories found</div>';
       return;
     }
-    tbody.innerHTML = submissionData.map((s, i) => {
-      const key = s.status.split(' ')[0];
-      return `<tr>
-        <td><input class="sub-editable" value="${escHtml(s.journal)}" onchange="updateSubField(${i},'journal',this.value)"></td>
-        <td><input class="sub-editable" type="date" value="${s.submitted}" onchange="updateSubField(${i},'submitted',this.value)" style="min-width:110px"></td>
-        <td><select class="sub-editable" onchange="updateSubField(${i},'status',this.value)">${statusOptions.map(o => `<option ${o===s.status?'selected':''}>${o}</option>`).join('')}</select></td>
-        <td><input class="sub-editable" type="date" value="${s.response||''}" onchange="updateSubField(${i},'response',this.value)" style="min-width:110px"></td>
-        <td><input class="sub-editable" value="${escHtml(s.notes||'')}" style="min-width:120px" onchange="updateSubField(${i},'notes',this.value)"></td>
-        <td><button class="btn btn-primary btn-sm" onclick="saveSubmission(${i})">Save</button></td>
-      </tr>`;
+    tree.innerHTML = paperDirs.map(function(d) {
+      var active = selectedDir && selectedDir.researchId === d.researchId;
+      var isGeneral = d.researchId === 'general';
+      return '<div class="paper-tree-item' + (active ? ' active' : '') + '" onclick="selectPaperDir(\'' + escHtml(d.researchId).replace(/'/g, "\\'") + '\')">' +
+        '<span class="paper-tree-icon">' + IC.folder + '</span>' +
+        '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(d.researchLabel) + '</span>' +
+        '<span class="paper-tree-count">' + d.papers.length + '</span>' +
+      '</div>';
     }).join('');
   }
 
-  window.updateSubField = function(i, field, val) { submissionData[i][field] = val; };
-  window.saveSubmission = async function(i) {
-    if (window.asrp && currentPaper) {
-      await window.asrp.papers.update(currentPaper.id, { submissions: submissionData });
-      if (typeof Toast !== 'undefined') Toast.show('Submission saved', 'success');
-    }
-  };
-  window.addSubmissionRow = function() {
-    submissionData.push({ journal: '', submitted: new Date().toISOString().slice(0,10), status: 'Submitted', response: '', notes: '', id: submissionData.length });
-    renderSubmissions();
+  window.selectPaperDir = function(researchId) {
+    selectedDir = paperDirs.find(function(d) { return d.researchId === researchId; });
+    renderPaperTree();
+    renderPaperFiles();
   };
 
-  // PDF Preview Tab
-  function loadPDFPreviewTab() {
-    if (!currentPaper || !workspacePath.path) return;
-    const pdfPath = workspacePath.path + '/papers/' + currentPaper.id + '/paper.pdf';
-    const iframe = document.getElementById('paper-pdf-iframe');
-    iframe.src = 'file://' + pdfPath;
-    document.getElementById('paper-pdf-fallback').style.display = 'block';
+  function renderPaperFiles() {
+    var container = document.getElementById('papers-file-list');
+    var titleEl = document.getElementById('papers-dir-title');
+    var countEl = document.getElementById('papers-dir-count');
+
+    if (!selectedDir) return;
+    titleEl.textContent = selectedDir.researchLabel;
+    countEl.textContent = selectedDir.papers.length + ' file' + (selectedDir.papers.length !== 1 ? 's' : '');
+
+    if (!selectedDir.papers.length) {
+      container.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;color:var(--text-tertiary)">' +
+        '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:0.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+        '<p style="font-size:13px">No papers yet</p>' +
+        '<p style="font-size:11px;margin-top:4px">Agents will place papers here during the research pipeline</p>' +
+      '</div>';
+      return;
+    }
+
+    container.innerHTML = selectedDir.papers.map(function(p) {
+      var ext = (p.name.split('.').pop() || '').toLowerCase();
+      return '<div class="paper-file-row" onclick="openPaperFile(\'' + escHtml(p.path).replace(/'/g, "\\'") + '\', \'' + escHtml(p.name).replace(/'/g, "\\'") + '\')">' +
+        '<span class="paper-file-icon">' + IC.file + '</span>' +
+        '<div class="paper-file-info">' +
+          '<div class="paper-file-name">' + escHtml(p.name) + '</div>' +
+          '<div class="paper-file-meta">' + escHtml(p.modified) + ' · ' + ext.toUpperCase() + '</div>' +
+        '</div>' +
+        '<span class="paper-file-size">' + formatSize(p.size) + '</span>' +
+        '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openExternal(\'' + escHtml(p.path).replace(/'/g, "\\'") + '\')" title="Open in system viewer" style="padding:4px">' + IC.open + '</button>' +
+      '</div>';
+    }).join('');
   }
 
-  window.openPaperInExplorer = async function() {
-    if (window.asrp && currentPaper && workspacePath.path) {
-      await window.asrp.system.openPath(workspacePath.path + '/papers/' + currentPaper.id);
+  window.openPaperFile = async function(filePath, fileName) {
+    // Open paper in Files page by navigating there
+    // For now, open in system viewer
+    if (window.asrp && window.asrp.system.openPath) {
+      await window.asrp.system.openPath(filePath);
     }
   };
 
-  // ---- Wizard (T-061) ----
-  window.showNewPaperWizard = function() {
-    document.getElementById('new-paper-modal').style.display = 'flex';
-  };
-  window.closeWizard = function() {
-    document.getElementById('new-paper-modal').style.display = 'none';
-  };
-  window.submitWizard = async function() {
-    const title = document.getElementById('wiz-title').value.trim();
-    const alertEl = document.getElementById('wizard-alert');
-    if (!title) {
-      alertEl.textContent = 'Title is required'; alertEl.className = 'alert error show'; return;
-    }
-    const claims = document.getElementById('wiz-claims').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 3);
-    const journal = document.getElementById('wiz-journal').value.trim();
-    const evidence = document.querySelector('input[name="evidence"]:checked')?.value || 'B';
-    if (!window.asrp) return;
-    const result = await window.asrp.papers.create({ title, claims, targetJournal: journal, evidenceLevel: evidence, status: 'draft', stage: 0 });
-    if (result.success) {
-      alertEl.textContent = `Paper created: ${result.paperId} — Pipeline Stage 0 initiated`;
-      alertEl.className = 'alert success show';
-      setTimeout(() => { closeWizard(); loadPapers(); }, 1400);
+  window.openExternal = async function(filePath) {
+    if (window.asrp && window.asrp.system.openPath) {
+      await window.asrp.system.openPath(filePath);
     }
   };
 
-  function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+  window.refreshPapers = function() {
+    loadPaperTree();
+  };
 
-  loadPapers();
+  // ===== Authors tab =====
+  async function loadAuthors() {
+    if (!window.asrp || !window.asrp.authors) return;
+    try {
+      var res = await window.asrp.authors.list();
+      allAuthors = res.authors || [];
+      projectDefaults = res.projectDefaults || [];
+      renderAuthors();
+      renderProjectDefaults();
+    } catch (e) {
+      document.getElementById('authors-list').innerHTML = '<div style="padding:14px;color:var(--error)">Error loading authors</div>';
+    }
+  }
+
+  function renderAuthors() {
+    var container = document.getElementById('authors-list');
+    if (!allAuthors.length) {
+      container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:13px">No authors configured. Add author profiles to be assigned to papers.</div>';
+      return;
+    }
+    container.innerHTML = allAuthors.map(function(a) {
+      var initial = (a.name || '?').charAt(0).toUpperCase();
+      var subtitle = [a.title, a.institution].filter(Boolean).join(' · ');
+      return '<div class="author-card">' +
+        '<div class="author-avatar">' + initial + '</div>' +
+        '<div class="author-info">' +
+          '<div class="author-name-line">' + escHtml(a.name) + '</div>' +
+          (subtitle ? '<div class="author-detail-line">' + escHtml(subtitle) + '</div>' : '') +
+          (a.email ? '<div class="author-detail-line">' + escHtml(a.email) + '</div>' : '') +
+        '</div>' +
+        '<div class="author-actions">' +
+          '<button class="btn btn-ghost btn-sm" onclick="editAuthor(\'' + escHtml(a.id) + '\')" title="Edit">' + IC.edit + '</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="deleteAuthor(\'' + escHtml(a.id) + '\')" title="Delete" style="color:var(--error)">' + IC.trash + '</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderProjectDefaults() {
+    var container = document.getElementById('project-authors-list');
+    // Show all non-archived researches + global default
+    var projects = [{ id: 'default', label: 'Global Default' }];
+    allResearches.filter(function(r) { return r.status !== 'archived'; }).forEach(function(r) {
+      projects.push({ id: r.id, label: (r.code || r.id) + ' — ' + (r.title || 'Untitled') });
+    });
+
+    if (!allAuthors.length) {
+      container.innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">Add author profiles first to assign them to projects.</div>';
+      return;
+    }
+
+    container.innerHTML = projects.map(function(proj) {
+      var pd = projectDefaults.find(function(p) { return p.researchId === proj.id; });
+      var selectedIds = pd ? pd.authorIds : [];
+
+      var checkboxes = allAuthors.map(function(a) {
+        var checked = selectedIds.indexOf(a.id) >= 0;
+        return '<label style="font-size:12px;display:inline-flex;align-items:center;gap:4px;margin-right:12px;cursor:pointer">' +
+          '<input type="checkbox" ' + (checked ? 'checked' : '') +
+            ' onchange="toggleProjectAuthor(\'' + escHtml(proj.id) + '\', \'' + escHtml(a.id) + '\', this.checked)">' +
+          escHtml(a.name) +
+        '</label>';
+      }).join('');
+
+      return '<div class="project-author-row">' +
+        '<span class="project-label">' + escHtml(proj.label) + '</span>' +
+        '<div style="flex:1">' + checkboxes + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  window.toggleProjectAuthor = async function(researchId, authorId, add) {
+    var pd = projectDefaults.find(function(p) { return p.researchId === researchId; });
+    var ids = pd ? pd.authorIds.slice() : [];
+    if (add && ids.indexOf(authorId) < 0) ids.push(authorId);
+    if (!add) ids = ids.filter(function(id) { return id !== authorId; });
+
+    if (pd) { pd.authorIds = ids; }
+    else { projectDefaults.push({ researchId: researchId, authorIds: ids }); }
+
+    if (window.asrp && window.asrp.authors) {
+      await window.asrp.authors.setProjectDefaults(researchId, ids);
+    }
+  };
+
+  // Author form
+  window.showAuthorForm = function(id) {
+    document.getElementById('author-edit-id').value = '';
+    document.getElementById('author-name').value = '';
+    document.getElementById('author-title').value = '';
+    document.getElementById('author-institution').value = '';
+    document.getElementById('author-email').value = '';
+    document.getElementById('author-modal-title').textContent = 'Add Author';
+    document.getElementById('author-modal').style.display = 'flex';
+  };
+
+  window.editAuthor = function(id) {
+    var a = allAuthors.find(function(x) { return x.id === id; });
+    if (!a) return;
+    document.getElementById('author-edit-id').value = a.id;
+    document.getElementById('author-name').value = a.name;
+    document.getElementById('author-title').value = a.title || '';
+    document.getElementById('author-institution').value = a.institution || '';
+    document.getElementById('author-email').value = a.email || '';
+    document.getElementById('author-modal-title').textContent = 'Edit Author';
+    document.getElementById('author-modal').style.display = 'flex';
+  };
+
+  window.closeAuthorForm = function() {
+    document.getElementById('author-modal').style.display = 'none';
+  };
+
+  window.saveAuthor = async function() {
+    var name = document.getElementById('author-name').value.trim();
+    if (!name) { if (typeof Toast !== 'undefined') Toast.show('Name is required', 'error'); return; }
+    var data = {
+      id: document.getElementById('author-edit-id').value || '',
+      name: name,
+      title: document.getElementById('author-title').value.trim(),
+      institution: document.getElementById('author-institution').value.trim(),
+      email: document.getElementById('author-email').value.trim(),
+    };
+    if (window.asrp && window.asrp.authors) {
+      var res = await window.asrp.authors.save(data);
+      if (res.success) {
+        if (typeof Toast !== 'undefined') Toast.show('Author saved', 'success');
+        closeAuthorForm();
+        loadAuthors();
+      }
+    }
+  };
+
+  window.deleteAuthor = async function(id) {
+    if (!confirm('Delete this author?')) return;
+    if (window.asrp && window.asrp.authors) {
+      await window.asrp.authors.delete(id);
+      loadAuthors();
+    }
+  };
+
+  // ===== Init =====
+  loadPaperTree();
 })();
 </script>

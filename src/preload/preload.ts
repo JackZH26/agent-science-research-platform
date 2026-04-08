@@ -122,6 +122,9 @@ const papers = {
   list: () =>
     invoke<{ papers: Array<{ id: string; title: string; status: string; created: string }> }>('papers:list'),
 
+  scan: () =>
+    invoke<{ directories: Array<{ researchId: string; researchLabel: string; papers: Array<{ name: string; path: string; size: number; modified: string }> }> }>('papers:scan'),
+
   get: (paperId: string) =>
     invoke<{ success: boolean; paper?: Record<string, unknown>; error?: string }>('papers:get', paperId),
 
@@ -133,6 +136,21 @@ const papers = {
 
   export: (paperId: string, format: string) =>
     invoke<{ success: boolean; message?: string; error?: string }>('papers:export', paperId, format),
+};
+
+// ---- Authors API ----
+const authors = {
+  list: () =>
+    invoke<{ authors: Array<{ id: string; name: string; title: string; institution: string; email: string }>; projectDefaults: Array<{ researchId: string; authorIds: string[] }> }>('authors:list'),
+
+  save: (author: Record<string, unknown>) =>
+    invoke<{ success: boolean; id?: string; error?: string }>('authors:save', author),
+
+  delete: (authorId: string) =>
+    invoke<{ success: boolean; error?: string }>('authors:delete', authorId),
+
+  setProjectDefaults: (researchId: string, authorIds: string[]) =>
+    invoke<{ success: boolean; error?: string }>('authors:set-project-defaults', researchId, authorIds),
 };
 
 // ---- Experiments API ----
@@ -485,6 +503,7 @@ contextBridge.exposeInMainWorld('asrp', {
   agents,
   files,
   papers,
+  authors,
   experiments,
   audit,
   settings,
