@@ -75,20 +75,7 @@
     <div class="spinner" style="width:28px;height:28px;border-width:3px;"></div>
   </div>
 
-  <!-- Update status bar (hidden by default) -->
-  <div id="update-bar" style="display:none">
-    <div id="update-bar-inner">
-      <span id="update-icon">⬇</span>
-      <span id="update-text">Checking for updates...</span>
-      <div id="update-progress-wrap">
-        <div id="update-progress-bar"></div>
-      </div>
-      <span id="update-percent"></span>
-      <span id="update-speed"></span>
-      <button id="update-action-btn" style="display:none" onclick="handleUpdateAction()">Restart Now</button>
-      <button id="update-dismiss-btn" onclick="dismissUpdateBar()" title="Dismiss">✕</button>
-    </div>
-  </div>
+  <!-- Update bar removed — now handled inline in sidebar (Claude-style) -->
 
 </div>
 
@@ -220,109 +207,12 @@
     updateOfflineBadge();
   })();
 
-  // ========== UPDATE BAR LOGIC ==========
-  var _updateDismissed = false;
-
-  function showUpdateBar() {
-    if (_updateDismissed) return;
-    var bar = document.getElementById('update-bar');
-    if (bar) bar.style.display = 'block';
-  }
-
-  function dismissUpdateBar() {
-    var bar = document.getElementById('update-bar');
-    if (bar) bar.style.display = 'none';
-    _updateDismissed = true;
-  }
-
-  var _updateState = 'idle'; // idle | available | downloading | ready
-
-  function handleUpdateAction() {
-    if (!window.asrp || !window.asrp.updater) return;
-    if (_updateState === 'ready') {
-      var btn = document.getElementById('update-action-btn');
-      if (btn) { btn.textContent = 'Restarting...'; btn.disabled = true; }
-      window.asrp.updater.install().then(function() {
-        // App should quit within a few seconds (macOS: manual extract+replace)
-        // If still here after 30s, something went wrong
-        setTimeout(function() {
-          if (btn) { btn.textContent = 'Restart Now'; btn.disabled = false; }
-          if (window.showToast) window.showToast('Update may have failed. Please check and restart manually.', 'warning', 8000);
-        }, 30000);
-      }).catch(function(err) {
-        if (btn) { btn.textContent = 'Restart Now'; btn.disabled = false; }
-        if (window.showToast) window.showToast('Install error: ' + String(err), 'error', 5000);
-      });
-    } else if (_updateState === 'available') {
-      window.asrp.updater.download();
-    } else if (_updateState === 'idle') {
-      window.asrp.updater.check();
-    }
-  }
-
-  function formatBytes(bytes) {
-    if (bytes < 1024) return bytes + ' B/s';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB/s';
-    return (bytes / 1048576).toFixed(1) + ' MB/s';
-  }
-
-  // Listen for update status events from main process
+  // ========== UPDATE LOGIC ==========
+  // Update UI now handled by sidebar.js (Claude-style inline prompt).
+  // Keep legacy onStatus listener as fallback for settings page.
   if (window.asrp && window.asrp.updater && window.asrp.updater.onStatus) {
-    window.asrp.updater.onStatus(function(status) {
-      var bar = document.getElementById('update-bar');
-      var icon = document.getElementById('update-icon');
-      var text = document.getElementById('update-text');
-      var progressBar = document.getElementById('update-progress-bar');
-      var percent = document.getElementById('update-percent');
-      var speed = document.getElementById('update-speed');
-      var actionBtn = document.getElementById('update-action-btn');
-      var progressWrap = document.getElementById('update-progress-wrap');
-
-      if (!bar) return;
-
-      if (status.downloading) {
-        _updateState = 'downloading';
-        showUpdateBar();
-        bar.className = '';
-        if (icon) icon.textContent = '⬇';
-        if (text) text.textContent = 'Downloading v' + (status.version || '...');
-        if (progressBar) progressBar.style.width = status.progress + '%';
-        if (percent) percent.textContent = status.progress + '%';
-        if (speed) speed.textContent = '';
-        if (actionBtn) actionBtn.style.display = 'none';
-        if (progressWrap) progressWrap.style.display = '';
-      } else if (status.ready) {
-        _updateState = 'ready';
-        _updateDismissed = false;
-        showUpdateBar();
-        bar.className = 'ready';
-        if (icon) icon.textContent = '✅';
-        if (text) text.textContent = 'v' + status.version + ' ready to install';
-        if (progressBar) progressBar.style.width = '100%';
-        if (percent) percent.textContent = '';
-        if (speed) speed.textContent = '';
-        if (actionBtn) { actionBtn.style.display = ''; actionBtn.textContent = 'Restart Now'; }
-        if (progressWrap) progressWrap.style.display = 'none';
-      } else if (status.available && !status.downloading) {
-        _updateState = 'available';
-        showUpdateBar();
-        if (icon) icon.textContent = '🔔';
-        if (text) text.textContent = 'v' + status.version + ' available';
-        if (progressWrap) progressWrap.style.display = 'none';
-        if (percent) percent.textContent = '';
-        if (speed) speed.textContent = '';
-        if (actionBtn) { actionBtn.style.display = ''; actionBtn.textContent = 'Download'; }
-      } else if (status.error) {
-        _updateState = 'idle';
-        showUpdateBar();
-        if (icon) icon.textContent = '⚠️';
-        if (text) text.textContent = 'Update error: ' + status.error.substring(0, 60);
-        if (progressWrap) progressWrap.style.display = 'none';
-        if (percent) percent.textContent = '';
-        if (speed) speed.textContent = '';
-        if (actionBtn) actionBtn.style.display = 'none';
-      }
-    });
+    // Sidebar registers its own listener in setupUpdateListener()
+    // No additional listener needed here.
   }
 
   // Global toast utility

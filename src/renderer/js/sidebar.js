@@ -1,42 +1,31 @@
 /**
  * ASRP Desktop Sidebar Component
- * Mint Apple style sidebar with icons, labels, and active state.
+ * Claude Code-inspired design: account at bottom-left, inline update prompt.
  */
 
 const Sidebar = (() => {
-  // Navigation items definition
+  // Navigation items — Account section removed (now in footer)
   const navItems = [
-    // Section: Overview
     { section: 'Overview', items: [
       { route: '/dashboard',   icon: '📊', label: 'Dashboard',   id: 'nav-dashboard' },
     ]},
-    // Section: Research
     { section: 'Research', items: [
       { route: '/researches',  icon: '🔬', label: 'Researches',  id: 'nav-researches' },
       { route: '/papers',      icon: '📄', label: 'Papers',       id: 'nav-papers' },
       { route: '/files',       icon: '🗂️', label: 'Files',        id: 'nav-files' },
       { route: '/audit',       icon: '📝', label: 'Audit Log',    id: 'nav-audit' },
     ]},
-    // Section: Agents
     { section: 'Agents', items: [
       { route: '/agents',      icon: '🤖', label: 'All Agents',   id: 'nav-agents' },
     ]},
-    // Section: System
     { section: 'System', items: [
       { route: '/settings',    icon: '⚙️', label: 'Settings',     id: 'nav-settings' },
-    ]},
-    // Section: Account
-    { section: 'Account', items: [
-      { route: '#logout',      icon: '🚪', label: 'Logout',       id: 'nav-logout' },
     ]},
   ];
 
   let currentActive = null;
   let isCollapsed = false;
 
-  /**
-   * Build and inject the sidebar HTML
-   */
   function render() {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
@@ -63,14 +52,11 @@ const Sidebar = (() => {
       html += `<div class="sidebar-section sidebar-full-only">${group.section}</div>`;
       html += `<div class="sidebar-section sidebar-icon-only" style="display:none">·</div>`;
       for (const item of group.items) {
-        const clickAction = item.route === '#logout'
-          ? `Sidebar.handleLogout()`
-          : `Router.navigate('${item.route}')`;
         html += `
           <button
             class="sidebar-item"
             id="${item.id}"
-            onclick="${clickAction}"
+            onclick="Router.navigate('${item.route}')"
             title="${item.label}"
             data-tooltip="${item.label}"
           >
@@ -81,34 +67,175 @@ const Sidebar = (() => {
       }
     }
 
-    html += `</div>`;  // close sidebar-nav
+    html += `</div>`;
 
-    // Footer with workspace info
+    // Update prompt (hidden by default, shown when update is ready)
     html += `
-      <div class="sidebar-footer">
-        <div class="sidebar-workspace sidebar-full-only" id="sidebar-workspace-info">
-          <strong>Workspace</strong><br>
-          <span id="sidebar-workspace-path">~/asrp-workspace</span>
+      <div class="sidebar-update" id="sidebar-update" style="display:none">
+        <div class="sidebar-update-inner" id="sidebar-update-inner">
+          <div class="sidebar-update-icon" id="sidebar-update-icon">🌿</div>
+          <div class="sidebar-update-text sidebar-full-only">
+            <div id="sidebar-update-title" style="font-weight:600;font-size:12px">Update available</div>
+            <div id="sidebar-update-sub" style="font-size:11px;color:var(--text-tertiary);margin-top:1px">Relaunch to apply</div>
+          </div>
+          <button class="sidebar-update-btn sidebar-full-only" id="sidebar-update-btn" onclick="Sidebar.handleUpdate()">Relaunch</button>
         </div>
-        <div class="sidebar-icon-only" style="display:none;text-align:center;font-size:18px">🗂️</div>
+        <div class="sidebar-update-progress" id="sidebar-update-progress" style="display:none">
+          <div class="sidebar-update-progress-bar" id="sidebar-update-progress-bar"></div>
+        </div>
+      </div>
+    `;
+
+    // Footer: account info (Claude-style)
+    html += `
+      <div class="sidebar-footer" id="sidebar-footer">
+        <div class="sidebar-account" id="sidebar-account" onclick="Sidebar.toggleAccountMenu()">
+          <div class="sidebar-avatar" id="sidebar-avatar">J</div>
+          <div class="sidebar-account-info sidebar-full-only">
+            <div class="sidebar-account-name" id="sidebar-account-name">User</div>
+            <div class="sidebar-account-plan" id="sidebar-account-plan"></div>
+          </div>
+          <span class="sidebar-account-arrow sidebar-full-only" id="sidebar-account-arrow">⌃</span>
+        </div>
+        <div class="sidebar-account-menu" id="sidebar-account-menu" style="display:none">
+          <button class="sidebar-account-menu-item" onclick="Router.navigate('/settings');Sidebar.closeAccountMenu()">
+            <span>⚙️</span><span>Settings</span>
+          </button>
+          <button class="sidebar-account-menu-item" onclick="Sidebar.handleLogout()">
+            <span>🚪</span><span>Logout</span>
+          </button>
+        </div>
       </div>
     `;
 
     sidebar.innerHTML = html;
 
-    // Restore collapse state
     if (isCollapsed) applyCollapse(true);
-
-    // Load workspace path from settings
-    loadWorkspaceInfo();
-
-    // Load version dynamically
+    loadAccountInfo();
     loadVersion();
+    setupUpdateListener();
   }
 
-  /**
-   * Toggle sidebar narrow/wide mode
-   */
+  // ---- Account ----
+  function loadAccountInfo() {
+    try {
+      const raw = localStorage.getItem('asrp_user');
+      if (raw) {
+        const user = JSON.parse(raw);
+        const nameEl = document.getElementById('sidebar-account-name');
+        const avatarEl = document.getElementById('sidebar-avatar');
+        const planEl = document.getElementById('sidebar-account-plan');
+        if (nameEl && user.name) nameEl.textContent = user.name;
+        if (avatarEl && user.name) avatarEl.textContent = user.name.charAt(0).toUpperCase();
+        if (planEl) planEl.textContent = user.plan || '';
+      }
+    } catch { /* ignore */ }
+  }
+
+  function toggleAccountMenu() {
+    const menu = document.getElementById('sidebar-account-menu');
+    const arrow = document.getElementById('sidebar-account-arrow');
+    if (!menu) return;
+    const visible = menu.style.display !== 'none';
+    menu.style.display = visible ? 'none' : 'flex';
+    if (arrow) arrow.textContent = visible ? '⌃' : '⌄';
+  }
+
+  function closeAccountMenu() {
+    const menu = document.getElementById('sidebar-account-menu');
+    const arrow = document.getElementById('sidebar-account-arrow');
+    if (menu) menu.style.display = 'none';
+    if (arrow) arrow.textContent = '⌃';
+  }
+
+  // Close account menu when clicking outside
+  document.addEventListener('click', (e) => {
+    const footer = document.getElementById('sidebar-footer');
+    if (footer && !footer.contains(e.target)) {
+      closeAccountMenu();
+    }
+  });
+
+  // ---- Update prompt (Claude-style inline in sidebar) ----
+  let _updateState = 'idle';
+  let _updateVersion = '';
+
+  function setupUpdateListener() {
+    if (!window.asrp || !window.asrp.updater || !window.asrp.updater.onStatus) return;
+    window.asrp.updater.onStatus(function(status) {
+      const el = document.getElementById('sidebar-update');
+      const titleEl = document.getElementById('sidebar-update-title');
+      const subEl = document.getElementById('sidebar-update-sub');
+      const iconEl = document.getElementById('sidebar-update-icon');
+      const btnEl = document.getElementById('sidebar-update-btn');
+      const progressEl = document.getElementById('sidebar-update-progress');
+      const progressBar = document.getElementById('sidebar-update-progress-bar');
+
+      if (!el) return;
+
+      if (status.downloading) {
+        _updateState = 'downloading';
+        _updateVersion = status.version || '';
+        el.style.display = '';
+        if (iconEl) iconEl.textContent = '⬇';
+        if (titleEl) titleEl.textContent = 'Downloading v' + _updateVersion;
+        if (subEl) subEl.textContent = (status.progress || 0) + '%';
+        if (btnEl) btnEl.style.display = 'none';
+        if (progressEl) progressEl.style.display = '';
+        if (progressBar) progressBar.style.width = (status.progress || 0) + '%';
+      } else if (status.ready) {
+        _updateState = 'ready';
+        _updateVersion = status.version || '';
+        el.style.display = '';
+        el.className = 'sidebar-update ready';
+        if (iconEl) iconEl.textContent = '🌿';
+        if (titleEl) titleEl.textContent = 'Updated to ' + _updateVersion;
+        if (subEl) subEl.textContent = 'Relaunch to apply';
+        if (btnEl) { btnEl.style.display = ''; btnEl.textContent = 'Relaunch'; }
+        if (progressEl) progressEl.style.display = 'none';
+        // Also hide the old bottom bar if present
+        const oldBar = document.getElementById('update-bar');
+        if (oldBar) oldBar.style.display = 'none';
+      } else if (status.available && !status.downloading) {
+        _updateState = 'available';
+        _updateVersion = status.version || '';
+        el.style.display = '';
+        if (iconEl) iconEl.textContent = '🔔';
+        if (titleEl) titleEl.textContent = 'v' + _updateVersion + ' available';
+        if (subEl) subEl.textContent = 'Downloading...';
+        if (btnEl) btnEl.style.display = 'none';
+        if (progressEl) progressEl.style.display = 'none';
+        // Auto-start download
+        if (window.asrp.updater.download) {
+          window.asrp.updater.download();
+        }
+      } else if (status.error) {
+        _updateState = 'idle';
+        // Don't show for errors — keep sidebar clean
+        el.style.display = 'none';
+      }
+    });
+  }
+
+  function handleUpdate() {
+    if (_updateState === 'ready') {
+      const btn = document.getElementById('sidebar-update-btn');
+      if (btn) { btn.textContent = 'Restarting...'; btn.disabled = true; }
+      if (window.asrp && window.asrp.updater) {
+        window.asrp.updater.install().then(function() {
+          setTimeout(function() {
+            if (btn) { btn.textContent = 'Relaunch'; btn.disabled = false; }
+            if (window.showToast) window.showToast('Update may have failed. Please restart manually.', 'warning', 8000);
+          }, 30000);
+        }).catch(function(err) {
+          if (btn) { btn.textContent = 'Relaunch'; btn.disabled = false; }
+          if (window.showToast) window.showToast('Install error: ' + String(err), 'error', 5000);
+        });
+      }
+    }
+  }
+
+  // ---- Collapse ----
   function toggleCollapse() {
     isCollapsed = !isCollapsed;
     applyCollapse(isCollapsed);
@@ -143,54 +270,17 @@ const Sidebar = (() => {
     }
   }
 
-  /**
-   * Set the active navigation item
-   */
   function setActive(route) {
-    if (currentActive === route) {
-      // Still update visual state in case DOM was re-rendered
-    }
     currentActive = route;
-
-    // Find all nav items and update active class
     for (const group of navItems) {
       for (const item of group.items) {
         const el = document.getElementById(item.id);
         if (!el) continue;
-        if (item.route === route) {
-          el.classList.add('active');
-        } else {
-          el.classList.remove('active');
-        }
+        el.classList.toggle('active', item.route === route);
       }
     }
   }
 
-  /**
-   * Load workspace info from settings
-   */
-  async function loadWorkspaceInfo() {
-    if (!window.asrp) return;
-    try {
-      const workspace = await window.asrp.system.workspace();
-      const el = document.getElementById('sidebar-workspace-path');
-      if (el && workspace.path) {
-        // Show shortened path
-        const parts = workspace.path.split(/[/\\]/);
-        const short = parts.length > 3
-          ? '~/' + parts.slice(-2).join('/')
-          : workspace.path;
-        el.textContent = short;
-        el.title = workspace.path;
-      }
-    } catch {
-      // Ignore — just keep the default text
-    }
-  }
-
-  /**
-   * Load version from system info
-   */
   async function loadVersion() {
     if (!window.asrp) return;
     try {
@@ -199,18 +289,11 @@ const Sidebar = (() => {
       if (el && info.version) {
         el.textContent = 'v' + info.version;
       }
-    } catch {
-      // Ignore
-    }
+    } catch { /* ignore */ }
   }
 
-  /**
-   * Initialize sidebar
-   */
   function init() {
     render();
-
-    // Keyboard shortcut: Ctrl/Cmd+B to toggle sidebar
     document.addEventListener('keydown', function (e) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
@@ -219,11 +302,9 @@ const Sidebar = (() => {
     });
   }
 
-  /**
-   * Handle logout from sidebar
-   */
   async function handleLogout() {
     if (!confirm('Are you sure you want to logout?')) return;
+    closeAccountMenu();
     var token = localStorage.getItem('asrp_token');
     if (window.asrp && window.asrp.auth && token) {
       try { await window.asrp.auth.logout(token); } catch(e) { /* ignore */ }
@@ -235,7 +316,12 @@ const Sidebar = (() => {
     setTimeout(function() { Router.navigate('/login'); }, 300);
   }
 
-  return { init, render, setActive, toggleCollapse, handleLogout, refreshWorkspace: loadWorkspaceInfo };
+  return {
+    init, render, setActive, toggleCollapse,
+    handleLogout, handleUpdate,
+    toggleAccountMenu, closeAccountMenu,
+    refreshWorkspace: function() {},
+  };
 })();
 
 // Toast notification helper (global)
@@ -243,21 +329,16 @@ const Toast = (() => {
   function show(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toast-container');
     if (!container) return;
-
     const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-
-    // H1: Use DOM methods instead of innerHTML to prevent XSS from message content
     const iconSpan = document.createElement('span');
     iconSpan.textContent = icons[type] || icons.info;
     const msgSpan = document.createElement('span');
     msgSpan.textContent = message;
     toast.appendChild(iconSpan);
     toast.appendChild(msgSpan);
-
     container.appendChild(toast);
-
     setTimeout(() => {
       toast.style.opacity = '0';
       toast.style.transform = 'translateX(100%)';
@@ -265,11 +346,9 @@ const Toast = (() => {
       setTimeout(() => toast.remove(), 200);
     }, duration);
   }
-
   return { show };
 })();
 
-// Init sidebar when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   Sidebar.init();
 });

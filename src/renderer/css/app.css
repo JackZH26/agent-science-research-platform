@@ -149,22 +149,137 @@
   font-weight: 600;
 }
 
-/* Sidebar Footer */
-.sidebar-footer {
-  padding: 12px 14px;
-  border-top: 1px solid var(--border);
+/* Sidebar Update Prompt (Claude-style) */
+.sidebar-update {
+  margin: 0 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
   flex-shrink: 0;
 }
-
-.sidebar-workspace {
+.sidebar-update.ready {
+  background: rgba(74,140,106,0.06);
+  border-color: rgba(74,140,106,0.2);
+}
+.sidebar-update-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+.sidebar-update-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.sidebar-update-btn {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text);
   font-size: 11px;
-  color: var(--text-tertiary);
-  line-height: 1.5;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  border: 1px solid var(--border);
+}
+.sidebar-update-btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.sidebar-update-progress {
+  height: 3px;
+  background: var(--border);
+}
+.sidebar-update-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.3s ease;
 }
 
-.sidebar-workspace strong {
+/* Sidebar Footer — Account (Claude-style bottom-left) */
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+}
+.sidebar-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: 0;
+}
+.sidebar-account:hover {
+  background: var(--accent-light);
+}
+.sidebar-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.sidebar-account-info {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-account-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-account-plan {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.sidebar-account-arrow {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.sidebar-account-menu {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+.sidebar-account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  font-size: 13px;
   color: var(--text-secondary);
-  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: all 0.12s;
+}
+.sidebar-account-menu-item:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.sidebar-account-menu-item:last-child:hover {
+  color: var(--error);
 }
 
 /* ========== MAIN CONTENT AREA ========== */
