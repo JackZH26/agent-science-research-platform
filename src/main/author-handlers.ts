@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getWorkspaceBase } from './ipc-handlers';
+import { getWorkspaceBase, atomicWriteJSON } from './ipc-handlers';
 
 // ============================================================
 // AUTHOR HANDLERS (channel: 'authors:*')
@@ -51,7 +51,7 @@ function loadAuthorsData(): AuthorsData {
 
 function saveAuthorsData(data: AuthorsData): void {
   const filePath = getAuthorsFile();
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  atomicWriteJSON(filePath, data);
 }
 
 export function registerAuthorHandlers(): void {

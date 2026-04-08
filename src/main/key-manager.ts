@@ -91,7 +91,7 @@ export function writeKeyToWorkspace(key: string, workspacePath: string): boolean
       content = `OPENROUTER_API_KEY=${key}\n`;
     }
 
-    fs.writeFileSync(envPath, content, 'utf-8');
+    fs.writeFileSync(envPath, content, { encoding: 'utf-8', mode: 0o600 });
     return true;
   } catch (err) {
     console.error('[KeyManager] Failed to write key to workspace:', err);

@@ -74,8 +74,9 @@ const agents = {
   getSoul: (agentName: string) =>
     invoke<{ success: boolean; content?: string }>('agents:get-soul', agentName),
 
-  saveSoul: (agentName: string, content: string) =>
-    invoke<{ success: boolean; error?: string }>('agents:save-soul', agentName, content),
+  // P0-fix: Now requires auth token
+  saveSoul: (token: string, agentName: string, content: string) =>
+    invoke<{ success: boolean; error?: string }>('agents:save-soul', token, agentName, content),
 
   rename: (token: string, oldName: string, newName: string) =>
     invoke<{ success: boolean; error?: string }>('agents:rename', token, oldName, newName),
@@ -83,8 +84,9 @@ const agents = {
   setModel: (token: string, agentName: string, model: string) =>
     invoke<{ success: boolean; error?: string }>('agents:set-model', token, agentName, model),
 
-  logs: (agentName: string) =>
-    invoke<{ logs: string[] }>('agents:logs', agentName),
+  // P0-fix: Now requires auth token
+  logs: (token: string, agentName: string) =>
+    invoke<{ logs: string[] }>('agents:logs', token, agentName),
 
   onStatusUpdate: (callback: (agents: unknown[]) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: unknown[]) => callback(data);
@@ -439,9 +441,10 @@ const discord = {
   openUrl: (url: string) =>
     invoke<{ success: boolean; error?: string }>('discord:open-url', url),
 
-  createChannel: (channelName: string) =>
+  // P0-fix: Now requires auth token
+  createChannel: (token: string, channelName: string) =>
     invoke<{ success: boolean; channelId?: string; channelName?: string; error?: string }>(
-      'discord:create-channel', channelName
+      'discord:create-channel', token, channelName
     ),
 };
 
@@ -458,11 +461,12 @@ const gateway = {
       error: string | null;
     }>('gateway:status'),
 
-  start: () =>
-    invoke<{ results: Array<{ name: string; success: boolean; error?: string }> }>('gateway:start'),
+  // P0-fix: Now requires auth token
+  start: (token: string) =>
+    invoke<{ results: Array<{ name: string; success: boolean; error?: string }> }>('gateway:start', token),
 
-  stop: () =>
-    invoke<{ success: boolean }>('gateway:stop'),
+  stop: (token: string) =>
+    invoke<{ success: boolean }>('gateway:stop', token),
 
   restart: (agentName?: string) =>
     invoke<{ success: boolean; error?: string }>('gateway:restart', agentName),

@@ -433,7 +433,8 @@
         // Create Discord channel named after the research title
         try {
           if (window.asrp.discord && window.asrp.discord.createChannel) {
-            const chResult = await window.asrp.discord.createChannel(title);
+            const tk = localStorage.getItem('token') || '';
+            const chResult = await window.asrp.discord.createChannel(tk, title);
             if (chResult.success) {
               console.log('Discord channel created:', chResult.channelName);
             } else {

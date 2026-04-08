@@ -88,6 +88,11 @@ const Router = (() => {
         if (sidebar) sidebar.classList.add('hidden');
       }
 
+      // P1-fix: Run page cleanup before loading new page (clear intervals, listeners)
+      if (window.Utils && window.Utils.runPageCleanup) {
+        window.Utils.runPageCleanup();
+      }
+
       // Inject page content with fade-in transition
       if (pageContent) {
         pageContent.style.opacity = '0';

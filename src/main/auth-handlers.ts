@@ -7,6 +7,7 @@ import * as safeKeyStore from './safe-key-store';
 import {
   getAuthenticatedUserId,
   getWorkspaceBase,
+  atomicWriteJSON,
 } from './ipc-handlers';
 
 // ============================================================
@@ -123,8 +124,7 @@ export function registerSetupHandlers(): void {
       delete settings.anthropicKey;
       delete settings.googleKey;
       settings.userId = userId;
-      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+      atomicWriteJSON(settingsPath, settings);
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: String(err) };
@@ -154,8 +154,7 @@ export function registerSetupHandlers(): void {
         }
       } catch { /* use empty */ }
       settings.agentConfigs = agentConfigs;
-      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+      atomicWriteJSON(settingsPath, settings);
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: String(err) };
@@ -176,8 +175,7 @@ export function registerSetupHandlers(): void {
         }
       } catch { /* ignore */ }
       settings.setupComplete = true;
-      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+      atomicWriteJSON(settingsPath, settings);
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: String(err) };

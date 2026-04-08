@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getWorkspaceBase } from './ipc-handlers';
+import * as crypto from 'crypto';
+import { getWorkspaceBase, atomicWriteJSON } from './ipc-handlers';
 
 // ============================================================
 // RESEARCH HANDLERS (channel: 'experiments:*')
@@ -90,7 +91,7 @@ function loadResearches(): ResearchRecord[] {
         return r as unknown as ResearchRecord;
       });
       if (migrated) {
-        fs.writeFileSync(filePath, JSON.stringify(records, null, 2), 'utf-8');
+        atomicWriteJSON(filePath, records);
       }
       return records;
     }
@@ -100,7 +101,7 @@ function loadResearches(): ResearchRecord[] {
 
 function saveResearches(records: ResearchRecord[]): void {
   const filePath = getResearchesFile();
-  fs.writeFileSync(filePath, JSON.stringify(records, null, 2), 'utf-8');
+  atomicWriteJSON(filePath, records);
 }
 
 /**
@@ -183,7 +184,7 @@ export function registerExperimentHandlers(): void {
 
   ipcMain.handle('experiments:register', async (_event, _hypothesis: string, metadata: Record<string, unknown>) => {
     const records = loadResearches();
-    const id = `EXP-${new Date().toISOString().slice(0, 10)}-${String(Math.floor(Math.random() * 900) + 100)}`;
+    const id = `EXP-${new Date().toISOString().slice(0, 10)}-${crypto.randomBytes(3).toString('hex')}`;
     const code = nextCode(records as unknown as Array<Record<string, unknown>>);
     const record: ResearchRecord = {
       id,

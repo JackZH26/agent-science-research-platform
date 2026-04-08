@@ -7,6 +7,8 @@ import {
   RESOURCES_PATH,
   isValidAgentName,
   getAuthenticatedUserId,
+  isAllowedChatRole,
+  withAuth,
 } from './ipc-handlers';
 
 // ============================================================
@@ -131,12 +133,13 @@ export function registerOpenClawHandlers(): void {
 
   // Save SOUL to the agent's workspace directory (where OpenClaw reads it)
   // Issue #13: Validate agentName to prevent path traversal
-  ipcMain.handle('agents:save-soul', async (_event, agentName: string, content: string) => {
+  // P0-fix: Now requires authentication (writes to disk)
+  ipcMain.handle('agents:save-soul', withAuth(async (_userId: number, agentName: string, content: string) => {
     if (!isValidAgentName(agentName)) {
       return { success: false, error: 'Invalid agent name' };
     }
     return openclawBridge.saveAgentSoul(agentName, content);
-  });
+  }));
 
   // Issue #H1: Mutating agent actions require auth
   ipcMain.handle('agents:rename', async (_event, token: string, oldName: string, newName: string) => {
@@ -157,9 +160,10 @@ export function registerOpenClawHandlers(): void {
     }
   });
 
-  ipcMain.handle('agents:logs', async (_event, agentName: string) => {
+  // P0-fix: Logs may contain sensitive info — require auth
+  ipcMain.handle('agents:logs', withAuth(async (_userId: number, agentName: string) => {
     return { logs: openclawBridge.getAgentLogs(agentName) };
-  });
+  }));
 }
 
 // ============================================================
@@ -361,7 +365,11 @@ export function registerAssistantHandlers(): void {
     }
   });
 
+  // P0-fix: Validate role to prevent system prompt injection
   ipcMain.handle('assistant:save-message', async (_event, role: string, content: string) => {
+    if (!isAllowedChatRole(role)) {
+      return { success: false, error: 'Invalid role — only "user" and "assistant" are allowed' };
+    }
     try {
       ensureHistoryFile();
       const entry = JSON.stringify({ role, content, ts: new Date().toISOString() });
@@ -511,7 +519,8 @@ export function registerDiscordHandlers(): void {
   };
 
   // Create a text channel in a guild for a new research
-  ipcMain.handle('discord:create-channel', async (_event, channelName: string) => {
+  // P0-fix: Requires auth — creates Discord resources
+  ipcMain.handle('discord:create-channel', withAuth(async (_userId: number, channelName: string) => {
     try {
       // Read guildId and a bot token from settings
       const settingsFile = path.join(app.getPath('userData'), 'settings.json');
@@ -574,7 +583,7 @@ export function registerDiscordHandlers(): void {
     } catch (err: unknown) {
       return { success: false, error: String(err) };
     }
-  });
+  }));
 
   // Open a Discord URL in the system default browser (restricted to discord.com only)
   ipcMain.handle('discord:open-url', async (_event, url: string) => {

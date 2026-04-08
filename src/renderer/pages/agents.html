@@ -423,7 +423,8 @@
     logEl.innerHTML = '<span class="log-line info">Loading...</span>';
     try {
       if (window.asrp && window.asrp.agents) {
-        var res = await window.asrp.agents.logs(agentName);
+        var token = localStorage.getItem('token') || '';
+        var res = await window.asrp.agents.logs(token, agentName);
         logEl.innerHTML = (res.logs || []).map(formatLogLine).join('') || '<span class="log-line info">No logs.</span>';
         logEl.scrollTop = logEl.scrollHeight;
       }
@@ -497,7 +498,8 @@
     saveStatus.textContent = 'Saving...';
     try {
       if (window.asrp && window.asrp.agents) {
-        await window.asrp.agents.saveSoul(soulAgentName, content);
+        var token = localStorage.getItem('token') || '';
+        await window.asrp.agents.saveSoul(token, soulAgentName, content);
       }
       saveStatus.textContent = 'Saved — restart agent to apply';
       saveStatus.style.color = 'var(--success)';
@@ -561,7 +563,8 @@
         startBtn.onclick = async function() {
           startBtn.disabled = true; startBtn.textContent = 'Starting...';
           try {
-            if (window.asrp.gateway) await window.asrp.gateway.start();
+            var tk = localStorage.getItem('token') || '';
+            if (window.asrp.gateway) await window.asrp.gateway.start(tk);
             setTimeout(loadAgents, 3000);
           } catch(e) { startBtn.textContent = 'Failed'; }
         };

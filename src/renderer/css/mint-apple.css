@@ -668,24 +668,7 @@ tbody tr:last-child td {
   flex-shrink: 0;
 }
 
-/* ========== SCROLLBAR ========== */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
-}
+/* Scrollbar styles consolidated into SCROLLBAR POLISH (T-090) section below */
 
 /* ========== UTILITIES ========== */
 .mt-0 { margin-top: 0; }

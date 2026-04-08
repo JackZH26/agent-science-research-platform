@@ -166,11 +166,13 @@
     const info = await window.asrp.system.info();
     const aboutEl = document.getElementById('about-info');
     if (aboutEl) {
+      // P0-fix: Escape IPC data to prevent XSS via innerHTML
+      var esc = window.escHtml || function(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
       aboutEl.innerHTML = `
-        <div>ASRP v${info.version}</div>
-        <div>Electron v${info.electron} · Node.js v${info.node}</div>
-        <div>Platform: ${info.platform} (${info.arch})</div>
-        <div>Resources: <span style="font-family:monospace;font-size:11px">${info.resourcesPath}</span></div>
+        <div>ASRP v${esc(info.version)}</div>
+        <div>Electron v${esc(info.electron)} · Node.js v${esc(info.node)}</div>
+        <div>Platform: ${esc(info.platform)} (${esc(info.arch)})</div>
+        <div>Resources: <span style="font-family:monospace;font-size:11px">${esc(info.resourcesPath)}</span></div>
       `;
     }
 
@@ -363,9 +365,11 @@
       }
       if (list) {
         list.innerHTML = r.details.map(function(d) {
+          // P0-fix: Escape d.name and d.error to prevent XSS
+          var esc2 = window.escHtml || function(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
           var icon = d.status === 'pass' ? '<span style="color:var(--success)">✓</span>' : '<span style="color:var(--error)">✗</span>';
-          var err = d.error ? ' <span style="color:var(--error);font-size:11px">— ' + d.error + '</span>' : '';
-          return '<div style="padding:2px 0">' + icon + ' ' + d.name + err + '</div>';
+          var err = d.error ? ' <span style="color:var(--error);font-size:11px">— ' + esc2(d.error) + '</span>' : '';
+          return '<div style="padding:2px 0">' + icon + ' ' + esc2(d.name) + err + '</div>';
         }).join('');
       }
       if (modal) modal.style.display = 'flex';

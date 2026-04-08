@@ -337,8 +337,9 @@
   window.refreshDashboard = loadDashboard;
 
   // T-027: Subscribe to real-time agent status updates
+  // P1-fix: Store unsubscribe function for cleanup on page navigation
   if (window.asrp && window.asrp.agents && window.asrp.agents.onStatusUpdate) {
-    window.asrp.agents.onStatusUpdate(function(agents) {
+    var _unsubStatus = window.asrp.agents.onStatusUpdate(function(agents) {
       const badge = document.getElementById('agent-count-badge');
       if (badge) badge.textContent = agents.length + ' agents';
       const agentList = document.getElementById('agent-status-list');
@@ -357,6 +358,7 @@
         setTimeout(function() { liveBadge.style.background = ''; }, 1000);
       }
     });
+    if (window.Utils) window.Utils.onPageUnload(function() { if (_unsubStatus) _unsubStatus(); });
   }
 
   // Auth guard — redirect to login if no valid session
@@ -452,7 +454,8 @@
     if (btn) btn.textContent = 'Starting...';
     if (text) text.innerHTML = '<strong>Starting agents...</strong>';
     try {
-      var res = await window.asrp.gateway.start();
+      var token = localStorage.getItem('token') || '';
+      var res = await window.asrp.gateway.start(token);
       if (res.success) {
         Toast.show('Gateway started!', 'success');
       } else {
@@ -467,7 +470,9 @@
 
   checkGatewayStatus();
   // Refresh gateway status every 30 seconds
-  setInterval(checkGatewayStatus, 30000);
+  // P1-fix: Clear interval on page navigation to prevent accumulation
+  var _gwInterval = setInterval(checkGatewayStatus, 30000);
+  if (window.Utils) window.Utils.onPageUnload(function() { clearInterval(_gwInterval); });
 
   // Check for OpenClaw updates on dashboard load
   (async function checkOpenClawUpdate() {

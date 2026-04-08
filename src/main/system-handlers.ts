@@ -14,6 +14,8 @@ import {
   getAuthenticatedUserId,
   isPathAllowed,
   isLogErrorRateLimited,
+  atomicWriteJSON,
+  withAuth,
 } from './ipc-handlers';
 
 // ============================================================
@@ -229,8 +231,7 @@ export function registerSettingsHandlers(): void {
       }
 
       const updated = { ...current, ...filteredUpdates };
-      fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-      fs.writeFileSync(settingsPath, JSON.stringify(updated, null, 2), 'utf-8');
+      atomicWriteJSON(settingsPath, updated);
       return { success: true, settings: updated };
     } catch (err: unknown) {
       return { success: false, error: String(err) };
@@ -239,7 +240,7 @@ export function registerSettingsHandlers(): void {
 
   ipcMain.handle('settings:reset', async () => {
     try {
-      fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2), 'utf-8');
+      atomicWriteJSON(settingsPath, defaultSettings);
       return { success: true, settings: defaultSettings };
     } catch (err: unknown) {
       return { success: false, error: String(err) };
@@ -332,7 +333,8 @@ export function registerGatewayHandlers(): void {
     return openclawManager.getStatus();
   });
 
-  ipcMain.handle('gateway:start', async () => {
+  // P0-fix: Gateway start/stop require auth — controls all agent processes
+  ipcMain.handle('gateway:start', withAuth(async () => {
     // If no configs exist yet, try to generate from saved setup data
     if (!hasConfig()) {
       try {
@@ -358,12 +360,12 @@ export function registerGatewayHandlers(): void {
       } catch { /* ignore */ }
     }
     return openclawManager.startAll();
-  });
+  }));
 
-  ipcMain.handle('gateway:stop', async () => {
+  ipcMain.handle('gateway:stop', withAuth(async () => {
     openclawManager.stopAll();
     return { success: true };
-  });
+  }));
 
   ipcMain.handle('gateway:restart', async (_event, agentName?: string) => {
     if (agentName) {

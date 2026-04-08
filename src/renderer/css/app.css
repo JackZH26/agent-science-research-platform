@@ -636,10 +636,10 @@ kbd {
   background: var(--card);
   border-top: 1px solid var(--border);
   box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
-  animation: slideUp 0.25s ease;
+  animation: slideUpBar 0.25s ease;
 }
 
-@keyframes slideUp {
+@keyframes slideUpBar {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }

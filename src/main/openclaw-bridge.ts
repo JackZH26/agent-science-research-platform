@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { app } from 'electron';
+import { atomicWriteJSON, atomicWriteFileSync } from './ipc-handlers';
 
 export interface AgentStatus {
   name: string;
@@ -331,7 +332,7 @@ export function setAgentModel(agentName: string, model: string): { success: bool
             break;
           }
         }
-        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+        atomicWriteJSON(settingsPath, settings);
       }
     }
 
@@ -343,7 +344,7 @@ export function setAgentModel(agentName: string, model: string): { success: bool
       if (config.agents && config.agents.defaults) {
         config.agents.defaults.model = modelId;
       }
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
+      atomicWriteFileSync(configPath, JSON.stringify(config, null, 2), 0o600);
     }
 
     return { success: true };

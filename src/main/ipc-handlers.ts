@@ -1,8 +1,9 @@
-import { app } from 'electron';
+import { app, ipcMain, IpcMainInvokeEvent } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as authService from './auth-service';
 import * as keyManager from './key-manager';
+import * as crypto from 'crypto';
 
 import { registerAuthHandlers, registerKeyHandlers, registerSetupHandlers } from './auth-handlers';
 import { registerFileHandlers } from './file-handlers';
@@ -84,9 +85,9 @@ export function isValidAgentName(name: string): boolean {
 }
 
 // ---- Issue #16: Rate limiter for system:log-error (max 10/minute) ----
-export let _logErrorCount = 0;
-export let _logErrorWindowStart = Date.now();
-export const LOG_ERROR_MAX_PER_MINUTE = 10;
+let _logErrorCount = 0;
+let _logErrorWindowStart = Date.now();
+const LOG_ERROR_MAX_PER_MINUTE = 10;
 
 export function isLogErrorRateLimited(): boolean {
   const now = Date.now();
@@ -96,6 +97,66 @@ export function isLogErrorRateLimited(): boolean {
   }
   _logErrorCount++;
   return _logErrorCount > LOG_ERROR_MAX_PER_MINUTE;
+}
+
+// ============================================================
+// Atomic file write — prevents data corruption on crash
+// ============================================================
+
+/**
+ * Atomic write: write to .tmp, fsync, then rename.
+ * rename() is atomic on POSIX; on Windows it's close enough for local use.
+ */
+export function atomicWriteFileSync(filePath: string, data: string, mode?: number): void {
+  const tmp = filePath + '.tmp.' + crypto.randomBytes(4).toString('hex');
+  const opts: fs.WriteFileOptions = { encoding: 'utf-8' };
+  if (mode !== undefined) (opts as { mode: number }).mode = mode;
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const fd = fs.openSync(tmp, 'w', mode);
+  try {
+    fs.writeSync(fd, data);
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  fs.renameSync(tmp, filePath);
+}
+
+/** Shorthand: atomically write JSON with pretty-print */
+export function atomicWriteJSON(filePath: string, data: unknown): void {
+  atomicWriteFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// ============================================================
+// IPC Auth middleware — consistent auth guard for handlers
+// ============================================================
+
+/**
+ * Wrap an IPC handler function so the first arg is verified as a valid auth token.
+ * Usage: ipcMain.handle('channel', withAuth(async (userId, ...args) => { ... }))
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function withAuth<T>(handler: (userId: number, ...args: any[]) => Promise<T>) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return async (_event: IpcMainInvokeEvent, token: string, ...args: any[]): Promise<T | { success: false; error: string }> => {
+    try {
+      const userId = getAuthenticatedUserId(token);
+      return await handler(userId, ...args);
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
+  };
+}
+
+// ============================================================
+// Validation helpers
+// ============================================================
+
+/** Allowed roles for assistant:save-message — prevent system prompt injection */
+const ALLOWED_CHAT_ROLES = new Set(['user', 'assistant']);
+
+export function isAllowedChatRole(role: string): boolean {
+  return ALLOWED_CHAT_ROLES.has(role);
 }
 
 // ============================================================
