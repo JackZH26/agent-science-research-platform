@@ -7,16 +7,15 @@
 <div class="page-header">
   <div>
     <h1>Researches</h1>
-    <p>Register, track, and review ASRP research researchs</p>
+    <p>Register, track, and review ASRP researches</p>
   </div>
   <div class="actions">
-    <button class="btn btn-primary btn-sm" onclick="showRegisterModal()">+ Register Research</button>
+    <button class="btn btn-primary btn-sm" onclick="showRegisterModal()">+ New Research</button>
   </div>
 </div>
 
 <!-- Filter + Sort Bar -->
 <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-  <!-- Status filters -->
   <div style="display:flex;gap:6px;flex-wrap:wrap">
     <button class="exp-filter active" data-filter="all" onclick="setFilter('all')">All</button>
     <button class="exp-filter" data-filter="registered" onclick="setFilter('registered')">Registered</button>
@@ -24,25 +23,14 @@
     <button class="exp-filter" data-filter="confirmed" onclick="setFilter('confirmed')">Confirmed</button>
     <button class="exp-filter" data-filter="refuted" onclick="setFilter('refuted')">Refuted</button>
   </div>
-  <!-- Research line filter -->
-  <select id="rl-filter" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-secondary);color:var(--text);margin-left:auto" onchange="applyFilters()">
-    <option value="">All Research Lines</option>
-    <option value="RH">RH — Resonance Hypothesis</option>
-    <option value="SC">SC — String Condensate</option>
-    <option value="BC">BC — Boundary Conditions</option>
-    <option value="Other">Other</option>
-  </select>
-  <!-- Sort -->
-  <select id="sort-select" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-secondary);color:var(--text)" onchange="applyFilters()">
+  <select id="sort-select" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-secondary);color:var(--text);margin-left:auto" onchange="applyFilters()">
     <option value="date-desc">Newest first</option>
     <option value="date-asc">Oldest first</option>
-    <option value="score-desc">Score ↓</option>
     <option value="status">Status</option>
   </select>
-  <!-- Search -->
   <div style="display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:6px;padding:4px 8px;background:var(--bg-secondary)">
     <span style="font-size:12px">🔍</span>
-    <input type="text" id="exp-search" placeholder="Search hypothesis..." style="border:none;outline:none;background:transparent;font-size:12px;color:var(--text);width:160px" oninput="applyFilters()">
+    <input type="text" id="exp-search" placeholder="Search..." style="border:none;outline:none;background:transparent;font-size:12px;color:var(--text);width:160px" oninput="applyFilters()">
   </div>
 </div>
 
@@ -61,56 +49,32 @@
 
 <!-- Register Modal -->
 <div id="register-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center">
-  <div class="panel" style="width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:0">
+  <div class="panel" style="width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:0">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <h3 style="margin:0">🧪 Register Research</h3>
+      <h3 style="margin:0">🧪 New Research</h3>
       <button class="btn btn-ghost btn-sm" onclick="closeRegisterModal()">✕</button>
     </div>
     <div style="padding:20px">
       <div class="alert" id="reg-alert"></div>
       <div class="form-group">
         <label>Research Title <span style="color:var(--error)">*</span></label>
-        <input type="text" id="reg-title" placeholder="Short name for the research, e.g.: 300K超导研究, Multi-well DD correction">
+        <input type="text" id="reg-title" placeholder="e.g. 300K Superconductor Study, Multi-well DD Correction">
       </div>
       <div class="form-group">
-        <label>Hypothesis <span style="color:var(--error)">*</span></label>
-        <textarea id="reg-hypothesis" rows="3" placeholder="State a falsifiable hypothesis. e.g.: Multi-well DD correction with exact KS gap restores binding accuracy to <0.01% for d=5,6,7" style="resize:vertical"></textarea>
+        <label>Abstract <span style="color:var(--error)">*</span></label>
+        <textarea id="reg-abstract" rows="4" placeholder="Describe the research objectives, methods, and expected outcomes..." style="resize:vertical" oninput="autoGenerateTags()"></textarea>
       </div>
       <div class="form-group">
-        <label>Method</label>
-        <textarea id="reg-method" rows="2" placeholder="Computational method, code, tolerances..." style="resize:vertical"></textarea>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="form-group">
-          <label>Expected Result</label>
-          <input type="text" id="reg-expected" placeholder="e.g. DD > 0 for all d">
+        <label>Tags</label>
+        <div id="reg-tags-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border);border-radius:8px;min-height:38px;background:var(--bg-secondary);cursor:text" onclick="document.getElementById('reg-tag-input').focus()">
+          <input type="text" id="reg-tag-input" placeholder="Type and press Enter to add..."
+            style="border:none;outline:none;background:transparent;font-size:12px;color:var(--text);flex:1;min-width:120px;padding:2px 0"
+            onkeydown="handleTagKeydown(event)">
         </div>
-        <div class="form-group">
-          <label>Research Line</label>
-          <select id="reg-rl">
-            <option value="RH">RH — Resonance Hypothesis</option>
-            <option value="SC">SC — String Condensate</option>
-            <option value="BC">BC — Boundary Conditions</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">Auto-generated from abstract. Click × to remove, type to add custom tags.</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="form-group">
-          <label>Success Criteria (quantitative)</label>
-          <input type="text" id="reg-success" placeholder="e.g. |ΔE| < 0.001 Hartree">
-        </div>
-        <div class="form-group">
-          <label>Failure Criteria</label>
-          <input type="text" id="reg-failure" placeholder="e.g. DD < 0 or diverges">
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Estimated Compute Time</label>
-        <input type="text" id="reg-compute" placeholder="e.g. 2h on 8-core CPU">
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn btn-primary" onclick="submitRegistration()">Register Research</button>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" onclick="submitRegistration()">Register</button>
         <button class="btn btn-outline" onclick="closeRegisterModal()">Cancel</button>
       </div>
     </div>
@@ -132,126 +96,135 @@
 .exp-status-badge.refuted { background:#fee2e2;color:#991b1b }
 .exp-score-bar { height:6px;border-radius:3px;background:var(--border);overflow:hidden }
 .exp-score-fill { height:100%;border-radius:3px;background:var(--accent);transition:width 0.4s }
-.validation-check { display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-light,var(--border)) }
-.validation-check:last-child { border-bottom:none }
+.research-tag {
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:10px;font-size:11px;
+  background:rgba(74,140,106,0.1);color:var(--accent);
+  border:1px solid rgba(74,140,106,0.2);
+  white-space:nowrap;
+}
+.research-tag .tag-remove {
+  cursor:pointer;font-size:13px;line-height:1;opacity:0.6;
+  margin-left:2px;
+}
+.research-tag .tag-remove:hover { opacity:1; }
 </style>
 
 <script>
 (function() {
   let allResearches = [];
   let activeStatusFilter = 'all';
+  let currentRegTags = [];
 
-  // Extended mock data with all fields
+  // ---- Tag auto-generation from abstract ----
+  const TAG_KEYWORDS = {
+    'DFT': ['dft','density functional','density-functional'],
+    'quantum': ['quantum','qubit','entanglement','superposition'],
+    'superconductor': ['superconductor','superconducting','超导'],
+    'simulation': ['simulation','simulate','numerical','computational'],
+    'experiment': ['experiment','experimental','measurement'],
+    'machine-learning': ['machine learning','ml','neural network','deep learning','AI'],
+    'optimization': ['optimization','optimize','minimization'],
+    'materials': ['material','lattice','crystal','alloy','polymer'],
+    'theoretical': ['theoretical','theory','analytic','analytical','hypothesis'],
+    'spectroscopy': ['spectroscopy','spectrum','spectra','absorption'],
+    'molecular': ['molecular','molecule','chemical','chemistry'],
+    'electron': ['electron','electronic','band structure','fermi'],
+    'photon': ['photon','photonic','optical','laser','light'],
+    'thermodynamics': ['thermodynamic','entropy','temperature','heat'],
+    'condensed-matter': ['condensed matter','solid state','condensate'],
+    'membrane': ['membrane','boundary','surface','interface'],
+    'resonance': ['resonance','resonant','oscillat'],
+    'magnetic': ['magnetic','magnetism','spin','ferromagnet'],
+    'wave': ['wave','waveguide','phonon','vibration'],
+    'high-pressure': ['high pressure','GPa','diamond anvil','压力'],
+    'room-temperature': ['room temperature','300K','常温','高温'],
+  };
+
+  function extractTags(text) {
+    if (!text || text.length < 5) return [];
+    const lower = text.toLowerCase();
+    const tags = [];
+    for (const [tag, keywords] of Object.entries(TAG_KEYWORDS)) {
+      for (const kw of keywords) {
+        if (lower.includes(kw)) { tags.push(tag); break; }
+      }
+    }
+    return tags.slice(0, 6);
+  }
+
+  window.autoGenerateTags = function() {
+    const text = document.getElementById('reg-abstract').value;
+    const autoTags = extractTags(text);
+    // Keep user-added custom tags (those not in TAG_KEYWORDS)
+    const customTags = currentRegTags.filter(t => !Object.keys(TAG_KEYWORDS).includes(t));
+    currentRegTags = [...new Set([...autoTags, ...customTags])];
+    renderRegTags();
+  };
+
+  function renderRegTags() {
+    const container = document.getElementById('reg-tags-container');
+    const input = document.getElementById('reg-tag-input');
+    // Remove all tag elements but keep the input
+    container.querySelectorAll('.research-tag').forEach(el => el.remove());
+    currentRegTags.forEach(tag => {
+      const el = document.createElement('span');
+      el.className = 'research-tag';
+      el.innerHTML = escHtml(tag) + ' <span class="tag-remove" onclick="removeRegTag(\'' + escAttr(tag) + '\')">×</span>';
+      container.insertBefore(el, input);
+    });
+  }
+
+  window.removeRegTag = function(tag) {
+    currentRegTags = currentRegTags.filter(t => t !== tag);
+    renderRegTags();
+  };
+
+  window.handleTagKeydown = function(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = e.target.value.trim().replace(/,$/,'').trim();
+      if (val && !currentRegTags.includes(val)) {
+        currentRegTags.push(val);
+        renderRegTags();
+      }
+      e.target.value = '';
+    }
+    if (e.key === 'Backspace' && !e.target.value && currentRegTags.length > 0) {
+      currentRegTags.pop();
+      renderRegTags();
+    }
+  };
+
+  // Demo mock data
   const MOCK_EXPERIMENTS = [
     {
-      id: 'EXP-2026-04-02-003',
-      title: 'Multi-well DD Correction',
-      hypothesis: 'Multi-well DD with exact KS gap at d=5,6,7 restores binding accuracy to <0.01%',
-      method: 'iDEA reverse-KS code, tol=1e-6, mu=3.0',
-      expected: 'DD positive, ~0.2 Hartree per well',
-      successCriteria: '|ΔE| < 0.001 Hartree for all d',
-      failureCriteria: 'DD < 0 or fails to converge',
-      researchLine: 'RH',
-      computeTime: '3h on 8-core CPU',
-      status: 'running',
-      score: null,
-      created: '2026-04-02',
-      result: null,
-      validations: [
-        { label: 'Hypothesis falsifiable', checked: true },
-        { label: 'Method reproducible', checked: true },
-        { label: 'Success criteria quantitative', checked: true },
-        { label: 'Result recorded in registry', checked: false },
-        { label: 'Linked to paper draft', checked: false },
-      ],
+      id: 'EXP-2026-04-02-003', title: 'Multi-well DD Correction', status: 'running', created: '2026-04-02', score: null, result: null,
+      abstract: 'Investigate whether multi-well density-driven (DD) correction with exact Kohn-Sham gap at inter-well spacings d=5,6,7 Bohr can restore DFT binding accuracy to below 0.01%. Uses iDEA reverse-KS code with tight tolerance (1e-6) and chemical potential mu=3.0.',
+      tags: ['DFT','simulation','theoretical','electron'],
     },
     {
-      id: 'EXP-2026-04-01-002',
-      title: 'Prime-spaced DD Sign Flip',
-      hypothesis: 'Prime-spaced wells produce negative DD correction (sign flip)',
-      method: 'iDEA 1D model with d = 2,3,5,7,11 Bohr',
-      expected: 'DD < 0',
-      successCriteria: 'At least 3/5 spacings give DD < 0',
-      failureCriteria: 'All DD > 0',
-      researchLine: 'RH',
-      computeTime: '1h',
-      status: 'refuted',
-      score: 0.1,
-      created: '2026-04-01',
-      result: 'All DD values remained positive (0.08–0.21 Hartree). Sign flip not observed. KS gap definition may need revision.',
-      validations: [
-        { label: 'Hypothesis falsifiable', checked: true },
-        { label: 'Method reproducible', checked: true },
-        { label: 'Success criteria quantitative', checked: true },
-        { label: 'Result recorded in registry', checked: true },
-        { label: 'Linked to paper draft', checked: false },
-      ],
+      id: 'EXP-2026-04-01-002', title: 'Prime-spaced DD Sign Flip', status: 'refuted', created: '2026-04-01', score: 0.1,
+      result: 'All DD values remained positive (0.08-0.21 Hartree). Sign flip not observed.',
+      abstract: 'Test whether prime-spaced wells (d=2,3,5,7,11 Bohr) produce a negative DD correction (sign flip) in the iDEA 1D model, which would indicate a qualitative change in the density-functional approximation error landscape.',
+      tags: ['DFT','theoretical','simulation'],
     },
     {
-      id: 'EXP-2026-04-01-001',
-      title: 'LDA Overbinding Test',
-      hypothesis: 'LDA overestimates 2-electron atom binding energy by >1% vs exact result',
-      method: 'iDEA exact solver + LDA calculation, 2e atom',
-      expected: 'LDA binding > exact binding by >1%',
-      successCriteria: 'Relative error > 0.01',
-      failureCriteria: 'Relative error ≤ 0.01',
-      researchLine: 'RH',
-      computeTime: '30min',
-      status: 'confirmed',
-      score: 0.95,
-      created: '2026-04-01',
+      id: 'EXP-2026-04-01-001', title: 'LDA Overbinding Test', status: 'confirmed', created: '2026-04-01', score: 0.95,
       result: 'LDA binding energy = 2.907 Hartree, exact = 2.904 Hartree. Relative error = 0.103%. Confirms LDA overbinding.',
-      validations: [
-        { label: 'Hypothesis falsifiable', checked: true },
-        { label: 'Method reproducible', checked: true },
-        { label: 'Success criteria quantitative', checked: true },
-        { label: 'Result recorded in registry', checked: true },
-        { label: 'Linked to paper draft', checked: true },
-      ],
+      abstract: 'Quantify the overbinding error of the Local Density Approximation (LDA) for a 2-electron atom by comparing LDA vs exact iDEA solver binding energies, expecting >1% relative error.',
+      tags: ['DFT','electron','theoretical'],
     },
     {
-      id: 'EXP-2026-03-31-005',
-      title: 'Electron Membrane Nodal Pattern',
-      hypothesis: 'Electron membrane model predicts nodal pattern consistent with Stodolna 2013 imaging',
-      method: 'Analytic membrane model + comparison with published data',
-      expected: 'Nodal ring spacing matches within 5%',
-      successCriteria: 'RMSE < 5% across 4 observed rings',
-      failureCriteria: 'RMSE > 10%',
-      researchLine: 'SC',
-      computeTime: '2h',
-      status: 'confirmed',
-      score: 0.88,
-      created: '2026-03-31',
-      result: 'RMSE = 3.2% across Stodolna\'s 4 ring dataset. Model consistent with observation.',
-      validations: [
-        { label: 'Hypothesis falsifiable', checked: true },
-        { label: 'Method reproducible', checked: true },
-        { label: 'Success criteria quantitative', checked: true },
-        { label: 'Result recorded in registry', checked: true },
-        { label: 'Linked to paper draft', checked: false },
-      ],
+      id: 'EXP-2026-03-31-005', title: 'Electron Membrane Nodal Pattern', status: 'confirmed', created: '2026-03-31', score: 0.88,
+      result: 'RMSE = 3.2% across 4-ring dataset. Model consistent with observation.',
+      abstract: 'Validate the electron membrane model by comparing predicted nodal ring patterns with Stodolna et al. (2013) hydrogen atom photoionization imaging data. Success: RMSE < 5% across 4 observed rings.',
+      tags: ['membrane','electron','spectroscopy','experiment'],
     },
     {
-      id: 'EXP-2026-04-02-004',
-      title: 'Fibonacci Lattice DFT Grid',
-      hypothesis: 'Fibonacci lattice grid reduces DFT ill-conditioning vs uniform grid for N>100 basis functions',
-      method: 'Condition number comparison, random matrix research',
-      expected: 'κ(A_Fibonacci) < κ(A_uniform)',
-      successCriteria: 'Condition number ratio > 2x improvement',
-      failureCriteria: 'No statistically significant difference',
-      researchLine: 'BC',
-      computeTime: '4h',
-      status: 'registered',
-      score: null,
-      created: '2026-04-02',
-      result: null,
-      validations: [
-        { label: 'Hypothesis falsifiable', checked: true },
-        { label: 'Method reproducible', checked: false },
-        { label: 'Success criteria quantitative', checked: true },
-        { label: 'Result recorded in registry', checked: false },
-        { label: 'Linked to paper draft', checked: false },
-      ],
+      id: 'EXP-2026-04-02-004', title: 'Fibonacci Lattice DFT Grid', status: 'registered', created: '2026-04-02', score: null, result: null,
+      abstract: 'Compare the condition number of DFT overlap matrices using Fibonacci lattice grids vs uniform grids for N>100 basis functions. Hypothesis: Fibonacci grids reduce ill-conditioning by at least 2x.',
+      tags: ['DFT','optimization','materials','simulation'],
     },
   ];
 
@@ -262,24 +235,23 @@
   function renderCards(list) {
     const container = document.getElementById('exp-cards');
     if (!list.length) {
-      container.innerHTML = '<div class="empty-state" style="grid-column:span 2"><span class="icon">🧪</span><h3>No researchs match</h3><p>Try changing the filter</p></div>';
+      container.innerHTML = '<div class="empty-state" style="grid-column:span 2"><span class="icon">🧪</span><h3>No researches found</h3><p>Try changing the filter or register a new research</p></div>';
       return;
     }
     container.innerHTML = list.map(e => {
-      const scoreBar = e.score !== null ? `<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:3px"><span>Score</span><span>${(e.score * 100).toFixed(0)}%</span></div><div class="exp-score-bar"><div class="exp-score-fill" style="width:${(e.score*100).toFixed(0)}%;background:${e.score>0.5?'var(--success)':'var(--error)'}"></div></div></div>` : '';
-      const hyp = e.hypothesis.length > 100 ? e.hypothesis.slice(0,100) + '…' : e.hypothesis;
-      const titleHtml = e.title ? `<div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:4px">${escHtml(e.title)}</div>` : '';
+      const scoreBar = e.score !== null ? `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:3px"><span>Score</span><span>${(e.score * 100).toFixed(0)}%</span></div><div class="exp-score-bar"><div class="exp-score-fill" style="width:${(e.score*100).toFixed(0)}%;background:${e.score>0.5?'var(--success)':'var(--error)'}"></div></div></div>` : '';
+      const abs = (e.abstract||'').length > 120 ? (e.abstract||'').slice(0,120) + '...' : (e.abstract||'');
+      const tagsHtml = (e.tags||[]).slice(0,4).map(t => `<span class="research-tag">${escHtml(t)}</span>`).join('');
       return `<div class="card exp-card" style="cursor:pointer;border-left:3px solid ${statusColor(e.status)}" onclick="openExpDetail('${e.id}')">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
           <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary)">${e.id}</span>
           <span class="exp-status-badge ${e.status}">${capitalize(e.status)}</span>
         </div>
-        ${titleHtml}
-        <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px">${escHtml(hyp)}</p>
-        <div style="display:flex;gap:12px;font-size:12px;color:var(--text-secondary)">
-          <span>📐 ${e.researchLine || 'RH'}</span>
+        <div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:6px">${escHtml(e.title||e.id)}</div>
+        <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px">${escHtml(abs)}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${tagsHtml}</div>
+        <div style="display:flex;gap:12px;font-size:11px;color:var(--text-tertiary)">
           <span>📅 ${e.created}</span>
-          ${e.computeTime ? `<span>⏱ ${e.computeTime}</span>` : ''}
         </div>
         ${scoreBar}
       </div>`;
@@ -287,22 +259,22 @@
   }
 
   window.applyFilters = function() {
-    const rl = document.getElementById('rl-filter').value;
     const sort = document.getElementById('sort-select').value;
     const search = document.getElementById('exp-search').value.toLowerCase();
 
     let filtered = allResearches.filter(e => {
       if (activeStatusFilter !== 'all' && e.status !== activeStatusFilter) return false;
-      if (rl && e.researchLine !== rl) return false;
-      if (search && !e.hypothesis.toLowerCase().includes(search) && !e.id.toLowerCase().includes(search) && !(e.title && e.title.toLowerCase().includes(search))) return false;
+      if (search) {
+        const haystack = [e.title, e.abstract, e.id, ...(e.tags||[])].join(' ').toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
       return true;
     });
 
     filtered = filtered.sort((a, b) => {
       if (sort === 'date-asc') return a.created.localeCompare(b.created);
-      if (sort === 'score-desc') return (b.score||0) - (a.score||0);
       if (sort === 'status') return a.status.localeCompare(b.status);
-      return b.created.localeCompare(a.created); // date-desc default
+      return b.created.localeCompare(a.created);
     });
 
     renderCards(filtered);
@@ -315,7 +287,7 @@
     applyFilters();
   };
 
-  // ---- Detail View (T-064) ----
+  // ---- Detail View ----
   window.openExpDetail = function(id) {
     const e = allResearches.find(x => x.id === id);
     if (!e) return;
@@ -323,64 +295,31 @@
     document.getElementById('exp-detail-view').style.display = 'block';
 
     const scoreDisplay = e.score !== null ? `
-      <div style="margin-top:4px">
+      <div style="margin-top:16px">
         <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:4px"><span>Confidence Score</span><span style="font-weight:700;color:${e.score>0.5?'var(--success)':'var(--error)'}">${(e.score*100).toFixed(0)}%</span></div>
         <div class="exp-score-bar" style="height:10px"><div class="exp-score-fill" style="width:${(e.score*100).toFixed(0)}%;background:${e.score>0.5?'var(--success)':'var(--error)'}"></div></div>
       </div>` : '';
 
-    const checks = e.validations.map(v => `
-      <div class="validation-check">
-        <input type="checkbox" ${v.checked ? 'checked' : ''} onchange="toggleValidation('${id}','${v.label}',this.checked)" style="cursor:pointer">
-        <span style="font-size:13px;color:${v.checked?'var(--text)':'var(--text-secondary)'}">${v.label}</span>
-        ${v.checked ? '<span style="margin-left:auto;color:var(--success);font-size:12px">✓</span>' : '<span style="margin-left:auto;color:var(--text-tertiary);font-size:12px">○</span>'}
-      </div>`).join('');
+    const tagsHtml = (e.tags||[]).map(t => `<span class="research-tag">${escHtml(t)}</span>`).join('');
 
     document.getElementById('exp-detail-content').innerHTML = `
       <div class="panel" style="margin-bottom:12px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">
           <div>
-            <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);margin-bottom:4px">${e.id}</div>
-            ${e.title ? `<h2 style="font-size:18px;font-weight:700;line-height:1.4;color:var(--text);margin-bottom:6px">${escHtml(e.title)}</h2>` : ''}
-            <p style="font-size:14px;line-height:1.5;color:${e.title ? 'var(--text-secondary)' : 'var(--text)'};${e.title ? '' : 'font-weight:700;font-size:16px'}">${escHtml(e.hypothesis)}</p>
+            <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);margin-bottom:4px">${e.id} · ${e.created}</div>
+            <h2 style="font-size:18px;font-weight:700;line-height:1.4;color:var(--text);margin-bottom:0">${escHtml(e.title||e.id)}</h2>
           </div>
           <span class="exp-status-badge ${e.status}" style="flex-shrink:0">${capitalize(e.status)}</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          <div>
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:4px">Method</div>
-            <div style="font-size:13px;color:var(--text)">${escHtml(e.method||'—')}</div>
-          </div>
-          <div>
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:4px">Research Line</div>
-            <div style="font-size:13px;color:var(--text)">${e.researchLine}</div>
-          </div>
-          <div>
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:4px">Success Criteria</div>
-            <div style="font-size:13px;color:var(--success)">${escHtml(e.successCriteria||'—')}</div>
-          </div>
-          <div>
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:4px">Failure Criteria</div>
-            <div style="font-size:13px;color:var(--error)">${escHtml(e.failureCriteria||'—')}</div>
-          </div>
-          <div>
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:4px">Expected Result</div>
-            <div style="font-size:13px;color:var(--text)">${escHtml(e.expected||'—')}</div>
-          </div>
-          <div>
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:4px">Est. Compute Time</div>
-            <div style="font-size:13px;color:var(--text)">${escHtml(e.computeTime||'—')}</div>
-          </div>
-        </div>
+        ${tagsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${tagsHtml}</div>` : ''}
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Abstract</div>
+        <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap">${escHtml(e.abstract||'No abstract provided.')}</div>
         ${scoreDisplay}
       </div>
-      ${e.result ? `<div class="panel mb-2">
+      ${e.result ? `<div class="panel">
         <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px">Result</div>
         <div style="font-size:13px;line-height:1.6;color:var(--text)">${escHtml(e.result)}</div>
-      </div>` : ''}
-      <div class="panel">
-        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px">Validation Checklist</div>
-        <div id="validation-list-${e.id.replace(/-/g,'_')}">${checks}</div>
-      </div>`;
+      </div>` : ''}`;
   };
 
   window.backToExpList = function() {
@@ -388,47 +327,38 @@
     document.getElementById('exp-list-view').style.display = 'block';
   };
 
-  window.toggleValidation = function(expId, label, val) {
-    const e = allResearches.find(x => x.id === expId);
-    if (!e) return;
-    const v = e.validations.find(v => v.label === label);
-    if (v) v.checked = val;
-  };
-
-  // ---- Register Modal (T-063) ----
+  // ---- Register Modal ----
   window.showRegisterModal = function() {
     document.getElementById('register-modal').style.display = 'flex';
-    document.getElementById('reg-hypothesis').focus();
+    document.getElementById('reg-title').value = '';
+    document.getElementById('reg-abstract').value = '';
+    document.getElementById('reg-tag-input').value = '';
+    currentRegTags = [];
+    renderRegTags();
+    document.getElementById('reg-alert').className = 'alert';
+    setTimeout(() => document.getElementById('reg-title').focus(), 50);
   };
   window.closeRegisterModal = function() {
     document.getElementById('register-modal').style.display = 'none';
-    document.getElementById('reg-alert').className = 'alert';
   };
+
   window.submitRegistration = async function() {
     const title = document.getElementById('reg-title').value.trim();
-    const hyp = document.getElementById('reg-hypothesis').value.trim();
+    const abstract = document.getElementById('reg-abstract').value.trim();
     const alertEl = document.getElementById('reg-alert');
-    if (!title) { alertEl.textContent = 'Research title is required'; alertEl.className = 'alert error show'; return; }
-    if (!hyp) { alertEl.textContent = 'Hypothesis is required'; alertEl.className = 'alert error show'; return; }
+    if (!title) { alertEl.textContent = 'Title is required'; alertEl.className = 'alert error show'; return; }
+    if (!abstract) { alertEl.textContent = 'Abstract is required'; alertEl.className = 'alert error show'; return; }
 
-    const metadata = {
-      title: title,
-      method: document.getElementById('reg-method').value,
-      expected: document.getElementById('reg-expected').value,
-      researchLine: document.getElementById('reg-rl').value,
-      successCriteria: document.getElementById('reg-success').value,
-      failureCriteria: document.getElementById('reg-failure').value,
-      computeTime: document.getElementById('reg-compute').value,
-    };
+    const tags = [...currentRegTags];
+    const metadata = { title, abstract, tags };
 
     if (window.asrp) {
-      const result = await window.asrp.experiments.register(hyp, metadata);
+      const result = await window.asrp.experiments.register(title, metadata);
       if (result.success) {
-        // Auto-create a Discord channel named after the research TITLE (not ID)
+        // Create Discord channel named after the research title
         try {
           if (window.asrp.discord && window.asrp.discord.createChannel) {
-            const channelName = title + ' ' + result.id;
-            const chResult = await window.asrp.discord.createChannel(channelName);
+            const chResult = await window.asrp.discord.createChannel(title);
             if (chResult.success) {
               console.log('Discord channel created:', chResult.channelName);
             } else {
@@ -438,61 +368,38 @@
         } catch (chErr) {
           console.warn('Discord channel creation error:', chErr);
         }
-        alertEl.textContent = `Registered: ${result.id} — ${title}`;
+        alertEl.textContent = `Registered: ${result.id}`;
         alertEl.className = 'alert success show';
-        // Add to local list
         allResearches.unshift({
-          id: result.id, title: title, hypothesis: hyp, status: 'registered',
+          id: result.id, title, abstract, tags,
+          status: 'registered',
           created: new Date().toISOString().slice(0,10),
           score: null, result: null,
-          researchLine: metadata.researchLine,
-          computeTime: metadata.computeTime,
-          method: metadata.method,
-          expected: metadata.expected,
-          successCriteria: metadata.successCriteria,
-          failureCriteria: metadata.failureCriteria,
-          validations: [
-            { label: 'Hypothesis falsifiable', checked: true },
-            { label: 'Method reproducible', checked: !!metadata.method },
-            { label: 'Success criteria quantitative', checked: !!metadata.successCriteria },
-            { label: 'Result recorded in registry', checked: false },
-            { label: 'Linked to paper draft', checked: false },
-          ],
         });
-        setTimeout(() => { closeRegisterModal(); applyFilters(); }, 1200);
+        setTimeout(() => { closeRegisterModal(); applyFilters(); }, 800);
       }
     }
   };
 
   function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s) { return escHtml(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
   function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 
   async function init() {
     if (!window.asrp) { allResearches = MOCK_EXPERIMENTS; applyFilters(); return; }
     try {
       const { experiments } = await window.asrp.experiments.list();
-      // Merge IPC data with mock data (mock provides extended fields for demo records)
       allResearches = experiments.map(e => {
         const mock = MOCK_EXPERIMENTS.find(m => m.id === e.id);
-        const base = mock ? { ...mock, ...e } : e;
-        // Ensure all records have required display fields
         return {
-          title: '', researchLine: 'RH', score: null, result: null,
-          method: '', expected: '', successCriteria: '', failureCriteria: '',
-          computeTime: '',
-          validations: [
-            { label: 'Hypothesis falsifiable', checked: true },
-            { label: 'Method reproducible', checked: !!base.method },
-            { label: 'Success criteria quantitative', checked: !!base.successCriteria },
-            { label: 'Result recorded in registry', checked: false },
-            { label: 'Linked to paper draft', checked: false },
-          ],
-          ...base,
+          title: '', abstract: '', tags: [], score: null, result: null,
+          ...(mock || {}),
+          ...e,
         };
       });
       if (allResearches.length === 0) allResearches = MOCK_EXPERIMENTS;
     } catch (err) {
-      console.warn('Failed to load researches from backend:', err);
+      console.warn('Failed to load researches:', err);
       allResearches = MOCK_EXPERIMENTS;
     }
     applyFilters();

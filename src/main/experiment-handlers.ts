@@ -11,12 +11,12 @@ import { getWorkspaceBase } from './ipc-handlers';
 interface ResearchRecord {
   id: string;
   title: string;
-  hypothesis: string;
+  abstract: string;
+  tags: string[];
   status: string;
   created: string;
   score: number | null;
   result: string | null;
-  metadata: Record<string, unknown>;
 }
 
 function getResearchesFile(): string {
@@ -46,18 +46,7 @@ export function registerExperimentHandlers(): void {
 
   ipcMain.handle('experiments:list', async () => {
     const records = loadResearches();
-    return {
-      experiments: records.map(r => ({
-        id: r.id,
-        title: r.title || '',
-        hypothesis: r.hypothesis,
-        status: r.status,
-        created: r.created,
-        score: r.score,
-        result: r.result,
-        ...r.metadata,
-      })),
-    };
+    return { experiments: records };
   });
 
   ipcMain.handle('experiments:get', async (_event, expId: string) => {
@@ -66,40 +55,27 @@ export function registerExperimentHandlers(): void {
     if (!record) {
       return { success: false, error: 'Research not found' };
     }
-    return {
-      success: true,
-      experiment: {
-        id: record.id,
-        title: record.title,
-        hypothesis: record.hypothesis,
-        status: record.status,
-        created: record.created,
-        score: record.score,
-        result: record.result,
-        ...record.metadata,
-      },
-    };
+    return { success: true, experiment: record };
   });
 
-  ipcMain.handle('experiments:register', async (_event, hypothesis: string, metadata: Record<string, unknown>) => {
+  ipcMain.handle('experiments:register', async (_event, _hypothesis: string, metadata: Record<string, unknown>) => {
     const id = `EXP-${new Date().toISOString().slice(0, 10)}-${String(Math.floor(Math.random() * 900) + 100)}`;
-    const title = (typeof metadata.title === 'string' && metadata.title.trim()) ? metadata.title.trim() : '';
     const record: ResearchRecord = {
       id,
-      title,
-      hypothesis,
+      title: (typeof metadata.title === 'string') ? metadata.title.trim() : '',
+      abstract: (typeof metadata.abstract === 'string') ? metadata.abstract.trim() : '',
+      tags: Array.isArray(metadata.tags) ? metadata.tags.filter((t): t is string => typeof t === 'string') : [],
       status: 'registered',
       created: new Date().toISOString().slice(0, 10),
       score: null,
       result: null,
-      metadata,
     };
 
     const records = loadResearches();
     records.unshift(record);
     saveResearches(records);
 
-    return { success: true, id, title, hypothesis, metadata };
+    return { success: true, id, title: record.title };
   });
 
   ipcMain.handle('experiments:update-status', async (_event, expId: string, status: string, extra?: Record<string, unknown>) => {
