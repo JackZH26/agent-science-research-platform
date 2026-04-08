@@ -68,6 +68,21 @@ export function registerFileHandlers(): void {
     }
   });
 
+  // Binary-safe file copy — source can be outside workspace (user-selected),
+  // but destination must be inside workspace.
+  ipcMain.handle('files:copy', async (_event, srcPath: string, destPath: string) => {
+    if (!isPathAllowed(destPath)) {
+      return { success: false, error: 'Destination outside workspace' };
+    }
+    try {
+      fs.mkdirSync(path.dirname(destPath), { recursive: true });
+      fs.copyFileSync(srcPath, destPath);
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
+  });
+
   ipcMain.handle('files:open-dialog', async (_event, options: Electron.OpenDialogOptions) => {
     return dialog.showOpenDialog(options || {});
   });

@@ -129,15 +129,26 @@ function ensureResearchDirs(researchId: string): void {
       fs.mkdirSync(d, { recursive: true });
     }
   }
-  // Migrate: move agent-* dirs into system/ if they exist at workspace root
+  // Migrate: move agent-* dirs from workspace root into system/
+  // Also clean up old name-based agent dirs (they've been replaced by role-based dirs)
   try {
     const entries = fs.readdirSync(workspace);
     for (const entry of entries) {
       if (entry.startsWith('agent-')) {
         const src = path.join(workspace, entry);
-        const dest = path.join(workspace, 'system', entry);
-        if (fs.statSync(src).isDirectory() && !fs.existsSync(dest)) {
-          fs.renameSync(src, dest);
+        if (fs.statSync(src).isDirectory()) {
+          const dest = path.join(workspace, 'system', entry);
+          if (!fs.existsSync(dest)) {
+            fs.renameSync(src, dest);
+          } else {
+            // Destination exists; copy SOUL.md if missing, then remove old dir
+            const oldSoul = path.join(src, 'SOUL.md');
+            const newSoul = path.join(dest, 'SOUL.md');
+            if (fs.existsSync(oldSoul) && !fs.existsSync(newSoul)) {
+              fs.copyFileSync(oldSoul, newSoul);
+            }
+            fs.rmSync(src, { recursive: true, force: true });
+          }
         }
       }
     }

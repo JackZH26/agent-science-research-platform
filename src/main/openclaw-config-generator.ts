@@ -116,8 +116,9 @@ export function generateAllConfigs(
       const profileDir = openclawManager.getProfileDir(agent.name);
       fs.mkdirSync(profileDir, { recursive: true });
 
-      // Write SOUL.md into the profile workspace
-      const agentWorkspace = path.join(wsDir, `agent-${agent.name.toLowerCase()}`);
+      // Write SOUL.md into the profile workspace (inside system/, named by role)
+      const roleName = (agent.role || 'assistant').toLowerCase();
+      const agentWorkspace = path.join(wsDir, 'system', `agent-${roleName}`);
       fs.mkdirSync(agentWorkspace, { recursive: true });
 
       const soulTemplate = SOUL_TEMPLATES[agent.role] || SOUL_TEMPLATES.Assistant!;

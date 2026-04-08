@@ -119,6 +119,7 @@
 }
 .tree-row:hover { background:var(--hover-bg,rgba(0,0,0,0.04)) }
 .tree-row.selected { background:var(--accent-subtle,rgba(74,140,106,0.12));color:var(--accent) }
+.tree-row.folder-selected { background:var(--accent-subtle,rgba(74,140,106,0.15));color:var(--accent);font-weight:600;border-right:3px solid var(--accent) }
 .tree-toggle { font-size:10px;width:14px;text-align:center;color:var(--text-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center }
 .tree-icon { flex-shrink:0;display:flex;align-items:center;color:var(--text-tertiary) }
 .tree-name { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
@@ -169,6 +170,10 @@
   var searchTimeout = null;
   var addFileSrcPath = '';
   var allDirPaths = []; // for addFile destination picker
+  var selectedFolderPath = ''; // currently selected/open folder in tree
+
+  // Folders excluded from the Add File destination dropdown
+  var EXCLUDED_DIRS = ['system', 'code'];
 
   function fileIcon(name) {
     if (!name) return IC.file;
@@ -206,12 +211,17 @@
       var indentPx = depth * 16 + 8;
 
       if (f.isDirectory) {
-        // Track directory paths for addFile picker
-        allDirPaths.push({ name: f.path.replace(workspacePath, '').replace(/^[/\\]/, '') || f.name, path: f.path });
+        // Track directory paths for addFile picker (exclude system, code, and root)
+        var relName = f.path.replace(workspacePath, '').replace(/^[/\\]/, '') || f.name;
+        var topLevel = relName.split('/')[0].split('\\')[0];
+        if (EXCLUDED_DIRS.indexOf(topLevel) === -1) {
+          allDirPaths.push({ name: relName, path: f.path });
+        }
 
         var row = document.createElement('div');
         row.className = 'tree-row';
         row.style.paddingLeft = indentPx + 'px';
+        row.dataset.folderPath = f.path;
         row.innerHTML = '<span class="tree-toggle">' + IC.chevronRight + '</span><span class="tree-icon">' + IC.folderClosed + '</span><span class="tree-name">' + escHtml(f.name) + '</span>';
         var children = document.createElement('div');
         children.style.display = 'none';
@@ -221,6 +231,14 @@
           row.querySelector('.tree-toggle').innerHTML = expanded ? IC.chevronDown : IC.chevronRight;
           row.querySelector('.tree-icon').innerHTML = expanded ? IC.folderOpen : IC.folderClosed;
           children.style.display = expanded ? 'block' : 'none';
+          // Mark this folder as selected
+          document.querySelectorAll('.tree-row.folder-selected').forEach(function(r) { r.classList.remove('folder-selected'); });
+          if (expanded) {
+            row.classList.add('folder-selected');
+            selectedFolderPath = f.path;
+          } else {
+            selectedFolderPath = '';
+          }
           if (expanded && !children.dataset.loaded) {
             children.dataset.loaded = '1';
             children.innerHTML = '<div style="padding:4px 16px;font-size:12px;color:var(--text-tertiary)">Loading...</div>';
@@ -244,7 +262,8 @@
 
   window.refreshTree = async function() {
     if (!workspacePath) return;
-    allDirPaths = [{ name: '/ (workspace root)', path: workspacePath }];
+    allDirPaths = [];
+    selectedFolderPath = '';
     var tree = document.getElementById('file-tree');
     tree.innerHTML = '<div class="loading" style="padding:20px;justify-content:center"><div class="spinner"></div></div>';
     await loadTree(workspacePath, tree, 0);
@@ -395,11 +414,22 @@
     addFileSrcPath = result.filePaths[0];
     var srcName = addFileSrcPath.split(/[/\\]/).pop();
 
-    // Populate destination dropdown
+    // Populate destination dropdown — exclude root, system, code
     var select = document.getElementById('addfile-dest-select');
-    select.innerHTML = allDirPaths.map(function(d) {
-      return '<option value="' + escHtml(d.path) + '">' + escHtml(d.name) + '</option>';
+    var opts = allDirPaths.filter(function(d) { return true; }); // already filtered during tree load
+    if (!opts.length) {
+      opts = [{ name: 'general', path: workspacePath + '/general' }];
+    }
+    select.innerHTML = opts.map(function(d) {
+      return '<option value="' + escHtml(d.path) + '"' +
+        (d.path === selectedFolderPath ? ' selected' : '') +
+        '>' + escHtml(d.name) + '</option>';
     }).join('');
+
+    // If no match via selectedFolderPath, try to find closest parent in the list
+    if (selectedFolderPath && !opts.some(function(d) { return d.path === selectedFolderPath; })) {
+      // Selected folder is excluded (e.g. system); just leave default first option
+    }
 
     document.getElementById('addfile-source-name').textContent = srcName;
     updateAddFileDestPath();
@@ -426,18 +456,14 @@
     var srcName = addFileSrcPath.split(/[/\\]/).pop();
     var destPath = destDir + '/' + srcName;
 
-    var readResult = await window.asrp.files.read(addFileSrcPath);
-    if (!readResult.success) {
-      if (typeof Toast !== 'undefined') Toast.show('Cannot read source file', 'error');
-      return;
-    }
-    var writeResult = await window.asrp.files.write(destPath, readResult.content);
-    if (writeResult.success) {
+    // Use binary-safe copy (supports PDFs, images, etc.)
+    var copyResult = await window.asrp.files.copy(addFileSrcPath, destPath);
+    if (copyResult.success) {
       if (typeof Toast !== 'undefined') Toast.show('Added: ' + srcName, 'success');
       closeAddFileModal();
       refreshTree();
     } else {
-      if (typeof Toast !== 'undefined') Toast.show('Failed: ' + (writeResult.error || 'Unknown'), 'error');
+      if (typeof Toast !== 'undefined') Toast.show('Failed: ' + (copyResult.error || 'Unknown'), 'error');
     }
   };
 
@@ -518,7 +544,7 @@
     if (!window.asrp) return;
     var ws = await window.asrp.system.workspace();
     workspacePath = ws.path;
-    allDirPaths = [{ name: '/ (workspace root)', path: workspacePath }];
+    allDirPaths = [];
     var tree = document.getElementById('file-tree');
     await loadTree(workspacePath, tree, 0);
   }

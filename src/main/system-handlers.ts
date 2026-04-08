@@ -80,33 +80,43 @@ function syncAgentWorkspaces(
   newWorkspace: string,
   oldWorkspace: string,
 ): void {
-  const configs = settings.agentConfigs as Array<{ agentId?: string; name?: string }> | undefined;
+  const configs = settings.agentConfigs as Array<{ agentId?: string; role?: string; name?: string }> | undefined;
   if (!Array.isArray(configs)) return;
 
   for (const cfg of configs) {
     const agentId = (cfg as Record<string, string>).agentId;
     if (!agentId) continue;
 
+    const role = ((cfg as Record<string, string>).role || 'assistant').toLowerCase();
     const safeName = agentId.toLowerCase().replace(/[^a-z0-9]/g, '');
     const profileDir = path.join(os.homedir(), `.openclaw-asrp-${safeName}`);
     const configPath = path.join(profileDir, 'openclaw.json');
 
-    // Agent subdirectory name (matches what openclaw-config-generator uses)
-    const agentDirName = `agent-${agentId.toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
-    const newAgentWs = path.join(newWorkspace, agentDirName);
-    const oldAgentWs = oldWorkspace ? path.join(oldWorkspace, agentDirName) : '';
+    // Agent dirs now live inside system/ and use role-based naming
+    const agentDirName = `agent-${role}`;
+    const newAgentWs = path.join(newWorkspace, 'system', agentDirName);
+
+    // Try old locations for migration: root/agent-{name} or root/system/agent-{name} or old workspace
+    const oldNameDir = `agent-${agentId.toLowerCase().replace(/[^a-z0-9-]/g, '')}`;
+    const oldAgentWsRoot = oldWorkspace ? path.join(oldWorkspace, oldNameDir) : '';
+    const oldAgentWsSystem = oldWorkspace ? path.join(oldWorkspace, 'system', oldNameDir) : '';
 
     try {
-      // 1. Create new agent workspace directory
+      // 1. Create new agent workspace directory inside system/
       fs.mkdirSync(newAgentWs, { recursive: true });
 
-      // 2. Copy SOUL.md from old to new if it exists and new doesn't have one
-      if (oldAgentWs) {
-        const oldSoul = path.join(oldAgentWs, 'SOUL.md');
-        const newSoul = path.join(newAgentWs, 'SOUL.md');
-        if (fs.existsSync(oldSoul) && !fs.existsSync(newSoul)) {
-          fs.copyFileSync(oldSoul, newSoul);
-          console.log(`[Workspace] Copied SOUL.md for ${agentId}: ${oldSoul} → ${newSoul}`);
+      // 2. Copy SOUL.md from old locations if new doesn't have one
+      const newSoul = path.join(newAgentWs, 'SOUL.md');
+      if (!fs.existsSync(newSoul)) {
+        for (const oldDir of [oldAgentWsSystem, oldAgentWsRoot]) {
+          if (oldDir) {
+            const oldSoul = path.join(oldDir, 'SOUL.md');
+            if (fs.existsSync(oldSoul)) {
+              fs.copyFileSync(oldSoul, newSoul);
+              console.log(`[Workspace] Copied SOUL.md for ${agentId}: ${oldSoul} → ${newSoul}`);
+              break;
+            }
+          }
         }
       }
 

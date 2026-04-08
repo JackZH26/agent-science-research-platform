@@ -110,6 +110,9 @@ const files = {
   delete: (filePath: string) =>
     invoke<{ success: boolean; error?: string }>('files:delete', filePath),
 
+  copy: (srcPath: string, destPath: string) =>
+    invoke<{ success: boolean; error?: string }>('files:copy', srcPath, destPath),
+
   openDialog: (options?: Electron.OpenDialogOptions) =>
     invoke<Electron.OpenDialogReturnValue>('files:open-dialog', options),
 

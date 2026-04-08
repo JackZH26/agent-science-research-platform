@@ -201,20 +201,48 @@ export function getAgentLogs(agentName: string): string[] {
   return [];
 }
 
+/** Resolve agent role from settings.json by agentId */
+function resolveAgentRole(agentId: string): string {
+  try {
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      if (Array.isArray(settings.agentConfigs)) {
+        const cfg = settings.agentConfigs.find(
+          (c: Record<string, unknown>) => c && (c.agentId === agentId || c.discordBotName === agentId)
+        );
+        if (cfg && (cfg as Record<string, string>).role) return (cfg as Record<string, string>).role.toLowerCase();
+      }
+    }
+  } catch { /* ignore */ }
+  return 'assistant';
+}
+
 export function getAgentSoul(agentName: string): string {
   // Try to read from the workspace SOUL.md (where openclaw-config-generator writes it)
   const internalName = resolveAgentId(agentName);
   const safeName = internalName.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  const role = resolveAgentRole(internalName);
 
-  // 1. Try workspace SOUL.md
+  // 1. Try workspace SOUL.md — new location: system/agent-{role}
   try {
     const settingsPath = path.join(app.getPath('userData'), 'settings.json');
     if (fs.existsSync(settingsPath)) {
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
       const workspace = settings.workspace as string || path.join(os.homedir(), 'asrp-workspace');
-      const soulPath = path.join(workspace, `agent-${safeName}`, 'SOUL.md');
-      if (fs.existsSync(soulPath)) {
-        return fs.readFileSync(soulPath, 'utf-8');
+      // New: system/agent-{role}
+      const newSoulPath = path.join(workspace, 'system', `agent-${role}`, 'SOUL.md');
+      if (fs.existsSync(newSoulPath)) {
+        return fs.readFileSync(newSoulPath, 'utf-8');
+      }
+      // Legacy: system/agent-{name} or root/agent-{name}
+      const legacySoulPath = path.join(workspace, 'system', `agent-${safeName}`, 'SOUL.md');
+      if (fs.existsSync(legacySoulPath)) {
+        return fs.readFileSync(legacySoulPath, 'utf-8');
+      }
+      const oldSoulPath = path.join(workspace, `agent-${safeName}`, 'SOUL.md');
+      if (fs.existsSync(oldSoulPath)) {
+        return fs.readFileSync(oldSoulPath, 'utf-8');
       }
     }
   } catch { /* ignore */ }
@@ -242,6 +270,7 @@ export function getAgentSoul(agentName: string): string {
 export function saveAgentSoul(agentName: string, content: string): { success: boolean; error?: string } {
   const internalName = resolveAgentId(agentName);
   const safeName = internalName.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  const role = resolveAgentRole(internalName);
 
   try {
     // Save to workspace SOUL.md (where OpenClaw reads it from)
@@ -251,7 +280,8 @@ export function saveAgentSoul(agentName: string, content: string): { success: bo
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
       if (settings.workspace) workspace = settings.workspace as string;
     }
-    const soulDir = path.join(workspace, `agent-${safeName}`);
+    // New: save to system/agent-{role}
+    const soulDir = path.join(workspace, 'system', `agent-${role}`);
     fs.mkdirSync(soulDir, { recursive: true });
     fs.writeFileSync(path.join(soulDir, 'SOUL.md'), content, 'utf-8');
 
