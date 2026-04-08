@@ -1,7 +1,7 @@
 <div class="auth-page-wrapper" id="setup-wrapper">
   <!-- Nav -->
   <div class="auth-page-nav">
-    <div class="logo-text">ASRP Desktop — Setup</div>
+    <div class="logo-text">ASRP — Setup</div>
     <span id="setup-step-label" style="font-size:12px;color:var(--text-tertiary)">Step 1 of 5</span>
   </div>
 
@@ -13,7 +13,7 @@
       <div style="text-align:center;margin-bottom:24px">
         <div style="font-size:44px;margin-bottom:10px">🔬</div>
         <h1 style="font-size:24px;font-weight:700;margin-bottom:6px">Configure Your Research Environment</h1>
-        <p style="color:var(--text-secondary);font-size:14px">Set up ASRP Desktop to start running AI-powered research</p>
+        <p style="color:var(--text-secondary);font-size:14px">Set up ASRP to start running AI-powered research</p>
       </div>
 
       <!-- Step Progress Bar -->
@@ -263,7 +263,7 @@
         <!-- Success Header -->
         <div style="text-align:center;padding:20px 0 28px">
           <div style="font-size:56px;margin-bottom:12px">🎉</div>
-          <h2 style="font-size:22px;margin-bottom:8px">ASRP Desktop is Ready!</h2>
+          <h2 style="font-size:22px;margin-bottom:8px">ASRP is Ready!</h2>
           <p style="color:var(--text-secondary);font-size:14px">Your research environment is configured. Let's do some science.</p>
           <!-- Checklist -->
           <div style="display:inline-flex;flex-direction:column;gap:6px;text-align:left;margin-top:16px;background:var(--card-alt);padding:14px 20px;border-radius:10px;border:1px solid var(--border)">
@@ -757,7 +757,7 @@
         helpText.title = 'Click to copy';
         helpText.onclick = function() {
           navigator.clipboard.writeText('npm install -g openclaw').then(function() {
-            helpText.textContent = 'Copied! Run this in Terminal, then restart ASRP Desktop.';
+            helpText.textContent = 'Copied! Run this in Terminal, then restart ASRP.';
           });
         };
         var label = document.createElement('div');
@@ -1502,7 +1502,7 @@
   window.swOllamaLater = function() {};
 
   window.swFinish = function() {
-    if (window.showToast) window.showToast('Welcome to ASRP Desktop!', 'success');
+    if (window.showToast) window.showToast('Welcome to ASRP!', 'success');
     Router.navigate('/dashboard');
   };
 

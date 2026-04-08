@@ -1,5 +1,5 @@
 appId: com.asrp.desktop
-productName: ASRP Desktop
+productName: ASRP
 copyright: Copyright © 2026 JZ Institute of Science
 
 directories:
@@ -48,7 +48,7 @@ mac:
   artifactName: ASRP_Setup_${version}.${ext}
 
 dmg:
-  title: ASRP Desktop ${version}
+  title: ASRP ${version}
   window:
     width: 540
     height: 380

@@ -1,5 +1,5 @@
 // ============================================================
-// ASRP Desktop Global Error Handler — T-089
+// ASRP Global Error Handler — T-089
 // Catches uncaught JS errors and unhandled promise rejections.
 // Shows a friendly toast and logs to workspace/logs/error.log.
 // ============================================================

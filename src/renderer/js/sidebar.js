@@ -1,5 +1,5 @@
 /**
- * ASRP Desktop Sidebar Component
+ * ASRP Sidebar Component
  * Claude Code-inspired design: account at bottom-left, inline update prompt.
  */
 

@@ -1,5 +1,5 @@
 /**
- * ASRP Desktop SPA Router
+ * ASRP SPA Router
  * Hash-based routing with no page refresh.
  * Loads page fragments into #page-content.
  */
@@ -102,7 +102,7 @@ const Router = (() => {
       }
 
       // Update document title
-      document.title = `${route.title} — ASRP Desktop`;
+      document.title = `${route.title} — ASRP`;
 
       // Scroll to top
       if (pageContent) pageContent.scrollTop = 0;

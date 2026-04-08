@@ -41,7 +41,7 @@ function createWindow(): void {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'ASRP Desktop',
+    title: 'ASRP',
     backgroundColor: '#f0f5f0',
     show: false,
     frame: true,
@@ -119,7 +119,7 @@ function createTray(): void {
   }
 
   tray = new Tray(trayIcon);
-  tray.setToolTip('ASRP Desktop');
+  tray.setToolTip('ASRP');
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -194,8 +194,8 @@ function showAboutDialog(): void {
   const win = mainWindow ?? undefined;
   dialog.showMessageBox(win as BrowserWindow, {
     type: 'info',
-    title: 'About ASRP Desktop',
-    message: 'ASRP Desktop',
+    title: 'About ASRP',
+    message: 'ASRP',
     detail,
     buttons: ['OK', 'Copy'],
     defaultId: 0,
@@ -204,7 +204,7 @@ function showAboutDialog(): void {
     if (response === 1) {
       // Copy to clipboard
       const { clipboard } = require('electron');
-      clipboard.writeText(`ASRP Desktop\n${detail}`);
+      clipboard.writeText(`ASRP\n${detail}`);
     }
   });
 }
@@ -214,7 +214,7 @@ function createAppMenu(): void {
     {
       label: 'ASRP',
       submenu: [
-        { label: 'About ASRP Desktop', click: () => showAboutDialog() },
+        { label: 'About ASRP', click: () => showAboutDialog() },
         {
           label: autoUpdater.getMenuLabel(),
           click: () => autoUpdater.getMenuAction()(),

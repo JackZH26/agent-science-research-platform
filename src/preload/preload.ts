@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 // ============================================================
-// ASRP Desktop Preload — contextBridge IPC API
+// ASRP Preload — contextBridge IPC API
 // ============================================================
 // All communication between renderer and main process goes
 // through this typed bridge. nodeIntegration is OFF.

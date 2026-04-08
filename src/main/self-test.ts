@@ -1,5 +1,5 @@
 // ============================================================
-// ASRP Desktop Self-Test — T-086 / T-087
+// ASRP Self-Test — T-086 / T-087
 // Comprehensive programmatic test of all major IPC flows.
 // Invoked via IPC channel 'system:self-test'.
 // ============================================================

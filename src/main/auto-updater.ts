@@ -1,5 +1,5 @@
 // ============================================================
-// Auto-Updater — ASRP Desktop
+// Auto-Updater — ASRP
 // Uses electron-updater for automatic update checks/installs.
 // macOS: manual extract+replace (Squirrel.Mac requires code signing).
 // ============================================================
@@ -79,7 +79,7 @@ class AppAutoUpdater extends EventEmitter {
         dialog.showMessageBox(win as BrowserWindow, {
           type: 'info',
           title: 'Update Available',
-          message: `ASRP Desktop v${info.version} is available`,
+          message: `ASRP v${info.version} is available`,
           detail: `Current: v${app.getVersion()}`,
           buttons: ['Download Now', 'Later'],
           defaultId: 0,
@@ -267,7 +267,7 @@ class AppAutoUpdater extends EventEmitter {
 
       // 2. Determine the current .app path and extract location
       const appPath = app.getPath('exe').replace(/\/Contents\/MacOS\/.*$/, '');
-      const appName = path.basename(appPath); // "ASRP Desktop.app"
+      const appName = path.basename(appPath); // "ASRP.app"
       const appDir = path.dirname(appPath);   // e.g. /Applications
       const extractDir = path.join(app.getPath('temp'), 'asrp-update-extract');
 
@@ -303,7 +303,7 @@ class AppAutoUpdater extends EventEmitter {
       const macosExe = path.join(newAppInPlace, 'Contents', 'MacOS', appName.replace('.app', ''));
 
       const script = `#!/bin/bash
-# ASRP Desktop updater script — auto-generated
+# ASRP updater script — auto-generated
 set -e
 
 echo "[ASRP Update] Waiting for app (PID ${pid}) to quit..."

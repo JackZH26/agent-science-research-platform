@@ -1,7 +1,7 @@
 <div class="page-header">
   <div>
     <h1>Settings</h1>
-    <p>Configure ASRP Desktop preferences</p>
+    <p>Configure ASRP preferences</p>
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" onclick="resetSettings()">Reset to Defaults</button>
@@ -131,7 +131,7 @@
 
   <!-- About -->
   <div class="panel">
-    <h3>ℹ️ About ASRP Desktop</h3>
+    <h3>ℹ️ About ASRP</h3>
     <div id="about-info" style="font-size:13px;color:var(--text-secondary);line-height:2">
       Loading version info...
     </div>
@@ -167,7 +167,7 @@
     const aboutEl = document.getElementById('about-info');
     if (aboutEl) {
       aboutEl.innerHTML = `
-        <div>ASRP Desktop v${info.version}</div>
+        <div>ASRP v${info.version}</div>
         <div>Electron v${info.electron} · Node.js v${info.node}</div>
         <div>Platform: ${info.platform} (${info.arch})</div>
         <div>Resources: <span style="font-family:monospace;font-size:11px">${info.resourcesPath}</span></div>
@@ -279,7 +279,7 @@
     } else if (status.error) {
       el.textContent = 'Update check failed: ' + status.error;
     } else {
-      el.textContent = 'ASRP Desktop is up to date';
+      el.textContent = 'ASRP is up to date';
     }
   }
 

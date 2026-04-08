@@ -213,7 +213,7 @@ export function registerAssistantHandlers(): void {
         : DEFAULT_ASSISTANT_MODEL;
 
       // Build messages array with system prompt + context + history + user message
-      const systemPrompt = `You are the ASRP Desktop research assistant. You help users navigate the platform, manage experiments, configure agents, and understand results. Be concise and helpful. If asked about ASRP features, explain how to use them.`;
+      const systemPrompt = `You are the ASRP research assistant. You help users navigate the platform, manage experiments, configure agents, and understand results. Be concise and helpful. If asked about ASRP features, explain how to use them.`;
 
       const messages: Array<{ role: string; content: string }> = [
         { role: 'system', content: systemPrompt },
@@ -302,7 +302,7 @@ export function registerAssistantHandlers(): void {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json',
                 'HTTP-Referer': 'https://asrp.jzis.org',
-                'X-Title': 'ASRP Desktop',
+                'X-Title': 'ASRP',
               },
             }, (res: import('http').IncomingMessage) => {
               let data = '';
