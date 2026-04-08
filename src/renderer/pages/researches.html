@@ -7,7 +7,7 @@
 <div class="page-header">
   <div>
     <h1>Researches</h1>
-    <p>Register, track, and review ASRP researches</p>
+    <p>Register, track, and manage ASRP researches</p>
   </div>
   <div class="actions">
     <button class="btn btn-primary btn-sm" onclick="showRegisterModal()">+ New Research</button>
@@ -22,6 +22,7 @@
     <button class="exp-filter" data-filter="running" onclick="setFilter('running')">Running</button>
     <button class="exp-filter" data-filter="confirmed" onclick="setFilter('confirmed')">Confirmed</button>
     <button class="exp-filter" data-filter="refuted" onclick="setFilter('refuted')">Refuted</button>
+    <button class="exp-filter" data-filter="archived" onclick="setFilter('archived')">Archived</button>
   </div>
   <select id="sort-select" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-secondary);color:var(--text);margin-left:auto" onchange="applyFilters()">
     <option value="date-desc">Newest first</option>
@@ -47,18 +48,23 @@
   <div id="exp-detail-content"></div>
 </div>
 
-<!-- Register Modal -->
+<!-- Register / Edit Modal -->
 <div id="register-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center">
   <div class="panel" style="width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:0">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <h3 style="margin:0">🧪 New Research</h3>
-      <button class="btn btn-ghost btn-sm" onclick="closeRegisterModal()">✕</button>
+      <h3 style="margin:0" id="modal-title">🧪 New Research</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
     </div>
     <div style="padding:20px">
       <div class="alert" id="reg-alert"></div>
+      <!-- Read-only date shown only in edit mode -->
+      <div class="form-group" id="reg-date-row" style="display:none">
+        <label>Registered Date</label>
+        <input type="text" id="reg-date" disabled style="background:var(--bg-tertiary,#f0f0f0);color:var(--text-secondary);cursor:not-allowed">
+      </div>
       <div class="form-group">
         <label>Research Title <span style="color:var(--error)">*</span></label>
-        <input type="text" id="reg-title" placeholder="e.g. 300K Superconductor Study, Multi-well DD Correction">
+        <input type="text" id="reg-title" placeholder="e.g. 300K Superconductor Study">
       </div>
       <div class="form-group">
         <label>Abstract <span style="color:var(--error)">*</span></label>
@@ -74,8 +80,8 @@
         <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">Auto-generated from abstract. Click × to remove, type to add custom tags.</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn btn-primary" onclick="submitRegistration()">Register</button>
-        <button class="btn btn-outline" onclick="closeRegisterModal()">Cancel</button>
+        <button class="btn btn-primary" id="modal-submit-btn" onclick="submitModal()">Register</button>
+        <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
       </div>
     </div>
   </div>
@@ -94,6 +100,7 @@
 .exp-status-badge.running { background:#fef3c7;color:#92400e }
 .exp-status-badge.confirmed { background:#d1fae5;color:#065f46 }
 .exp-status-badge.refuted { background:#fee2e2;color:#991b1b }
+.exp-status-badge.archived { background:#f3e8ff;color:#7c3aed }
 .exp-score-bar { height:6px;border-radius:3px;background:var(--border);overflow:hidden }
 .exp-score-fill { height:100%;border-radius:3px;background:var(--accent);transition:width 0.4s }
 .research-tag {
@@ -104,10 +111,17 @@
   white-space:nowrap;
 }
 .research-tag .tag-remove {
-  cursor:pointer;font-size:13px;line-height:1;opacity:0.6;
-  margin-left:2px;
+  cursor:pointer;font-size:13px;line-height:1;opacity:0.6;margin-left:2px;
 }
 .research-tag .tag-remove:hover { opacity:1; }
+.detail-action-btn {
+  padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg-secondary);color:var(--text);
+  transition:all 0.15s;display:inline-flex;align-items:center;gap:5px;
+}
+.detail-action-btn:hover { background:var(--bg-tertiary,#e8e8e8); }
+.detail-action-btn.archive { color:#7c3aed;border-color:#d8b4fe; }
+.detail-action-btn.archive:hover { background:#f3e8ff; }
 </style>
 
 <script>
@@ -115,6 +129,7 @@
   let allResearches = [];
   let activeStatusFilter = 'all';
   let currentRegTags = [];
+  let editingId = null; // null = register mode, string = edit mode
 
   // ---- Tag auto-generation from abstract ----
   const TAG_KEYWORDS = {
@@ -156,7 +171,6 @@
   window.autoGenerateTags = function() {
     const text = document.getElementById('reg-abstract').value;
     const autoTags = extractTags(text);
-    // Keep user-added custom tags (those not in TAG_KEYWORDS)
     const customTags = currentRegTags.filter(t => !Object.keys(TAG_KEYWORDS).includes(t));
     currentRegTags = [...new Set([...autoTags, ...customTags])];
     renderRegTags();
@@ -165,7 +179,6 @@
   function renderRegTags() {
     const container = document.getElementById('reg-tags-container');
     const input = document.getElementById('reg-tag-input');
-    // Remove all tag elements but keep the input
     container.querySelectorAll('.research-tag').forEach(el => el.remove());
     currentRegTags.forEach(tag => {
       const el = document.createElement('span');
@@ -206,30 +219,30 @@
     {
       id: 'EXP-2026-04-01-002', title: 'Prime-spaced DD Sign Flip', status: 'refuted', created: '2026-04-01', score: 0.1,
       result: 'All DD values remained positive (0.08-0.21 Hartree). Sign flip not observed.',
-      abstract: 'Test whether prime-spaced wells (d=2,3,5,7,11 Bohr) produce a negative DD correction (sign flip) in the iDEA 1D model, which would indicate a qualitative change in the density-functional approximation error landscape.',
+      abstract: 'Test whether prime-spaced wells (d=2,3,5,7,11 Bohr) produce a negative DD correction (sign flip) in the iDEA 1D model.',
       tags: ['DFT','theoretical','simulation'],
     },
     {
       id: 'EXP-2026-04-01-001', title: 'LDA Overbinding Test', status: 'confirmed', created: '2026-04-01', score: 0.95,
-      result: 'LDA binding energy = 2.907 Hartree, exact = 2.904 Hartree. Relative error = 0.103%. Confirms LDA overbinding.',
-      abstract: 'Quantify the overbinding error of the Local Density Approximation (LDA) for a 2-electron atom by comparing LDA vs exact iDEA solver binding energies, expecting >1% relative error.',
+      result: 'LDA binding energy = 2.907 Hartree, exact = 2.904 Hartree. Relative error = 0.103%.',
+      abstract: 'Quantify the overbinding error of the Local Density Approximation (LDA) for a 2-electron atom by comparing LDA vs exact iDEA solver binding energies.',
       tags: ['DFT','electron','theoretical'],
     },
     {
       id: 'EXP-2026-03-31-005', title: 'Electron Membrane Nodal Pattern', status: 'confirmed', created: '2026-03-31', score: 0.88,
       result: 'RMSE = 3.2% across 4-ring dataset. Model consistent with observation.',
-      abstract: 'Validate the electron membrane model by comparing predicted nodal ring patterns with Stodolna et al. (2013) hydrogen atom photoionization imaging data. Success: RMSE < 5% across 4 observed rings.',
+      abstract: 'Validate the electron membrane model by comparing predicted nodal ring patterns with Stodolna et al. (2013) hydrogen atom photoionization imaging data.',
       tags: ['membrane','electron','spectroscopy','experiment'],
     },
     {
       id: 'EXP-2026-04-02-004', title: 'Fibonacci Lattice DFT Grid', status: 'registered', created: '2026-04-02', score: null, result: null,
-      abstract: 'Compare the condition number of DFT overlap matrices using Fibonacci lattice grids vs uniform grids for N>100 basis functions. Hypothesis: Fibonacci grids reduce ill-conditioning by at least 2x.',
+      abstract: 'Compare the condition number of DFT overlap matrices using Fibonacci lattice grids vs uniform grids for N>100 basis functions.',
       tags: ['DFT','optimization','materials','simulation'],
     },
   ];
 
   function statusColor(s) {
-    return { registered: '#64748b', running: '#d97706', confirmed: '#059669', refuted: '#dc2626' }[s] || '#888';
+    return { registered: '#64748b', running: '#d97706', confirmed: '#059669', refuted: '#dc2626', archived: '#7c3aed' }[s] || '#888';
   }
 
   function renderCards(list) {
@@ -242,7 +255,7 @@
       const scoreBar = e.score !== null ? `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:3px"><span>Score</span><span>${(e.score * 100).toFixed(0)}%</span></div><div class="exp-score-bar"><div class="exp-score-fill" style="width:${(e.score*100).toFixed(0)}%;background:${e.score>0.5?'var(--success)':'var(--error)'}"></div></div></div>` : '';
       const abs = (e.abstract||'').length > 120 ? (e.abstract||'').slice(0,120) + '...' : (e.abstract||'');
       const tagsHtml = (e.tags||[]).slice(0,4).map(t => `<span class="research-tag">${escHtml(t)}</span>`).join('');
-      return `<div class="card exp-card" style="cursor:pointer;border-left:3px solid ${statusColor(e.status)}" onclick="openExpDetail('${e.id}')">
+      return `<div class="card exp-card" style="cursor:pointer;border-left:3px solid ${statusColor(e.status)}${e.status==='archived'?';opacity:0.7':''}" onclick="openExpDetail('${e.id}')">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
           <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary)">${e.id}</span>
           <span class="exp-status-badge ${e.status}">${capitalize(e.status)}</span>
@@ -250,9 +263,7 @@
         <div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:6px">${escHtml(e.title||e.id)}</div>
         <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:8px">${escHtml(abs)}</p>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">${tagsHtml}</div>
-        <div style="display:flex;gap:12px;font-size:11px;color:var(--text-tertiary)">
-          <span>📅 ${e.created}</span>
-        </div>
+        <div style="font-size:11px;color:var(--text-tertiary)">📅 ${e.created}</div>
         ${scoreBar}
       </div>`;
     }).join('');
@@ -263,6 +274,8 @@
     const search = document.getElementById('exp-search').value.toLowerCase();
 
     let filtered = allResearches.filter(e => {
+      // "all" filter hides archived; only show archived when explicitly filtering
+      if (activeStatusFilter === 'all' && e.status === 'archived') return false;
       if (activeStatusFilter !== 'all' && e.status !== activeStatusFilter) return false;
       if (search) {
         const haystack = [e.title, e.abstract, e.id, ...(e.tags||[])].join(' ').toLowerCase();
@@ -302,10 +315,12 @@
 
     const tagsHtml = (e.tags||[]).map(t => `<span class="research-tag">${escHtml(t)}</span>`).join('');
 
+    const isArchived = e.status === 'archived';
+
     document.getElementById('exp-detail-content').innerHTML = `
       <div class="panel" style="margin-bottom:12px">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">
-          <div>
+          <div style="flex:1">
             <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);margin-bottom:4px">${e.id} · ${e.created}</div>
             <h2 style="font-size:18px;font-weight:700;line-height:1.4;color:var(--text);margin-bottom:0">${escHtml(e.title||e.id)}</h2>
           </div>
@@ -316,10 +331,17 @@
         <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap">${escHtml(e.abstract||'No abstract provided.')}</div>
         ${scoreDisplay}
       </div>
-      ${e.result ? `<div class="panel">
+      ${e.result ? `<div class="panel" style="margin-bottom:12px">
         <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px">Result</div>
         <div style="font-size:13px;line-height:1.6;color:var(--text)">${escHtml(e.result)}</div>
-      </div>` : ''}`;
+      </div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="detail-action-btn" onclick="openEditModal('${e.id}')">✏️ Edit</button>
+        ${isArchived
+          ? `<button class="detail-action-btn" onclick="unarchiveResearch('${e.id}')">📤 Restore</button>`
+          : `<button class="detail-action-btn archive" onclick="archiveResearch('${e.id}')">📦 Archive</button>`
+        }
+      </div>`;
   };
 
   window.backToExpList = function() {
@@ -327,22 +349,81 @@
     document.getElementById('exp-list-view').style.display = 'block';
   };
 
-  // ---- Register Modal ----
-  window.showRegisterModal = function() {
-    document.getElementById('register-modal').style.display = 'flex';
+  // ---- Archive / Restore ----
+  window.archiveResearch = async function(id) {
+    const e = allResearches.find(x => x.id === id);
+    if (!e) return;
+    e.status = 'archived';
+    if (window.asrp) {
+      await window.asrp.experiments.update(id, { status: 'archived' });
+    }
+    backToExpList();
+    applyFilters();
+  };
+
+  window.unarchiveResearch = async function(id) {
+    const e = allResearches.find(x => x.id === id);
+    if (!e) return;
+    e.status = 'registered';
+    if (window.asrp) {
+      await window.asrp.experiments.update(id, { status: 'registered' });
+    }
+    // Re-open detail to refresh buttons
+    openExpDetail(id);
+  };
+
+  // ---- Modal (Register + Edit) ----
+  function resetModal() {
     document.getElementById('reg-title').value = '';
     document.getElementById('reg-abstract').value = '';
     document.getElementById('reg-tag-input').value = '';
+    document.getElementById('reg-date').value = '';
+    document.getElementById('reg-date-row').style.display = 'none';
     currentRegTags = [];
     renderRegTags();
     document.getElementById('reg-alert').className = 'alert';
+  }
+
+  window.showRegisterModal = function() {
+    editingId = null;
+    resetModal();
+    document.getElementById('modal-title').textContent = '🧪 New Research';
+    document.getElementById('modal-submit-btn').textContent = 'Register';
+    document.getElementById('register-modal').style.display = 'flex';
     setTimeout(() => document.getElementById('reg-title').focus(), 50);
   };
-  window.closeRegisterModal = function() {
-    document.getElementById('register-modal').style.display = 'none';
+
+  window.openEditModal = function(id) {
+    const e = allResearches.find(x => x.id === id);
+    if (!e) return;
+    editingId = id;
+    resetModal();
+    document.getElementById('modal-title').textContent = '✏️ Edit Research';
+    document.getElementById('modal-submit-btn').textContent = 'Save Changes';
+    document.getElementById('reg-date-row').style.display = 'block';
+    document.getElementById('reg-date').value = e.created;
+    document.getElementById('reg-title').value = e.title || '';
+    document.getElementById('reg-abstract').value = e.abstract || '';
+    currentRegTags = [...(e.tags || [])];
+    renderRegTags();
+    document.getElementById('register-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('reg-title').focus(), 50);
   };
 
-  window.submitRegistration = async function() {
+  window.closeModal = function() {
+    document.getElementById('register-modal').style.display = 'none';
+    editingId = null;
+  };
+
+  window.submitModal = async function() {
+    if (editingId) {
+      await submitEdit();
+    } else {
+      await submitRegistration();
+    }
+  };
+
+  async function submitRegistration() {
     const title = document.getElementById('reg-title').value.trim();
     const abstract = document.getElementById('reg-abstract').value.trim();
     const alertEl = document.getElementById('reg-alert');
@@ -368,7 +449,7 @@
         } catch (chErr) {
           console.warn('Discord channel creation error:', chErr);
         }
-        alertEl.textContent = `Registered: ${result.id}`;
+        alertEl.textContent = 'Research registered!';
         alertEl.className = 'alert success show';
         allResearches.unshift({
           id: result.id, title, abstract, tags,
@@ -376,10 +457,37 @@
           created: new Date().toISOString().slice(0,10),
           score: null, result: null,
         });
-        setTimeout(() => { closeRegisterModal(); applyFilters(); }, 800);
+        setTimeout(() => { closeModal(); applyFilters(); }, 800);
       }
     }
-  };
+  }
+
+  async function submitEdit() {
+    const title = document.getElementById('reg-title').value.trim();
+    const abstract = document.getElementById('reg-abstract').value.trim();
+    const alertEl = document.getElementById('reg-alert');
+    if (!title) { alertEl.textContent = 'Title is required'; alertEl.className = 'alert error show'; return; }
+    if (!abstract) { alertEl.textContent = 'Abstract is required'; alertEl.className = 'alert error show'; return; }
+
+    const tags = [...currentRegTags];
+
+    if (window.asrp) {
+      const res = await window.asrp.experiments.update(editingId, { title, abstract, tags });
+      if (res.success) {
+        // Update local data
+        const e = allResearches.find(x => x.id === editingId);
+        if (e) { e.title = title; e.abstract = abstract; e.tags = tags; }
+        alertEl.textContent = 'Saved!';
+        alertEl.className = 'alert success show';
+        setTimeout(() => {
+          closeModal();
+          applyFilters();
+          // Refresh detail view if it was open
+          openExpDetail(editingId);
+        }, 600);
+      }
+    }
+  }
 
   function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function escAttr(s) { return escHtml(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }

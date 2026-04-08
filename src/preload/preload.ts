@@ -140,7 +140,8 @@ const experiments = {
   list: () =>
     invoke<{
       experiments: Array<{
-        id: string; hypothesis: string; status: string; created: string;
+        id: string; title: string; abstract: string; tags: string[];
+        status: string; created: string; score: number | null; result: string | null;
       }>;
     }>('experiments:list'),
 
@@ -149,6 +150,9 @@ const experiments = {
 
   register: (hypothesis: string, metadata: Record<string, unknown>) =>
     invoke<{ success: boolean; id?: string; error?: string }>('experiments:register', hypothesis, metadata),
+
+  update: (expId: string, data: Record<string, unknown>) =>
+    invoke<{ success: boolean; error?: string }>('experiments:update', expId, data),
 
   updateStatus: (expId: string, status: string) =>
     invoke<{ success: boolean; error?: string }>('experiments:update-status', expId, status),
