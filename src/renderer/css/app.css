@@ -130,10 +130,15 @@
 }
 
 .sidebar-item .item-icon {
-  font-size: 16px;
   width: 20px;
-  text-align: center;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+}
+.sidebar-item .item-icon svg {
+  display: block;
 }
 
 .sidebar-item .item-label {
@@ -315,6 +320,38 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Header Assistant Button — sole action in top-right */
+.header-assistant-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.header-assistant-btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: rgba(74,140,106,0.3);
+}
+.header-assistant-btn svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.header-assistant-btn:hover svg {
+  opacity: 1;
+}
+.header-assistant-label {
+  line-height: 1;
 }
 
 .breadcrumb {
