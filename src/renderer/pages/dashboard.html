@@ -510,32 +510,57 @@
   var _gwInterval = setInterval(checkGatewayStatus, 30000);
   if (window.Utils) window.Utils.onPageUnload(function() { clearInterval(_gwInterval); });
 
-  // Check for OpenClaw updates on dashboard load
-  // Notification is delivered via the Assistant Agent panel (proactive)
+  // Check for OpenClaw updates on dashboard load.
+  // Notification is delivered via the Assistant Agent panel (proactive),
+  // but only ONCE per (currentVersion → latestVersion) pair. Subsequent
+  // dashboard loads with the same versions stay silent and keep the
+  // assistant panel collapsed.
   (async function checkOpenClawUpdate() {
     if (!window.asrp || !window.asrp.gateway || !window.asrp.gateway.checkUpdate) return;
     try {
       var result = await window.asrp.gateway.checkUpdate();
-      if (result.updateAvailable && result.latestVersion) {
-        var msg = t('dashboard.oc_update_notice', {
-          current: result.currentVersion || 'unknown',
-          latest: result.latestVersion,
-        });
+      if (!result.updateAvailable || !result.latestVersion) return;
 
-        // Persist to chat history so it survives page navigation
-        var _tk = localStorage.getItem('asrp_token') || '';
-        if (window.asrp.assistant && window.asrp.assistant.saveMessage) {
-          await window.asrp.assistant.saveMessage(_tk, 'assistant', msg);
-        }
-
-        // Proactively open the Assistant panel and show the notification
-        // Small delay to ensure assistant-chat.js has initialized
-        setTimeout(function () {
-          if (typeof window.assistantNotify === 'function') {
-            window.assistantNotify(msg);
-          }
-        }, 800);
+      // Normalize versions for comparison — strip any commit-hash suffix
+      // e.g. "OpenClaw 2026.4.9 (0512059)" → "2026.4.9"
+      function normVer(v) {
+        if (!v) return '';
+        var m = String(v).match(/(\d+\.\d+\.\d+)/);
+        return m ? m[1] : String(v).trim();
       }
+      var cur = normVer(result.currentVersion);
+      var latest = normVer(result.latestVersion);
+      // If the cleaned versions are identical, there is no real update.
+      if (cur && latest && cur === latest) return;
+
+      // Dedupe: remember the last (current,latest) pair we notified for.
+      // If unchanged, do nothing — don't spam history, don't expand panel.
+      var seenKey = 'asrp_oc_update_seen';
+      var seen = localStorage.getItem(seenKey) || '';
+      var thisKey = cur + '->' + latest;
+      if (seen === thisKey) return;
+
+      var msg = t('dashboard.oc_update_notice', {
+        current: result.currentVersion || 'unknown',
+        latest: result.latestVersion,
+      });
+
+      // Persist to chat history so it survives page navigation
+      var _tk = localStorage.getItem('asrp_token') || '';
+      if (window.asrp.assistant && window.asrp.assistant.saveMessage) {
+        await window.asrp.assistant.saveMessage(_tk, 'assistant', msg);
+      }
+
+      // Mark as seen so we don't re-notify on next startup.
+      localStorage.setItem(seenKey, thisKey);
+
+      // Proactively open the Assistant panel and show the notification
+      // Small delay to ensure assistant-chat.js has initialized
+      setTimeout(function () {
+        if (typeof window.assistantNotify === 'function') {
+          window.assistantNotify(msg);
+        }
+      }, 800);
     } catch (e) { /* ignore */ }
   })();
 })();
