@@ -176,6 +176,7 @@ window.__i18n_zh = {
     oc_update_title: '📦 **OpenClaw 有可用更新**',
     oc_update_prompt: '需要我帮您升级智能体吗？只需输入 **update openclaw**，我会为您处理。',
     oc_update_manual: '您也可以前往 **设置 → 网关** 手动更新。',
+    oc_update_notice: '📦 **OpenClaw 有可用更新**\n\n当前版本：`{current}`\n最新版本：`{latest}`\n\n需要我帮您升级智能体吗？只需输入 **update openclaw**，我会为您处理。\n\n您也可以前往 **设置 → 网关** 手动更新。',
   },
 
   researches: {

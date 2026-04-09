@@ -7,16 +7,24 @@
 const Router = (() => {
   // Route definitions: path -> { file, title, sidebar, section }
   const routes = {
-    '/login':       { file: 'pages/login.html',       title: 'Login',       sidebar: false, section: null },
-    '/setup':       { file: 'pages/setup.html',        title: 'Setup',       sidebar: false, section: null },
-    '/dashboard':   { file: 'pages/dashboard.html',    title: 'Dashboard',   sidebar: true,  section: 'overview' },
-    '/agents':      { file: 'pages/agents.html',       title: 'Agents',      sidebar: true,  section: 'agents' },
-    '/files':       { file: 'pages/files.html',        title: 'Files',       sidebar: true,  section: 'files' },
-    '/papers':      { file: 'pages/papers.html',       title: 'Papers',      sidebar: true,  section: 'papers' },
-    '/researches':  { file: 'pages/researches.html',   title: 'Researches', sidebar: true,  section: 'researches' },
-    '/audit':       { file: 'pages/audit.html',        title: 'Log',         sidebar: true,  section: 'audit' },
-    '/settings':    { file: 'pages/settings.html',     title: 'Settings',    sidebar: true,  section: 'settings' },
+    '/login':       { file: 'pages/login.html',       title: 'Login',       titleKey: 'nav.login',       sidebar: false, section: null },
+    '/setup':       { file: 'pages/setup.html',        title: 'Setup',       titleKey: 'nav.setup',       sidebar: false, section: null },
+    '/dashboard':   { file: 'pages/dashboard.html',    title: 'Dashboard',   titleKey: 'nav.dashboard',   sidebar: true,  section: 'overview' },
+    '/agents':      { file: 'pages/agents.html',       title: 'Agents',      titleKey: 'nav.agents',      sidebar: true,  section: 'agents' },
+    '/files':       { file: 'pages/files.html',        title: 'Files',       titleKey: 'nav.files',       sidebar: true,  section: 'files' },
+    '/papers':      { file: 'pages/papers.html',       title: 'Papers',      titleKey: 'nav.papers',      sidebar: true,  section: 'papers' },
+    '/researches':  { file: 'pages/researches.html',   title: 'Researches',  titleKey: 'nav.researches',  sidebar: true,  section: 'researches' },
+    '/audit':       { file: 'pages/audit.html',        title: 'Log',         titleKey: 'nav.log',         sidebar: true,  section: 'audit' },
+    '/settings':    { file: 'pages/settings.html',     title: 'Settings',    titleKey: 'nav.settings',    sidebar: true,  section: 'settings' },
   };
+
+  function tr(key, fallback) {
+    if (typeof window.t === 'function') {
+      var v = window.t(key);
+      if (v && v !== key) return v;
+    }
+    return fallback;
+  }
 
   const DEFAULT_ROUTE = '/login';
   const AUTH_ROUTE = '/login';
@@ -81,8 +89,8 @@ const Router = (() => {
         if (sidebar) sidebar.classList.remove('hidden');
         // Update sidebar active state
         Sidebar.setActive(resolvedPath);
-        // Update breadcrumb
-        updateBreadcrumb(route.title);
+        // Update breadcrumb with localized title
+        updateBreadcrumb(tr(route.titleKey, route.title));
       } else {
         app.classList.add('fullscreen-mode');
         if (sidebar) sidebar.classList.add('hidden');
@@ -97,8 +105,18 @@ const Router = (() => {
       if (pageContent) {
         pageContent.style.opacity = '0';
         pageContent.innerHTML = html;
+        // i18n: translate static data-i18n markers BEFORE running inline scripts,
+        // so any script that reads DOM text sees the correct language.
+        if (typeof window.translatePage === 'function') {
+          try { window.translatePage(); } catch (e) { /* ignore */ }
+        }
         // Run any inline scripts in the loaded HTML
         executeScripts(pageContent);
+        // i18n: re-translate after scripts run, in case scripts injected more
+        // data-i18n markers (dynamic lists, modals, etc.).
+        if (typeof window.translatePage === 'function') {
+          try { window.translatePage(); } catch (e) { /* ignore */ }
+        }
         // Fade in (150ms)
         requestAnimationFrame(() => {
           pageContent.style.transition = 'opacity 0.15s ease';
@@ -106,8 +124,8 @@ const Router = (() => {
         });
       }
 
-      // Update document title
-      document.title = `${route.title} — ASRP`;
+      // Update document title (localized)
+      document.title = `${tr(route.titleKey, route.title)} — ASRP`;
 
       // Scroll to top
       if (pageContent) pageContent.scrollTop = 0;
@@ -212,6 +230,20 @@ const Router = (() => {
         navigate(route);
       });
     }
+
+    // i18n: on language change, re-translate the whole page and refresh
+    // breadcrumb + document title (the page-level listeners handle dynamic
+    // content re-rendering).
+    window.addEventListener('language-changed', function () {
+      if (typeof window.translatePage === 'function') {
+        try { window.translatePage(); } catch (e) { /* ignore */ }
+      }
+      var route = routes[currentRoute];
+      if (route) {
+        updateBreadcrumb(tr(route.titleKey, route.title));
+        document.title = `${tr(route.titleKey, route.title)} — ASRP`;
+      }
+    });
 
     // Initial route
     handleRoute();

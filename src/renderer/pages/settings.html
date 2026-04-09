@@ -440,5 +440,17 @@
   loadSettings();
   loadUpdaterStatus();
   loadOpenClawStatus();
+
+  // i18n: re-render all dynamic content when language changes
+  function _onLangChanged() {
+    if (typeof translatePage === 'function') translatePage();
+    loadSettings();
+    loadUpdaterStatus();
+    loadOpenClawStatus();
+  }
+  window.addEventListener('language-changed', _onLangChanged);
+  if (window.Utils) window.Utils.onPageUnload(function() {
+    window.removeEventListener('language-changed', _onLangChanged);
+  });
 })();
 </script>

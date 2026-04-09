@@ -176,6 +176,7 @@ window.__i18n_en = {
     oc_update_title: '📦 **OpenClaw Update Available**',
     oc_update_prompt: 'Would you like me to help upgrade your agents? Just say **update openclaw** and I\'ll handle it for you.',
     oc_update_manual: 'Or you can go to **Settings → Gateway** to update manually.',
+    oc_update_notice: '📦 **OpenClaw Update Available**\n\nCurrent: `{current}`\nLatest: `{latest}`\n\nWould you like me to help upgrade your agents? Just say **update openclaw** and I\'ll handle it for you.\n\nOr you can go to **Settings → Gateway** to update manually.',
   },
 
   researches: {

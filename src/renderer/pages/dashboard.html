@@ -517,11 +517,10 @@
     try {
       var result = await window.asrp.gateway.checkUpdate();
       if (result.updateAvailable && result.latestVersion) {
-        var msg = '📦 **OpenClaw Update Available**\n\n' +
-          'Current: `' + (result.currentVersion || 'unknown') + '`\n' +
-          'Latest: `' + result.latestVersion + '`\n\n' +
-          'Would you like me to help upgrade your agents? Just say **update openclaw** and I\'ll handle it for you.\n\n' +
-          'Or you can go to **Settings → Gateway** to update manually.';
+        var msg = t('dashboard.oc_update_notice', {
+          current: result.currentVersion || 'unknown',
+          latest: result.latestVersion,
+        });
 
         // Persist to chat history so it survives page navigation
         var _tk = localStorage.getItem('asrp_token') || '';
