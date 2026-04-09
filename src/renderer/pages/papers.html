@@ -432,15 +432,21 @@
   // ===== Init =====
   loadPaperTree();
   if (typeof translatePage === 'function') translatePage();
-  window.addEventListener('language-changed', function() {
+  function _papersOnLang() {
     if (typeof translatePage === 'function') translatePage();
-    // Re-render dynamic content with new language
-    renderPaperTree();
-    if (selectedDir) renderPaperFiles();
-    if (document.getElementById('mtab-authors').style.display !== 'none') {
-      renderAuthors();
-      renderProjectDefaults();
-    }
+    try { if (typeof renderPaperTree === 'function') renderPaperTree(); } catch (e) {}
+    try { if (selectedDir && typeof renderPaperFiles === 'function') renderPaperFiles(); } catch (e) {}
+    try {
+      var authTab = document.getElementById('mtab-authors');
+      if (authTab && authTab.style.display !== 'none') {
+        if (typeof renderAuthors === 'function') renderAuthors();
+        if (typeof renderProjectDefaults === 'function') renderProjectDefaults();
+      }
+    } catch (e) {}
+  }
+  window.addEventListener('language-changed', _papersOnLang);
+  if (window.Utils) window.Utils.onPageUnload(function () {
+    window.removeEventListener('language-changed', _papersOnLang);
   });
 })();
 </script>

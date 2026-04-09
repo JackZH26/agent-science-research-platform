@@ -236,9 +236,8 @@
   };
 
   // i18n: re-render on language change
-  window.addEventListener('language-changed', function() {
+  function _loginOnLang() {
     if (typeof translatePage === 'function') translatePage();
-    // Update subtitle based on which tab is active
     var subtitle = document.getElementById('auth-subtitle');
     var tabLogin = document.getElementById('tab-login');
     if (subtitle && tabLogin) {
@@ -246,6 +245,10 @@
         ? t('login.signin_subtitle')
         : t('login.register_subtitle');
     }
+  }
+  window.addEventListener('language-changed', _loginOnLang);
+  if (window.Utils) window.Utils.onPageUnload(function () {
+    window.removeEventListener('language-changed', _loginOnLang);
   });
 })();
 </script>

@@ -47,6 +47,7 @@ window.__i18n_en = {
   },
 
   sidebar: {
+    brand_full: 'AI Scientific Research Platform',
     toggle: 'Toggle sidebar (Ctrl+B)',
     logout_confirm: 'Are you sure you want to logout?',
     user: 'User',

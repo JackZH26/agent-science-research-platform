@@ -661,9 +661,13 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
   }
 
   // Re-render on language change
-  window.addEventListener('language-changed', function() {
+  function _resOnLang() {
     if (typeof translatePage === 'function') translatePage();
-    applyFilters();
+    if (typeof applyFilters === 'function') applyFilters();
+  }
+  window.addEventListener('language-changed', _resOnLang);
+  if (window.Utils) window.Utils.onPageUnload(function () {
+    window.removeEventListener('language-changed', _resOnLang);
   });
 
   init();

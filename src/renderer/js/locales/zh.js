@@ -47,6 +47,7 @@ window.__i18n_zh = {
   },
 
   sidebar: {
+    brand_full: 'AI 科研平台 (AI Scientific Research Platform)',
     toggle: '切换侧边栏 (Ctrl+B)',
     logout_confirm: '确定要退出登录吗？',
     user: '用户',

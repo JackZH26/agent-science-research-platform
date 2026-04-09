@@ -563,8 +563,12 @@
 
   init();
   if (typeof translatePage === 'function') translatePage();
-  window.addEventListener('language-changed', function() {
+  function _filesOnLang() {
     if (typeof translatePage === 'function') translatePage();
+  }
+  window.addEventListener('language-changed', _filesOnLang);
+  if (window.Utils) window.Utils.onPageUnload(function () {
+    window.removeEventListener('language-changed', _filesOnLang);
   });
 })();
 </script>

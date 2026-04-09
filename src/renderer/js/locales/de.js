@@ -47,6 +47,7 @@ window.__i18n_de = {
   },
 
   sidebar: {
+    brand_full: 'AI Scientific Research Platform',
     toggle: 'Seitenleiste umschalten (Strg+B)',
     logout_confirm: 'Möchten Sie sich wirklich abmelden?',
     user: 'Benutzer',

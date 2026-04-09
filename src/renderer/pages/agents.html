@@ -80,6 +80,19 @@
 .agent-status-dot.stopped { background: #ccc; }
 .agent-status-dot.error { background: var(--error); }
 
+/* Top-right SOUL button (moved out of the crowded bottom actions row) */
+.agent-card-soul-btn {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-left: auto;
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
 /* Body: model, sessions, uptime, token bar */
 .agent-card-body {
   padding: 0 18px 14px;
@@ -272,6 +285,12 @@
             '</div>' +
             '<div class="agent-card-role">' + escHtml(a.role) + ' · ' + escHtml(statusLabel) + '</div>' +
           '</div>' +
+          // Top-right SOUL button (floats via CSS .agent-card-soul-btn)
+          '<button class="agent-card-soul-btn btn btn-ghost btn-sm"' +
+            ' onclick="event.stopPropagation();openSoulModal(\'' + jsName + '\')"' +
+            ' title="' + escHtml(t('agents.soul_editor')) + '">' +
+            IC.soul + ' SOUL' +
+          '</button>' +
         '</div>' +
 
         // Body: one row per info item
@@ -311,7 +330,6 @@
               '<button class="btn btn-ghost btn-sm" onclick="agentAction(\'' + jsName + '\',\'restart\')">' + IC.restart + ' ' + escHtml(t('agents.restart')) + '</button>'
             : '<button class="btn btn-primary btn-sm" onclick="agentAction(\'' + jsName + '\',\'start\')">' + IC.play + ' ' + escHtml(t('agents.start')) + '</button>'
           ) +
-          '<button class="btn btn-ghost btn-sm" onclick="openSoulModal(\'' + jsName + '\')">' + IC.soul + ' SOUL</button>' +
           '<button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="toggleCard(\'' + jsName + '\')">' +
             (isExpanded ? IC.collapse + ' ' + escHtml(t('agents.collapse')) : IC.expand + ' ' + escHtml(t('agents.details'))) +
           '</button>' +
@@ -615,9 +633,13 @@
   }
 
   // Re-render on language change
-  window.addEventListener('language-changed', function() {
+  function _agentsOnLang() {
     if (typeof translatePage === 'function') translatePage();
-    renderCards(currentAgents);
+    try { renderCards(currentAgents); } catch (e) {}
+  }
+  window.addEventListener('language-changed', _agentsOnLang);
+  if (window.Utils) window.Utils.onPageUnload(function () {
+    window.removeEventListener('language-changed', _agentsOnLang);
   });
 
   loadAgents();

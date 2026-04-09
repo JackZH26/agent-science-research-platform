@@ -247,9 +247,13 @@
 
   loadAuditLog();
   if (typeof translatePage === 'function') translatePage();
-  window.addEventListener('language-changed', function() {
+  function _auditOnLang() {
     if (typeof translatePage === 'function') translatePage();
-    applyFilters(); // re-render entries with new language
+    if (typeof applyFilters === 'function') applyFilters();
+  }
+  window.addEventListener('language-changed', _auditOnLang);
+  if (window.Utils) window.Utils.onPageUnload(function () {
+    window.removeEventListener('language-changed', _auditOnLang);
   });
 })();
 </script>

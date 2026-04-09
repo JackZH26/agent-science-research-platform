@@ -53,7 +53,7 @@ const Sidebar = (() => {
 
     let html = `
       <div class="sidebar-header">
-        <div class="sidebar-logo">
+        <div class="sidebar-logo" title="${t('sidebar.brand_full')}">
           <span class="sidebar-logo-full">ASRP</span>
           <span class="sidebar-logo-icon" style="display:none">A</span>
         </div>
