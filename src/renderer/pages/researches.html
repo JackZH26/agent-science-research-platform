@@ -1,31 +1,31 @@
 <div class="page-header">
   <div>
-    <h1>Researches</h1>
-    <p>Register, track, and manage ASRP researches</p>
+    <h1 data-i18n="researches.title">Researches</h1>
+    <p data-i18n="researches.subtitle">Register, track, and manage ASRP researches</p>
   </div>
   <div class="actions">
-    <button class="btn btn-primary btn-sm" onclick="showRegisterModal()">+ New Research</button>
+    <button class="btn btn-primary btn-sm" onclick="showRegisterModal()" data-i18n="researches.new_research">+ New Research</button>
   </div>
 </div>
 
 <!-- Filter + Sort Bar -->
 <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
   <div style="display:flex;gap:6px;flex-wrap:wrap">
-    <button class="exp-filter active" data-filter="all" onclick="setFilter('all')">All</button>
-    <button class="exp-filter" data-filter="registered" onclick="setFilter('registered')">Registered</button>
-    <button class="exp-filter" data-filter="running" onclick="setFilter('running')">Running</button>
-    <button class="exp-filter" data-filter="confirmed" onclick="setFilter('confirmed')">Confirmed</button>
-    <button class="exp-filter" data-filter="refuted" onclick="setFilter('refuted')">Refuted</button>
-    <button class="exp-filter" data-filter="archived" onclick="setFilter('archived')">Archived</button>
+    <button class="exp-filter active" data-filter="all" onclick="setFilter('all')" data-i18n="researches.filter_all">All</button>
+    <button class="exp-filter" data-filter="registered" onclick="setFilter('registered')" data-i18n="researches.filter_registered">Registered</button>
+    <button class="exp-filter" data-filter="running" onclick="setFilter('running')" data-i18n="researches.filter_running">Running</button>
+    <button class="exp-filter" data-filter="confirmed" onclick="setFilter('confirmed')" data-i18n="researches.filter_confirmed">Confirmed</button>
+    <button class="exp-filter" data-filter="refuted" onclick="setFilter('refuted')" data-i18n="researches.filter_refuted">Refuted</button>
+    <button class="exp-filter" data-filter="archived" onclick="setFilter('archived')" data-i18n="researches.filter_archived">Archived</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
     <select id="sort-select" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-secondary);color:var(--text)" onchange="applyFilters()">
-      <option value="date-desc">Newest first</option>
-      <option value="date-asc">Oldest first</option>
-      <option value="status">Status</option>
+      <option value="date-desc" data-i18n="researches.sort_newest">Newest first</option>
+      <option value="date-asc" data-i18n="researches.sort_oldest">Oldest first</option>
+      <option value="status" data-i18n="researches.sort_status">Status</option>
     </select>
     <label class="toggle-switch-label" style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--text-secondary);white-space:nowrap;user-select:none">
-      <span>Examples</span>
+      <span data-i18n="researches.examples">Examples</span>
       <input type="checkbox" id="show-samples-toggle" checked onchange="toggleSamples()" style="display:none">
       <span class="toggle-track"></span>
     </label>
@@ -35,13 +35,13 @@
 <!-- Researches List View -->
 <div id="exp-list-view">
   <div id="exp-cards" class="grid-2">
-    <div class="loading" style="grid-column:span 2;text-align:center;padding:40px"><div class="spinner"></div> Loading...</div>
+    <div class="loading" style="grid-column:span 2;text-align:center;padding:40px"><div class="spinner"></div> <span data-i18n="common.loading">Loading...</span></div>
   </div>
 </div>
 
 <!-- Research Detail View -->
 <div id="exp-detail-view" style="display:none">
-  <button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="backToExpList()">← Back to Researches</button>
+  <button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="backToExpList()" data-i18n="researches.back">← Back to Researches</button>
   <div id="exp-detail-content"></div>
 </div>
 
@@ -49,36 +49,36 @@
 <div id="register-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center">
   <div class="panel" style="width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:0">
     <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <h3 style="margin:0" id="modal-title">New Research</h3>
+      <h3 style="margin:0" id="modal-title" data-i18n="researches.modal_new">New Research</h3>
       <button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button>
     </div>
     <div style="padding:20px">
       <div class="alert" id="reg-alert"></div>
       <!-- Read-only date shown only in edit mode -->
       <div class="form-group" id="reg-date-row" style="display:none">
-        <label>Registered Date</label>
+        <label data-i18n="researches.registered_date">Registered Date</label>
         <input type="text" id="reg-date" disabled style="background:var(--bg-tertiary,#f0f0f0);color:var(--text-secondary);cursor:not-allowed">
       </div>
       <div class="form-group">
-        <label>Research Title <span style="color:var(--error)">*</span></label>
-        <input type="text" id="reg-title" placeholder="e.g. 300K Superconductor Study">
+        <label data-i18n="researches.research_title">Research Title <span style="color:var(--error)">*</span></label>
+        <input type="text" id="reg-title" data-i18n-placeholder="researches.title_placeholder" placeholder="e.g. 300K Superconductor Study">
       </div>
       <div class="form-group">
-        <label>Abstract <span style="color:var(--error)">*</span></label>
-        <textarea id="reg-abstract" rows="4" placeholder="Describe the research objectives, methods, and expected outcomes..." style="resize:vertical" oninput="autoGenerateTags()"></textarea>
+        <label data-i18n="researches.abstract">Abstract <span style="color:var(--error)">*</span></label>
+        <textarea id="reg-abstract" rows="4" data-i18n-placeholder="researches.abstract_placeholder" placeholder="Describe the research objectives, methods, and expected outcomes..." style="resize:vertical" oninput="autoGenerateTags()"></textarea>
       </div>
       <div class="form-group">
-        <label>Tags</label>
+        <label data-i18n="researches.tags">Tags</label>
         <div id="reg-tags-container" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border);border-radius:8px;min-height:38px;background:var(--bg-secondary);cursor:text" onclick="document.getElementById('reg-tag-input').focus()">
-          <input type="text" id="reg-tag-input" placeholder="Type and press Enter to add..."
+          <input type="text" id="reg-tag-input" data-i18n-placeholder="researches.tag_input_placeholder" placeholder="Type and press Enter to add..."
             style="border:none;outline:none;background:transparent;font-size:12px;color:var(--text);flex:1;min-width:120px;padding:2px 0"
             onkeydown="handleTagKeydown(event)">
         </div>
-        <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">Auto-generated from abstract. Click × to remove, type to add custom tags.</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px" data-i18n="researches.tag_hint">Auto-generated from abstract. Click × to remove, type to add custom tags.</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn btn-primary" id="modal-submit-btn" onclick="submitModal()">Register</button>
-        <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" id="modal-submit-btn" onclick="submitModal()" data-i18n="researches.register">Register</button>
+        <button class="btn btn-outline" onclick="closeModal()" data-i18n="common.cancel">Cancel</button>
       </div>
     </div>
   </div>
@@ -258,16 +258,16 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
   function renderCards(list) {
     const container = document.getElementById('exp-cards');
     if (!list.length) {
-      container.innerHTML = '<div class="empty-state" style="grid-column:span 2"><span class="icon">🧪</span><h3>No researches found</h3><p>Try changing the filter or register a new research</p></div>';
+      container.innerHTML = '<div class="empty-state" style="grid-column:span 2"><span class="icon">🧪</span><h3>' + escHtml(t('researches.no_researches')) + '</h3><p>' + escHtml(t('researches.try_filter')) + '</p></div>';
       return;
     }
     container.innerHTML = list.map(e => {
-      const scoreBar = e.score !== null ? `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:3px"><span>Score</span><span>${escHtml((e.score * 100).toFixed(0))}%</span></div><div class="exp-score-bar"><div class="exp-score-fill" style="width:${escHtml((e.score*100).toFixed(0))}%;background:${e.score>0.5?'var(--success)':'var(--error)'}"></div></div></div>` : '';
+      const scoreBar = e.score !== null ? `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-secondary);margin-bottom:3px"><span>${escHtml(t('researches.score'))}</span><span>${escHtml((e.score * 100).toFixed(0))}%</span></div><div class="exp-score-bar"><div class="exp-score-fill" style="width:${escHtml((e.score*100).toFixed(0))}%;background:${e.score>0.5?'var(--success)':'var(--error)'}"></div></div></div>` : '';
       const abs = (e.abstract||'').length > 120 ? (e.abstract||'').slice(0,120) + '...' : (e.abstract||'');
       const tagsHtml = (e.tags||[]).slice(0,4).map(t => `<span class="research-tag">${escHtml(t)}</span>`).join('');
       const isSample = e.isSample === true;
       const borderColor = isSample ? '#3b82f6' : statusColor(e.status);
-      const sampleBadge = isSample ? '<span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-weight:600">SAMPLE</span>' : '';
+      const sampleBadge = isSample ? '<span style="font-size:10px;background:#dbeafe;color:#1e40af;padding:1px 6px;border-radius:4px;font-weight:600">' + escHtml(t('researches.sample')) + '</span>' : '';
       return `<div class="card exp-card" style="cursor:pointer;border-left:3px solid ${borderColor}${escHtml(e.status)==='archived'?';opacity:0.7':''}" onclick="openExpDetail('${escAttr(e.id)}')">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
           <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary)">${e.code ? '<strong style="color:var(--accent)">' + escHtml(e.code) + '</strong> · ' : ''}${escHtml(e.id)}</span>
@@ -335,7 +335,7 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
 
     const scoreDisplay = e.score !== null ? `
       <div style="margin-top:16px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:4px"><span>Confidence Score</span><span style="font-weight:700;color:${e.score>0.5?'var(--success)':'var(--error)'}">${escHtml((e.score*100).toFixed(0))}%</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:4px"><span>${escHtml(t('researches.confidence_score'))}</span><span style="font-weight:700;color:${e.score>0.5?'var(--success)':'var(--error)'}">${escHtml((e.score*100).toFixed(0))}%</span></div>
         <div class="exp-score-bar" style="height:10px"><div class="exp-score-fill" style="width:${escHtml((e.score*100).toFixed(0))}%;background:${e.score>0.5?'var(--success)':'var(--error)'}"></div></div>
       </div>` : '';
 
@@ -373,7 +373,7 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
         }).join('');
         discoveriesHtml = `
           <div class="panel" style="margin-bottom:12px">
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:12px">Key Discoveries Timeline</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:12px">${escHtml(t('researches.detail_discoveries'))}</div>
             <div>${discoveriesItems}</div>
           </div>
         `;
@@ -385,15 +385,17 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
         const papersItems = papers.map(p => {
           const icon = statusIcon[p.status] || '📄';
           const venue = (p.venue || p.journal) ? ' · <span style="color:var(--accent)">' + escHtml(p.venue || p.journal) + '</span>' : '';
+          // Build external links: figshare DOI and/or arXiv
           const figshareOrDoi = p.doi || p.figshare;
-          const doiLink = figshareOrDoi ? ' · <a href="https://doi.org/' + escAttr(figshareOrDoi) + '" target="_blank" style="color:var(--accent);text-decoration:none;font-size:11px">DOI ↗</a>' : '';
+          const doiLink = figshareOrDoi ? ' · <a href="https://doi.org/' + escAttr(figshareOrDoi) + '" target="_blank" style="color:var(--accent);text-decoration:none;font-size:11px">Figshare ↗</a>' : '';
+          const arxivLink = p.arxiv ? ' · <a href="https://arxiv.org/abs/' + escAttr(p.arxiv) + '" target="_blank" style="color:var(--accent);text-decoration:none;font-size:11px">arXiv ↗</a>' : '';
           return `
             <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light,#f0f0f0)">
               <div style="flex-shrink:0;font-size:16px;line-height:1;padding-top:2px">${icon}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px">${escHtml(p.title)}</div>
                 <div style="font-size:11px;color:var(--text-tertiary)">
-                  ${escHtml(p.date || '')}${venue}${doiLink}
+                  ${escHtml(p.date || '')}${venue}${doiLink}${arxivLink}
                   <span style="margin-left:6px;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:${p.status === 'published' ? '#d1fae5' : p.status === 'submitted' ? '#fef3c7' : '#f1f5f9'};color:${p.status === 'published' ? '#065f46' : p.status === 'submitted' ? '#92400e' : '#64748b'}">${capitalize(escHtml(p.status || 'draft'))}</span>
                 </div>
                 ${p.authors ? '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">' + escHtml(p.authors) + '</div>' : ''}
@@ -403,7 +405,7 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
         }).join('');
         papersHtml = `
           <div class="panel" style="margin-bottom:12px">
-            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:12px">Papers (${papers.length})</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:12px">${escHtml(t('researches.detail_papers'))} (${papers.length})</div>
             <div>${papersItems}</div>
           </div>
         `;
@@ -422,21 +424,21 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
           <span class="exp-status-badge ${escHtml(e.status)}" style="flex-shrink:0">${capitalize(escHtml(e.status))}</span>
         </div>
         ${tagsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${tagsHtml}</div>` : ''}
-        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">Abstract</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">${escHtml(t('researches.detail_abstract'))}</div>
         <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap">${escHtml(e.abstract||'No abstract provided.')}</div>
         ${scoreDisplay}
       </div>
       ${discoveriesHtml}
       ${papersHtml}
       ${e.result ? `<div class="panel" style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px">Result</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px">${escHtml(t('researches.detail_result'))}</div>
         <div style="font-size:13px;line-height:1.6;color:var(--text)">${escHtml(e.result)}</div>
       </div>` : ''}
       <div style="display:flex;gap:8px;margin-top:4px">
-        <button class="detail-action-btn" onclick="openEditModal('${escAttr(e.id)}')">✏️ Edit</button>
+        <button class="detail-action-btn" onclick="openEditModal('${escAttr(e.id)}')">${escHtml(t('researches.edit'))}</button>
         ${isArchived
-          ? `<button class="detail-action-btn" onclick="unarchiveResearch('${escAttr(e.id)}')">📤 Restore</button>`
-          : `<button class="detail-action-btn archive" onclick="archiveResearch('${escAttr(e.id)}')">📦 Archive</button>`
+          ? `<button class="detail-action-btn" onclick="unarchiveResearch('${escAttr(e.id)}')">${escHtml(t('researches.restore'))}</button>`
+          : `<button class="detail-action-btn archive" onclick="archiveResearch('${escAttr(e.id)}')">${escHtml(t('researches.archive'))}</button>`
         }
       </div>`;
   };
@@ -486,8 +488,8 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
   window.showRegisterModal = function() {
     editingId = null;
     resetModal();
-    document.getElementById('modal-title').textContent = 'New Research';
-    document.getElementById('modal-submit-btn').textContent = 'Register';
+    document.getElementById('modal-title').textContent = t('researches.modal_new');
+    document.getElementById('modal-submit-btn').textContent = t('researches.register');
     document.getElementById('register-modal').style.display = 'flex';
     setTimeout(() => document.getElementById('reg-title').focus(), 50);
   };
@@ -497,8 +499,8 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
     if (!e) return;
     editingId = id;
     resetModal();
-    document.getElementById('modal-title').textContent = 'Edit Research';
-    document.getElementById('modal-submit-btn').textContent = 'Save Changes';
+    document.getElementById('modal-title').textContent = t('researches.modal_edit');
+    document.getElementById('modal-submit-btn').textContent = t('researches.save_changes');
     document.getElementById('reg-date-row').style.display = 'block';
     document.getElementById('reg-date').value = e.created;
     document.getElementById('reg-title').value = e.title || '';
@@ -526,8 +528,8 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
     const title = document.getElementById('reg-title').value.trim();
     const abstract = document.getElementById('reg-abstract').value.trim();
     const alertEl = document.getElementById('reg-alert');
-    if (!title) { alertEl.textContent = 'Title is required'; alertEl.className = 'alert error show'; return; }
-    if (!abstract) { alertEl.textContent = 'Abstract is required'; alertEl.className = 'alert error show'; return; }
+    if (!title) { alertEl.textContent = t('researches.title_required'); alertEl.className = 'alert error show'; return; }
+    if (!abstract) { alertEl.textContent = t('researches.abstract_required'); alertEl.className = 'alert error show'; return; }
 
     const tags = [...currentRegTags];
     const metadata = { title, abstract, tags };
@@ -550,7 +552,7 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
         } catch (chErr) {
           console.warn('Discord channel creation error:', chErr);
         }
-        alertEl.textContent = 'Research registered!';
+        alertEl.textContent = t('researches.registered_success');
         alertEl.className = 'alert success show';
         allResearches.unshift({
           id: result.id, code: result.code || '', title, abstract, tags,
@@ -567,8 +569,8 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
     const title = document.getElementById('reg-title').value.trim();
     const abstract = document.getElementById('reg-abstract').value.trim();
     const alertEl = document.getElementById('reg-alert');
-    if (!title) { alertEl.textContent = 'Title is required'; alertEl.className = 'alert error show'; return; }
-    if (!abstract) { alertEl.textContent = 'Abstract is required'; alertEl.className = 'alert error show'; return; }
+    if (!title) { alertEl.textContent = t('researches.title_required'); alertEl.className = 'alert error show'; return; }
+    if (!abstract) { alertEl.textContent = t('researches.abstract_required'); alertEl.className = 'alert error show'; return; }
 
     const tags = [...currentRegTags];
 
@@ -579,7 +581,7 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
         // Update local data
         const e = allResearches.find(x => x.id === editingId);
         if (e) { e.title = title; e.abstract = abstract; e.tags = tags; }
-        alertEl.textContent = 'Saved!';
+        alertEl.textContent = t('researches.saved');
         alertEl.className = 'alert success show';
         setTimeout(() => {
           closeModal();
@@ -657,6 +659,12 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
     }
     applyFilters();
   }
+
+  // Re-render on language change
+  window.addEventListener('language-changed', function() {
+    if (typeof translatePage === 'function') translatePage();
+    applyFilters();
+  });
 
   init();
 })();

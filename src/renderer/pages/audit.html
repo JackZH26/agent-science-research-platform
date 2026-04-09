@@ -1,11 +1,11 @@
 <div class="page-header">
   <div>
-    <h1>Log</h1>
-    <p>All operations, agent actions, and system events</p>
+    <h1 data-i18n="audit.title">Log</h1>
+    <p data-i18n="audit.subtitle">All operations, agent actions, and system events</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
-    <button class="btn btn-outline btn-sm" onclick="loadAuditLog()">Refresh</button>
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()" data-i18n="audit.export_csv">Export CSV</button>
+    <button class="btn btn-outline btn-sm" onclick="loadAuditLog()" data-i18n="common.refresh">Refresh</button>
   </div>
 </div>
 
@@ -14,39 +14,39 @@
   <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
     <!-- Type filter (MECE) -->
     <div>
-      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase">Type</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase" data-i18n="audit.filter_type">Type</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="type-chips">
-        <button class="log-chip active" data-type="research" onclick="toggleChip(this,'type')">research</button>
-        <button class="log-chip active" data-type="agent" onclick="toggleChip(this,'type')">agent</button>
-        <button class="log-chip active" data-type="api" onclick="toggleChip(this,'type')">api</button>
-        <button class="log-chip active" data-type="file" onclick="toggleChip(this,'type')">file</button>
-        <button class="log-chip active" data-type="system" onclick="toggleChip(this,'type')">system</button>
-        <button class="log-chip active" data-type="config" onclick="toggleChip(this,'type')">config</button>
+        <button class="log-chip active" data-type="research" onclick="toggleChip(this,'type')" data-i18n="audit.type_research">research</button>
+        <button class="log-chip active" data-type="agent" onclick="toggleChip(this,'type')" data-i18n="audit.type_agent">agent</button>
+        <button class="log-chip active" data-type="api" onclick="toggleChip(this,'type')" data-i18n="audit.type_api">api</button>
+        <button class="log-chip active" data-type="file" onclick="toggleChip(this,'type')" data-i18n="audit.type_file">file</button>
+        <button class="log-chip active" data-type="system" onclick="toggleChip(this,'type')" data-i18n="audit.type_system">system</button>
+        <button class="log-chip active" data-type="config" onclick="toggleChip(this,'type')" data-i18n="audit.type_config">config</button>
       </div>
     </div>
     <!-- Agent filter -->
     <div>
-      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase">Agent</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase" data-i18n="audit.filter_agent">Agent</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="agent-chips">
-        <button class="log-chip active" data-agent="Theorist" onclick="toggleChip(this,'agent')">Theorist</button>
-        <button class="log-chip active" data-agent="Engineer" onclick="toggleChip(this,'agent')">Engineer</button>
-        <button class="log-chip active" data-agent="Assistant" onclick="toggleChip(this,'agent')">Assistant</button>
-        <button class="log-chip active" data-agent="System" onclick="toggleChip(this,'agent')">System</button>
+        <button class="log-chip active" data-agent="Theorist" onclick="toggleChip(this,'agent')" data-i18n="audit.agent_theorist">Theorist</button>
+        <button class="log-chip active" data-agent="Engineer" onclick="toggleChip(this,'agent')" data-i18n="audit.agent_engineer">Engineer</button>
+        <button class="log-chip active" data-agent="Assistant" onclick="toggleChip(this,'agent')" data-i18n="audit.agent_assistant">Assistant</button>
+        <button class="log-chip active" data-agent="System" onclick="toggleChip(this,'agent')" data-i18n="audit.agent_system">System</button>
       </div>
     </div>
     <!-- Research filter -->
     <div>
-      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase">Research</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase" data-i18n="audit.filter_research">Research</div>
       <select id="log-research-filter" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-secondary);color:var(--text)" onchange="applyFilters()">
-        <option value="">All</option>
+        <option value="" data-i18n="audit.research_all">All</option>
       </select>
     </div>
     <!-- Date range -->
     <div>
-      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase">Date Range</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase" data-i18n="audit.filter_date">Date Range</div>
       <div style="display:flex;gap:6px;align-items:center">
         <input type="date" id="date-from" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-secondary);color:var(--text)" onchange="applyFilters()">
-        <span style="font-size:12px;color:var(--text-secondary)">to</span>
+        <span style="font-size:12px;color:var(--text-secondary)" data-i18n="audit.date_to">to</span>
         <input type="date" id="date-to" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg-secondary);color:var(--text)" onchange="applyFilters()">
       </div>
     </div>
@@ -56,10 +56,10 @@
 <!-- Log Entries -->
 <div class="panel" style="padding:0">
   <div id="audit-timeline" style="padding:0">
-    <div class="loading" style="padding:24px;justify-content:center"><div class="spinner"></div> Loading log...</div>
+    <div class="loading" style="padding:24px;justify-content:center"><div class="spinner"></div> <span data-i18n="common.loading">Loading...</span></div>
   </div>
   <div id="load-more-wrap" style="display:none;padding:12px;text-align:center;border-top:1px solid var(--border)">
-    <button class="btn btn-outline btn-sm" onclick="loadMoreAudit()">Load more entries</button>
+    <button class="btn btn-outline btn-sm" onclick="loadMoreAudit()" data-i18n="audit.load_more">Load more entries</button>
   </div>
 </div>
 
@@ -137,7 +137,7 @@
     const select = document.getElementById('log-research-filter');
     const codes = [...new Set(allEntries.map(e => e.research).filter(Boolean))].sort();
     // Keep the "All" option, add research codes
-    select.innerHTML = '<option value="">All</option>' + codes.map(c =>
+    select.innerHTML = '<option value="">' + t('audit.research_all') + '</option>' + codes.map(c =>
       '<option value="' + c + '">' + c + '</option>'
     ).join('');
   }
@@ -179,7 +179,7 @@
   function renderTimeline(entries) {
     const container = document.getElementById('audit-timeline');
     if (!entries.length) {
-      container.innerHTML = '<div class="empty-state" style="padding:32px"><h3>No entries</h3><p>No log entries match the current filters</p></div>';
+      container.innerHTML = '<div class="empty-state" style="padding:32px"><h3>' + t('audit.no_entries') + '</h3><p>' + t('audit.no_entries_hint') + '</p></div>';
       return;
     }
     container.innerHTML = entries.map(e => {
@@ -232,13 +232,13 @@
 
     if (window.asrp) {
       const dialog = await window.asrp.files.saveDialog({
-        defaultPath: 'log-export.csv',
-        filters: [{ name: 'CSV', extensions: ['csv'] }],
-        title: 'Export Log as CSV',
+        defaultPath: t('audit.export_filename'),
+        filters: [{ name: t('audit.csv_label'), extensions: ['csv'] }],
+        title: t('audit.export_title'),
       });
       if (!dialog.canceled && dialog.filePath) {
         const result = await window.asrp.files.write(dialog.filePath, csv);
-        if (result.success && typeof Toast !== 'undefined') Toast.show('Exported ' + allEntries.length + ' entries', 'success');
+        if (result.success && typeof Toast !== 'undefined') Toast.show(t('audit.exported', { count: allEntries.length }), 'success');
       }
     }
   };
@@ -246,5 +246,10 @@
   function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   loadAuditLog();
+  if (typeof translatePage === 'function') translatePage();
+  window.addEventListener('language-changed', function() {
+    if (typeof translatePage === 'function') translatePage();
+    applyFilters(); // re-render entries with new language
+  });
 })();
 </script>

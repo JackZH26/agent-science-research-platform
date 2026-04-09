@@ -188,6 +188,8 @@ function showAboutDialog(): void {
     `Node.js: ${nodeVersion}`,
     `V8: ${v8Version}`,
     `OS: ${platform}`,
+    ``,
+    `Homepage: https://asrp.jzis.org/`,
   ].join('\n');
 
   const win = mainWindow ?? undefined;

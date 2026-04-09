@@ -13,12 +13,14 @@
   var currentModel = { model: 'Claude Sonnet 4.6', type: 'cloud' };
   var isLoading = false;
 
-  // T-038: Quick action buttons
-  var QUICK_ACTIONS = [
-    { label: '🧪 Register research', msg: 'How do I register an research?' },
-    { label: '🔄 Switch agent model', msg: 'How do I switch an agent model?' },
-    { label: '📄 Paper pipeline', msg: 'What is the current paper pipeline status?' },
-  ];
+  // T-038: Quick action buttons (function so t() is evaluated fresh)
+  function getQuickActions() {
+    return [
+      { label: t('assistant.quick_research'), msg: t('assistant.quick_research_msg') },
+      { label: t('assistant.quick_model'), msg: t('assistant.quick_model_msg') },
+      { label: t('assistant.quick_pipeline'), msg: t('assistant.quick_pipeline_msg') },
+    ];
+  }
 
   // ---- Create panel HTML ----
   function createPanel() {
@@ -29,13 +31,13 @@
       '<div id="ap-header">',
       '  <div id="ap-header-left">',
       '    <span id="ap-icon">✨</span>',
-      '    <span id="ap-title">Assistant</span>',
+      '    <span id="ap-title">' + t('assistant.title') + '</span>',
       '    <span id="ap-model-badge"></span>',
       '  </div>',
       '  <div id="ap-header-right">',
-      '    <button id="ap-btn-fullscreen" title="Fullscreen" aria-label="Fullscreen">⤢</button>',
-      '    <button id="ap-btn-minimize" title="Collapse" aria-label="Collapse">−</button>',
-      '    <button id="ap-btn-close" title="Close" aria-label="Close">×</button>',
+      '    <button id="ap-btn-fullscreen" title="' + t('assistant.fullscreen') + '" aria-label="' + t('assistant.fullscreen') + '">⤢</button>',
+      '    <button id="ap-btn-minimize" title="' + t('assistant.collapse') + '" aria-label="' + t('assistant.collapse') + '">−</button>',
+      '    <button id="ap-btn-close" title="' + t('assistant.close') + '" aria-label="' + t('assistant.close') + '">×</button>',
       '  </div>',
       '</div>',
       '<div id="ap-body">',
@@ -50,12 +52,12 @@
       '<div id="ap-footer">',
       '  <div id="ap-model-row">',
       '    <span id="ap-model-info"></span>',
-      '    <button id="ap-model-toggle" title="Switch model">Switch</button>',
-      '    <button id="ap-clear-btn" title="Clear history">🗑</button>',
+      '    <button id="ap-model-toggle" title="' + t('assistant.switch_model') + '">Switch</button>',
+      '    <button id="ap-clear-btn" title="' + t('assistant.clear_history') + '">🗑</button>',
       '  </div>',
       '  <div id="ap-input-row">',
-      '    <textarea id="ap-input" placeholder="Ask anything…" rows="1" aria-label="Message"></textarea>',
-      '    <button id="ap-send-btn" title="Send (Enter)" aria-label="Send">➤</button>',
+      '    <textarea id="ap-input" placeholder="' + t('assistant.placeholder') + '" rows="1" aria-label="Message"></textarea>',
+      '    <button id="ap-send-btn" title="' + t('assistant.send') + '" aria-label="' + t('assistant.send') + '">➤</button>',
       '  </div>',
       '</div>',
     ].join('');
@@ -310,7 +312,7 @@
     var container = document.getElementById('ap-quick-actions');
     if (!container) return;
     container.innerHTML = '';
-    QUICK_ACTIONS.forEach(function (a) {
+    getQuickActions().forEach(function (a) {
       var btn = document.createElement('button');
       btn.className = 'ap-quick-btn';
       btn.textContent = a.label;
@@ -325,7 +327,7 @@
     var badge = document.getElementById('ap-model-badge');
     if (!el) return;
     el.textContent = '☁️ ' + currentModel.model;
-    if (badge) badge.textContent = 'Cloud';
+    if (badge) badge.textContent = t('assistant.cloud');
   }
 
   // ---- Render messages ----
@@ -341,7 +343,7 @@
       var emptyIcon = document.createElement('div');
       emptyIcon.className = 'ap-empty-icon';
       emptyIcon.textContent = '✨';
-      var emptyText = document.createTextNode('Ask me anything about your research, researchs, or agents.');
+      var emptyText = document.createTextNode(t('assistant.empty_state'));
       empty.appendChild(emptyIcon);
       empty.appendChild(emptyText);
       container.appendChild(empty);
@@ -424,19 +426,19 @@
       var token = localStorage.getItem('asrp_token');
       window.asrp.assistant.chat(token, text, context, currentModel.model).then(function (res) {
         setLoading(false);
-        var reply = (res && res.reply) ? res.reply : 'Sorry, I could not process that request.';
+        var reply = (res && res.reply) ? res.reply : t('assistant.error_response');
         messages.push({ role: 'assistant', content: reply });
         renderMessages();
       }).catch(function () {
         setLoading(false);
-        messages.push({ role: 'assistant', content: 'Error connecting to assistant.' });
+        messages.push({ role: 'assistant', content: t('assistant.error_connecting') });
         renderMessages();
       });
     } else {
       // Fallback when asrp bridge not ready
       setTimeout(function () {
         setLoading(false);
-        messages.push({ role: 'assistant', content: 'Assistant is initializing… please try again shortly.' });
+        messages.push({ role: 'assistant', content: t('assistant.initializing') });
         renderMessages();
       }, 600);
     }
@@ -462,9 +464,9 @@
 
     var btnMin = document.getElementById('ap-btn-minimize');
     var btnFs = document.getElementById('ap-btn-fullscreen');
-    if (btnMin) btnMin.title = newState === 'collapsed' ? 'Expand' : 'Collapse';
+    if (btnMin) btnMin.title = newState === 'collapsed' ? t('assistant.expand') : t('assistant.collapse');
     if (btnMin) btnMin.textContent = newState === 'collapsed' ? '+' : '−';
-    if (btnFs) btnFs.title = newState === 'fullscreen' ? 'Exit fullscreen' : 'Fullscreen';
+    if (btnFs) btnFs.title = newState === 'fullscreen' ? t('assistant.collapse') : t('assistant.fullscreen');
   }
 
   function toggle() {
@@ -598,7 +600,7 @@
         var nextIdx = (curIdx + 1) % CLOUD_MODELS.length;
         currentModel = CLOUD_MODELS[nextIdx];
         renderModelInfo();
-        showToast('Switched to ' + currentModel.model, 'success', 2000);
+        showToast(t('assistant.switched_to', { model: currentModel.model }), 'success', 2000);
       });
     }
 
@@ -606,7 +608,7 @@
     var clearBtn = document.getElementById('ap-clear-btn');
     if (clearBtn) {
       clearBtn.addEventListener('click', function () {
-        if (!confirm('Clear chat history?')) return;
+        if (!confirm(t('assistant.clear_confirm'))) return;
         messages = [];
         renderMessages();
         if (window.asrp && window.asrp.assistant) {
@@ -634,6 +636,29 @@
         toggle();
       });
     }
+
+    // Re-render translatable parts when language changes
+    window.addEventListener('language-changed', function () {
+      renderQuickActions();
+      renderModelInfo();
+      // Update static titles/placeholders in the panel
+      var titleEl = document.getElementById('ap-title');
+      if (titleEl) titleEl.textContent = t('assistant.title');
+      var inputEl = document.getElementById('ap-input');
+      if (inputEl) inputEl.placeholder = t('assistant.placeholder');
+      var btnFs = document.getElementById('ap-btn-fullscreen');
+      if (btnFs) btnFs.title = panelState === 'fullscreen' ? t('assistant.collapse') : t('assistant.fullscreen');
+      var btnMin = document.getElementById('ap-btn-minimize');
+      if (btnMin) btnMin.title = panelState === 'collapsed' ? t('assistant.expand') : t('assistant.collapse');
+      var btnClose = document.getElementById('ap-btn-close');
+      if (btnClose) btnClose.title = t('assistant.close');
+      var modelToggle = document.getElementById('ap-model-toggle');
+      if (modelToggle) modelToggle.title = t('assistant.switch_model');
+      var clearBtn = document.getElementById('ap-clear-btn');
+      if (clearBtn) clearBtn.title = t('assistant.clear_history');
+      var sendBtn = document.getElementById('ap-send-btn');
+      if (sendBtn) sendBtn.title = t('assistant.send');
+    });
 
     // Expose toggle globally
     window.toggleAssistant = toggle;

@@ -1,47 +1,32 @@
 [
   {
-    "title": "The Zeta Spectrum of BCS Theory: Universal Ratios as Digamma/Zeta Truncations",
-    "filename": "Zhou_Zeta-Spectrum-BCS-Theory_2026-03-24.pdf",
-    "date": "2026-03-24",
-    "status": "submitted",
-    "figshare": null,
-    "journal": "Physical Review B",
+    "title": "Two-Channel Allen-Dynes Framework for Superconducting Critical Temperatures: Blind Predictions Across Five Orders of Magnitude",
+    "filename": "Zhou_Two-Channel-Allen-Dynes-Framework_2026-03-24.pdf",
+    "date": "2026-03-31",
+    "status": "preprint",
+    "figshare": "10.6084/m9.figshare.31889344",
+    "arxiv": "2604.04719",
+    "journal": null,
     "version": "v5.8"
   },
   {
-    "title": "Arithmetic-Geometric Correspondence in Superconducting Pairing Symmetries",
-    "filename": "Zhou_Arithmetic-Geometric-Correspondence-Pairing_2026-03-24.pdf",
-    "date": "2026-03-24",
-    "status": "preprint",
-    "figshare": "10.6084/m9.figshare.31771302",
-    "journal": null,
-    "version": "v3"
-  },
-  {
-    "title": "Quantum Metric as a Universal Diagnostic for Superconductivity",
+    "title": "Quantum Metric as a Universal Diagnostic for Superconducting Critical Temperatures",
     "filename": "Zhou_Quantum-Metric-Universal-Diagnostic_2026-03-23.pdf",
     "date": "2026-03-23",
     "status": "preprint",
-    "figshare": "10.6084/m9.figshare.31771299",
+    "figshare": "10.6084/m9.figshare.31833382",
+    "arxiv": null,
     "journal": null,
     "version": "v3.4"
   },
   {
-    "title": "Magic-Angle Twisted Bilayer Graphene: Band-Basis Superfluid Weight Decomposition",
+    "title": "Band-Basis Decomposition of Superfluid Weight in Magic-Angle Twisted Bilayer Graphene",
     "filename": "Zhou_MATBG-Superfluid-Weight-Decomposition_2026-03-20.pdf",
     "date": "2026-03-20",
-    "status": "submitted",
-    "figshare": null,
-    "journal": "Physical Review B",
-    "version": "v2"
-  },
-  {
-    "title": "The Planckian Duality Number: A New Superconductor Classification Metric",
-    "filename": "Zhou_Planckian-Duality-Number_2026-03-20.pdf",
-    "date": "2026-03-20",
     "status": "preprint",
-    "figshare": "10.6084/m9.figshare.31771296",
+    "figshare": "10.6084/m9.figshare.31820038",
+    "arxiv": "2604.05994",
     "journal": null,
-    "version": "v1"
+    "version": "v2"
   }
 ]

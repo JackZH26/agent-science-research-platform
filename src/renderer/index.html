@@ -40,7 +40,7 @@
       </div>
       <div class="content-header-right">
         <!-- Offline badge -->
-        <span id="offline-badge" style="display:none;font-size:11px;background:#fee;color:#c33;padding:2px 8px;border-radius:8px;border:1px solid #fcc">Offline</span>
+        <span id="offline-badge" data-i18n="shell.offline" style="display:none;font-size:11px;background:#fee;color:#c33;padding:2px 8px;border-radius:8px;border:1px solid #fcc">Offline</span>
         <!-- Assistant toggle — sole right-header action -->
         <button
           class="header-assistant-btn"
@@ -50,7 +50,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
           </svg>
-          <span class="header-assistant-label">Assistant</span>
+          <span class="header-assistant-label" data-i18n="shell.assistant">Assistant</span>
         </button>
       </div>
     </div>
@@ -82,52 +82,52 @@
 <div id="shortcuts-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-box">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <h3 style="margin:0">⌨️ Keyboard Shortcuts</h3>
+      <h3 style="margin:0" data-i18n="shortcuts.title">⌨️ Keyboard Shortcuts</h3>
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('shortcuts-modal').classList.add('hidden')">✕</button>
     </div>
-    <div style="margin-bottom:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-tertiary)">Navigation</div>
+    <div style="margin-bottom:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-tertiary)" data-i18n="shortcuts.navigation">Navigation</div>
     <div class="shortcut-row">
-      <span>Dashboard</span>
+      <span data-i18n="nav.dashboard">Dashboard</span>
       <span class="shortcut-key"><kbd>⌘</kbd><kbd>D</kbd></span>
     </div>
     <div class="shortcut-row">
-      <span>Settings</span>
+      <span data-i18n="nav.settings">Settings</span>
       <span class="shortcut-key"><kbd>⌘</kbd><kbd>,</kbd></span>
     </div>
     <div class="shortcut-row">
-      <span>Toggle Sidebar</span>
+      <span data-i18n="shortcuts.toggle_sidebar">Toggle Sidebar</span>
       <span class="shortcut-key"><kbd>⌘</kbd><kbd>B</kbd></span>
     </div>
     <div class="shortcut-row">
-      <span>Toggle Assistant</span>
+      <span data-i18n="shortcuts.toggle_assistant">Toggle Assistant</span>
       <span class="shortcut-key"><kbd>⌘</kbd><kbd>J</kbd></span>
     </div>
     <div class="shortcut-row">
-      <span>Show Shortcuts</span>
+      <span data-i18n="shortcuts.show_shortcuts">Show Shortcuts</span>
       <span class="shortcut-key"><kbd>⌘</kbd><kbd>/</kbd></span>
     </div>
-    <div style="margin-top:16px;margin-bottom:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-tertiary)">Pages</div>
+    <div style="margin-top:16px;margin-bottom:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-tertiary)" data-i18n="shortcuts.pages">Pages</div>
     <div class="shortcut-row">
-      <span>Agents</span>
+      <span data-i18n="nav.agents">Agents</span>
       <span class="shortcut-key"><kbd>G</kbd> then <kbd>A</kbd></span>
     </div>
     <div class="shortcut-row">
-      <span>Researches</span>
+      <span data-i18n="nav.researches">Researches</span>
       <span class="shortcut-key"><kbd>G</kbd> then <kbd>E</kbd></span>
     </div>
     <div class="shortcut-row">
-      <span>Files</span>
+      <span data-i18n="nav.files">Files</span>
       <span class="shortcut-key"><kbd>G</kbd> then <kbd>F</kbd></span>
     </div>
     <div class="shortcut-row">
-      <span>Papers</span>
+      <span data-i18n="nav.papers">Papers</span>
       <span class="shortcut-key"><kbd>G</kbd> then <kbd>P</kbd></span>
     </div>
     <div class="shortcut-row">
-      <span>Log</span>
+      <span data-i18n="nav.log">Log</span>
       <span class="shortcut-key"><kbd>G</kbd> then <kbd>L</kbd></span>
     </div>
-    <div style="margin-top:16px;font-size:11px;color:var(--text-tertiary);text-align:center">
+    <div style="margin-top:16px;font-size:11px;color:var(--text-tertiary);text-align:center" data-i18n-html="shortcuts.platform_hint">
       Use <kbd>Ctrl</kbd> instead of <kbd>⌘</kbd> on Windows/Linux
     </div>
   </div>
@@ -136,6 +136,11 @@
 <!-- Scripts — order matters: utils first (global helpers), then error/sidebar/router -->
 <script src="js/utils.js"></script>
 <script src="js/error-handler.js"></script>
+<script src="js/locales/en.js"></script>
+<script src="js/locales/zh.js"></script>
+<script src="js/locales/zht.js"></script>
+<script src="js/locales/de.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/sidebar.js"></script>
 <script src="js/router.js"></script>
 <script src="js/assistant-chat.js"></script>

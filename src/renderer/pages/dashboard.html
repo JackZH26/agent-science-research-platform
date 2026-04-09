@@ -2,46 +2,46 @@
 <div id="demo-banner" style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:14px 20px;margin-bottom:18px;font-size:14px;color:var(--text-secondary);display:flex;align-items:center;gap:12px;justify-content:space-between">
   <div style="display:flex;align-items:center;gap:10px">
     <span id="gw-banner-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
-    <span id="gw-banner-text"><strong>Checking gateway status...</strong></span>
+    <span id="gw-banner-text"><strong data-i18n="dashboard.gateway_checking">Checking gateway status...</strong></span>
   </div>
-  <button class="btn btn-primary" id="gw-start-btn" style="display:none;font-size:15px;font-weight:700;padding:10px 28px;border-radius:10px;letter-spacing:0.3px;white-space:nowrap" onclick="startGateway()">Start Agents</button>
+  <button class="btn btn-primary" id="gw-start-btn" style="display:none;font-size:15px;font-weight:700;padding:10px 28px;border-radius:10px;letter-spacing:0.3px;white-space:nowrap" onclick="startGateway()" data-i18n="dashboard.start_agents">Start Agents</button>
 </div>
 
 <div class="page-header">
   <div style="display:flex;align-items:center;gap:16px">
     <div>
-      <h1>Research Dashboard</h1>
-      <p>Overview of your research activity and agent status</p>
+      <h1 data-i18n="dashboard.title">Research Dashboard</h1>
+      <p data-i18n="dashboard.subtitle">Overview of your research activity and agent status</p>
     </div>
-    <button class="btn btn-outline btn-sm" onclick="Router.navigate('/researches')" style="margin-left:12px">+ New Research</button>
-    <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()">↻ Refresh</button>
+    <button class="btn btn-outline btn-sm" onclick="Router.navigate('/researches')" style="margin-left:12px" data-i18n="dashboard.new_research">+ New Research</button>
+    <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()" data-i18n="dashboard.refresh">↻ Refresh</button>
   </div>
 </div>
 
 <!-- Stats Row -->
 <div class="grid-5 mb-3" id="stats-row">
   <div class="stat-card accent">
-    <div class="label">Researches</div>
+    <div class="label" data-i18n="dashboard.stat_researches">Researches</div>
     <div class="value" id="stat-experiments">—</div>
-    <div class="sub" id="stat-experiments-sub">Loading...</div>
+    <div class="sub" id="stat-experiments-sub" data-i18n="common.loading">Loading...</div>
   </div>
   <div class="stat-card success">
-    <div class="label">Confirmed</div>
+    <div class="label" data-i18n="dashboard.stat_confirmed">Confirmed</div>
     <div class="value" id="stat-confirmed">—</div>
-    <div class="sub">Hypotheses validated</div>
+    <div class="sub" data-i18n="dashboard.stat_validated">Hypotheses validated</div>
   </div>
   <div class="stat-card error">
-    <div class="label">Refuted</div>
+    <div class="label" data-i18n="dashboard.stat_refuted">Refuted</div>
     <div class="value" id="stat-refuted">—</div>
-    <div class="sub">Errors caught early</div>
+    <div class="sub" data-i18n="dashboard.stat_errors">Errors caught early</div>
   </div>
   <div class="stat-card warning">
-    <div class="label">Papers</div>
+    <div class="label" data-i18n="dashboard.stat_papers">Papers</div>
     <div class="value" id="stat-papers">—</div>
-    <div class="sub" id="stat-papers-sub">Loading...</div>
+    <div class="sub" id="stat-papers-sub" data-i18n="common.loading">Loading...</div>
   </div>
   <div class="stat-card orange">
-    <div class="label">Cost Today</div>
+    <div class="label" data-i18n="dashboard.stat_cost">Cost Today</div>
     <div class="value" id="stat-cost">—</div>
     <div class="sub" id="stat-cost-sub">Budget: $15/day</div>
   </div>
@@ -50,16 +50,16 @@
 <!-- Agent Status + Recent Researches -->
 <div class="grid-2 mb-3">
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>Agent Status <span class="badge badge-accent" id="agent-count-badge">— agents</span></h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg><span data-i18n="dashboard.agent_status">Agent Status</span> <span class="badge badge-accent" id="agent-count-badge" data-i18n="dashboard.agents_badge">— agents</span></h3>
     <div id="agent-status-list">
-      <div class="loading"><div class="spinner"></div> Loading agents...</div>
+      <div class="loading"><div class="spinner"></div> <span data-i18n="dashboard.loading_agents">Loading agents...</span></div>
     </div>
   </div>
 
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 5V2"/><circle cx="12" cy="8" r="3"/><path d="M12 11v3"/><path d="M7 19h10"/><path d="M9 22h6"/><path d="M12 14v5"/></svg>Recent Researches <span class="badge badge-accent">last 5</span></h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 5V2"/><circle cx="12" cy="8" r="3"/><path d="M12 11v3"/><path d="M7 19h10"/><path d="M9 22h6"/><path d="M12 14v5"/></svg><span data-i18n="dashboard.recent_researches">Recent Researches</span> <span class="badge badge-accent" data-i18n="dashboard.last_5">last 5</span></h3>
     <div id="recent-experiments-list">
-      <div class="loading"><div class="spinner"></div> Loading researches...</div>
+      <div class="loading"><div class="spinner"></div> <span data-i18n="dashboard.loading_researches">Loading researches...</span></div>
     </div>
   </div>
 </div>
@@ -67,18 +67,18 @@
 <!-- Audit Log + Token Budget -->
 <div class="grid-2 mb-3">
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>Log <span class="badge badge-accent" id="audit-live-badge">live</span></h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg><span data-i18n="dashboard.log_title">Log</span> <span class="badge badge-accent" id="audit-live-badge" data-i18n="dashboard.log_live">live</span></h3>
     <div id="audit-trail-list">
-      <div class="loading"><div class="spinner"></div> Loading audit log...</div>
+      <div class="loading"><div class="spinner"></div> <span data-i18n="dashboard.loading_log">Loading audit log...</span></div>
     </div>
     <div style="margin-top:12px">
-      <button class="btn btn-ghost btn-sm" onclick="Router.navigate('/audit')">View full log →</button>
+      <button class="btn btn-ghost btn-sm" onclick="Router.navigate('/audit')" data-i18n="dashboard.view_full_log">View full log →</button>
     </div>
   </div>
 
   <!-- T-029: Token Budget Panel with visual bars -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Token Budget <span id="budget-pct-badge" class="badge badge-accent">—%</span></h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span data-i18n="dashboard.token_budget">Token Budget</span> <span id="budget-pct-badge" class="badge badge-accent">—%</span></h3>
     <div id="token-budget-bars">
       <div class="loading"><div class="spinner"></div></div>
     </div>
@@ -89,7 +89,7 @@
 <!-- T-031: Research Progress Bars -->
 <div class="grid-2 mb-3">
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Research Progress</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span data-i18n="dashboard.research_progress">Research Progress</span></h3>
     <div id="research-progress">
       <div class="loading"><div class="spinner"></div></div>
     </div>
@@ -97,7 +97,7 @@
 
   <!-- System Health -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>System Health</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span data-i18n="dashboard.system_health">System Health</span></h3>
     <div id="health-grid">
       <div class="health-item">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -177,7 +177,7 @@
       const registered = experiments.filter(e => e.status === 'registered').length;
 
       document.getElementById('stat-experiments').textContent = experiments.length;
-      document.getElementById('stat-experiments-sub').textContent = `${running} running, ${registered} registered`;
+      document.getElementById('stat-experiments-sub').textContent = t('dashboard.stat_running_reg', {running: running, registered: registered});
       document.getElementById('stat-confirmed').textContent = confirmed;
       document.getElementById('stat-refuted').textContent = refuted;
 
@@ -188,7 +188,7 @@
           <span class="exp-id">${escHtml(e.id)}</span>
           <span class="exp-hyp">${escHtml(e.hypothesis)}</span>
         </div>
-      `).join('') || '<div class="empty-state"><p>No experiments yet</p></div>';
+      `).join('') || '<div class="empty-state"><p>' + escHtml(t('dashboard.no_experiments')) + '</p></div>';
 
     } catch (e) { console.error('experiments load error', e); }
 
@@ -212,11 +212,11 @@
         }
       }
       const badge = document.getElementById('agent-count-badge');
-      if (badge) badge.textContent = agents.length + ' agents';
+      if (badge) badge.textContent = agents.length + ' ' + t('nav.agents').toLowerCase();
 
       const agentList = document.getElementById('agent-status-list');
       if (agents.length === 0) {
-        agentList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:13px">No agents connected yet.<br>Connect to OpenClaw to see live agent status.</div>';
+        agentList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:13px">' + escHtml(t('dashboard.no_agents')) + '</div>';
       } else {
         agentList.innerHTML = agents.map(a => `
           <div class="agent-row">
@@ -236,7 +236,7 @@
       document.getElementById('stat-papers').textContent = papers.length;
       const submitted = papers.filter(p => p.status === 'submitted').length;
       const drafts = papers.filter(p => p.status === 'draft').length;
-      document.getElementById('stat-papers-sub').textContent = `${submitted} submitted, ${drafts} drafts`;
+      document.getElementById('stat-papers-sub').textContent = submitted + ' submitted, ' + drafts + ' drafts';
 
     } catch (e) { console.error('papers load error', e); }
 
@@ -245,7 +245,7 @@
       const { entries } = await window.asrp.audit.list({ limit: 8 });
       const auditList = document.getElementById('audit-trail-list');
       if (entries.length === 0) {
-        auditList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:13px">No activity yet. Start an experiment to see the audit trail.</div>';
+        auditList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:13px">' + escHtml(t('dashboard.no_activity')) + '</div>';
       } else {
         auditList.innerHTML = entries.map(e => `
           <div class="audit-entry">
@@ -283,14 +283,14 @@
         summaryEl.innerHTML = `
           <div class="health-item">
             <span class="icon" style="color:${usedColor}">●</span>
-            Daily total: <strong>$${escHtml(tokenData.dailyTotal.toFixed(2))}</strong> of $${escHtml(tokenData.dailyBudget.toFixed(2))} (${escHtml(String(pct))}%)
+            ${escHtml(t('dashboard.daily_total', {cost: tokenData.dailyTotal.toFixed(2), budget: tokenData.dailyBudget.toFixed(2), pct: pct}))}
           </div>
         `;
 
         const costEl = document.getElementById('stat-cost');
         const costSubEl = document.getElementById('stat-cost-sub');
         if (costEl) costEl.textContent = '$' + tokenData.dailyTotal.toFixed(2);
-        if (costSubEl) costSubEl.textContent = `Budget: $${tokenData.dailyBudget}/day (${pct}% used)`;
+        if (costSubEl) costSubEl.textContent = t('dashboard.stat_budget', {budget: tokenData.dailyBudget}) + ' (' + pct + '% used)';
       }
     } catch (e) { console.error('token usage load error', e); }
 
@@ -300,9 +300,9 @@
         const progress = await window.asrp.openclaw.researchProgress();
         const progressEl = document.getElementById('research-progress');
         const bars = [
-          { key: 'rh', label: 'Reproducibility & Honesty', color: '#4a8c6a', desc: 'Research coverage' },
-          { key: 'sc', label: 'Scientific Contribution', color: '#7c69f0', desc: 'Novel findings' },
-          { key: 'bc', label: 'Broader Context', color: '#4a82c8', desc: 'Citation coverage' },
+          { key: 'rh', label: t('dashboard.reproducibility'), color: '#4a8c6a', desc: t('dashboard.research_coverage') },
+          { key: 'sc', label: t('dashboard.scientific_contribution'), color: '#7c69f0', desc: t('dashboard.novel_findings') },
+          { key: 'bc', label: t('dashboard.broader_context'), color: '#4a82c8', desc: t('dashboard.citation_coverage') },
         ];
         progressEl.innerHTML = bars.map(b => `
           <div class="db-progress-row">
@@ -329,19 +329,19 @@
       document.getElementById('health-grid').innerHTML = `
         <div class="health-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${health.status === 'ok' ? '#4a8c6a' : 'var(--error)'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          <span>System: <strong>${escHtml(health.status)}</strong></span>
+          <span>${escHtml(t('dashboard.system_status', {status: health.status}))}</span>
         </div>
         <div class="health-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span>Uptime: <strong>${escHtml(String(Math.floor(health.uptime / 60)))}m</strong></span>
+          <span>${escHtml(t('dashboard.uptime', {time: Math.floor(health.uptime / 60)}))}</span>
         </div>
         <div class="health-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          <span>Log: <strong>${escHtml(String(auditTotal))}</strong> entries</span>
+          <span>${escHtml(t('dashboard.log_entries', {count: auditTotal}))}</span>
         </div>
         <div class="health-item">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>Last backup: <strong>&mdash;</strong></span>
+          <span>${escHtml(t('dashboard.last_backup'))}</span>
         </div>
       `;
     } catch (e) { console.error('health load error', e); }
@@ -367,7 +367,7 @@
   if (window.asrp && window.asrp.agents && window.asrp.agents.onStatusUpdate) {
     var _unsubStatus = window.asrp.agents.onStatusUpdate(function(agents) {
       const badge = document.getElementById('agent-count-badge');
-      if (badge) badge.textContent = agents.length + ' agents';
+      if (badge) badge.textContent = agents.length + ' ' + t('nav.agents').toLowerCase();
       const agentList = document.getElementById('agent-status-list');
       if (!agentList || !document.body.contains(agentList)) return;
       agentList.innerHTML = agents.map(function(a) {
@@ -426,7 +426,7 @@
         banner.style.borderColor = 'rgba(184,134,11,0.3)';
         banner.style.color = '#856404';
         if (icon) icon.innerHTML = svgWarn;
-        if (text) text.innerHTML = '<strong>OpenClaw not installed</strong> — Run <code>npm install -g openclaw</code> to enable agents.';
+        if (text) text.innerHTML = '<strong>' + escHtml(t('dashboard.oc_not_installed')) + '</strong> — ' + escHtml(t('dashboard.oc_install_hint'));
         if (btn) btn.style.display = 'none';
       } else if (status.agents && status.agents.length > 0) {
         var running = status.agents.filter(function(a) { return a.running; }).length;
@@ -436,21 +436,21 @@
           banner.style.borderColor = 'rgba(74,140,106,0.3)';
           banner.style.color = '#2d5a3d';
           if (icon) icon.innerHTML = svgCheck;
-          if (text) text.innerHTML = '<strong>' + escHtml(String(running)) + '/' + escHtml(String(total)) + ' agents online</strong> — All gateways running';
+          if (text) text.innerHTML = '<strong>' + escHtml(t('dashboard.agents_online', {running: running, total: total})) + '</strong> — ' + escHtml(t('dashboard.all_running'));
           if (btn) btn.style.display = 'none';
         } else if (running > 0) {
           banner.style.background = 'rgba(184,134,11,0.06)';
           banner.style.borderColor = 'rgba(184,134,11,0.3)';
           banner.style.color = '#856404';
           if (icon) icon.innerHTML = svgWarn;
-          if (text) text.innerHTML = '<strong>' + escHtml(String(running)) + '/' + escHtml(String(total)) + ' agents online</strong> — Some agents failed to start';
+          if (text) text.innerHTML = '<strong>' + escHtml(t('dashboard.agents_online', {running: running, total: total})) + '</strong> — ' + escHtml(t('dashboard.some_failed'));
           if (btn) btn.style.display = '';
         } else {
           banner.style.background = 'var(--bg-secondary)';
           banner.style.borderColor = 'var(--border)';
           banner.style.color = 'var(--text-secondary)';
           if (icon) icon.innerHTML = svgPause;
-          if (text) text.innerHTML = '<strong>All agents stopped</strong> — Click Start to bring agents online.';
+          if (text) text.innerHTML = '<strong>' + escHtml(t('dashboard.all_stopped')) + '</strong> — ' + escHtml(t('dashboard.click_start'));
           if (btn) btn.style.display = '';
         }
       } else {
@@ -458,7 +458,7 @@
         banner.style.borderColor = 'var(--border)';
         banner.style.color = 'var(--text-secondary)';
         if (icon) icon.innerHTML = svgInfo;
-        if (text) text.innerHTML = '<strong>Standalone Mode</strong> — Complete setup to connect agents.';
+        if (text) text.innerHTML = '<strong>' + escHtml(t('dashboard.standalone')) + '</strong> — ' + escHtml(t('dashboard.complete_setup'));
         if (btn) btn.style.display = 'none';
       }
     } catch (e) {
@@ -477,24 +477,34 @@
     var btn = document.getElementById('gw-start-btn');
     var text = document.getElementById('gw-banner-text');
     if (btn) btn.disabled = true;
-    if (btn) btn.textContent = 'Starting...';
-    if (text) text.innerHTML = '<strong>Starting agents...</strong>';
+    if (btn) btn.textContent = t('dashboard.starting_agents');
+    if (text) text.innerHTML = '<strong>' + escHtml(t('dashboard.starting_agents')) + '</strong>';
     try {
       var token = localStorage.getItem('asrp_token') || '';
       var res = await window.asrp.gateway.start(token);
       if (res.success) {
-        Toast.show('Gateway started!', 'success');
+        Toast.show(t('dashboard.gateway_started'), 'success');
       } else {
-        Toast.show('Failed: ' + (res.error || 'Unknown error'), 'error');
+        Toast.show(t('common.failed') + ': ' + (res.error || 'Unknown error'), 'error');
       }
     } catch (e) {
-      Toast.show('Error: ' + String(e), 'error');
+      Toast.show(t('common.error') + ': ' + String(e), 'error');
     }
-    if (btn) { btn.disabled = false; btn.textContent = 'Start Agents'; }
+    if (btn) { btn.disabled = false; btn.textContent = t('dashboard.start_agents'); }
     checkGatewayStatus();
   };
 
   checkGatewayStatus();
+
+  // i18n: re-render dynamic content on language change
+  function _onLangChanged() {
+    if (typeof translatePage === 'function') translatePage();
+    loadDashboard();
+    checkGatewayStatus();
+  }
+  window.addEventListener('language-changed', _onLangChanged);
+  if (window.Utils) window.Utils.onPageUnload(function() { window.removeEventListener('language-changed', _onLangChanged); });
+
   // Refresh gateway status every 30 seconds
   // P1-fix: Clear interval on page navigation to prevent accumulation
   var _gwInterval = setInterval(checkGatewayStatus, 30000);

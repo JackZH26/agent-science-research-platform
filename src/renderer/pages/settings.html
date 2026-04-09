@@ -1,11 +1,11 @@
 <div class="page-header">
   <div>
-    <h1>Settings</h1>
-    <p>Configure ASRP preferences</p>
+    <h1 data-i18n="settings.title">Settings</h1>
+    <p data-i18n="settings.subtitle">Configure ASRP preferences</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="resetSettings()">Reset to Defaults</button>
-    <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Changes</button>
+    <button class="btn btn-outline btn-sm" onclick="resetSettings()" data-i18n="settings.reset_defaults">Reset to Defaults</button>
+    <button class="btn btn-primary btn-sm" onclick="saveSettings()" data-i18n="settings.save_changes">Save Changes</button>
   </div>
 </div>
 
@@ -16,14 +16,14 @@
 
   <!-- Workspace -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Workspace</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span data-i18n="settings.workspace">Workspace</span></h3>
     <div class="form-group">
-      <label>Research Directory</label>
+      <label data-i18n="settings.research_dir">Research Directory</label>
       <div style="display:flex;gap:8px">
         <input type="text" id="setting-workspace" placeholder="~/asrp-workspace" style="flex:1">
-        <button class="btn btn-outline" onclick="browseWorkspace()">Browse</button>
+        <button class="btn btn-outline" onclick="browseWorkspace()" data-i18n="settings.browse">Browse</button>
       </div>
-      <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px">
+      <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px" data-i18n="settings.workspace_hint">
         Where experiments, papers, and audit logs are stored
       </div>
     </div>
@@ -31,48 +31,48 @@
 
   <!-- AI Model -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M16 14H8a4 4 0 0 0-4 4v2h16v-2a4 4 0 0 0-4-4z"/><circle cx="9" cy="6" r="0.5" fill="currentColor"/><circle cx="15" cy="6" r="0.5" fill="currentColor"/></svg>AI Model</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M16 14H8a4 4 0 0 0-4 4v2h16v-2a4 4 0 0 0-4-4z"/><circle cx="9" cy="6" r="0.5" fill="currentColor"/><circle cx="15" cy="6" r="0.5" fill="currentColor"/></svg><span data-i18n="settings.ai_model">AI Model</span></h3>
     <div class="form-group">
-      <label>Default Model</label>
+      <label data-i18n="settings.default_model">Default Model</label>
       <select id="setting-default-model">
-        <option value="claude-opus-4-6">Claude Opus 4.6 (Most capable)</option>
-        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Balanced)</option>
-        <option value="claude-haiku-4-5">Claude Haiku 4.5 (Fast)</option>
+        <option value="claude-opus-4-6" data-i18n="settings.model_opus">Claude Opus 4.6 (Most capable)</option>
+        <option value="claude-sonnet-4-6" data-i18n="settings.model_sonnet">Claude Sonnet 4.6 (Balanced)</option>
+        <option value="claude-haiku-4-5" data-i18n="settings.model_haiku">Claude Haiku 4.5 (Fast)</option>
       </select>
     </div>
     <div class="form-group">
-      <label>OpenRouter API Key <span style="font-size:11px;color:var(--error)">*required</span></label>
+      <label><span data-i18n="settings.openrouter_key">OpenRouter API Key</span> <span style="font-size:11px;color:var(--error)" data-i18n="settings.openrouter_required">*required</span></label>
       <input type="password" id="setting-openrouter-key" placeholder="sk-or-v1-...">
       <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px">
-        Required for cloud AI models. Get a key at <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--accent)">openrouter.ai</a>
+        <span data-i18n="settings.openrouter_hint">Required for cloud AI models. Get a key at</span> <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--accent)">openrouter.ai</a>
       </div>
     </div>
     <div class="form-group">
-      <label>Anthropic API Key <span style="font-size:11px;color:var(--text-tertiary)">(optional)</span></label>
+      <label><span data-i18n="settings.anthropic_key">Anthropic API Key</span> <span style="font-size:11px;color:var(--text-tertiary)" data-i18n="settings.anthropic_optional">(optional)</span></label>
       <input type="password" id="setting-anthropic-key" placeholder="sk-ant-...">
-      <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px">
+      <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px" data-i18n="settings.anthropic_hint">
         Direct Anthropic access for Claude models. Optional if using OpenRouter.
       </div>
     </div>
     <div class="form-group">
-      <label>Google AI Key <span style="font-size:11px;color:var(--text-tertiary)">(optional)</span></label>
+      <label><span data-i18n="settings.google_key">Google AI Key</span> <span style="font-size:11px;color:var(--text-tertiary)" data-i18n="settings.anthropic_optional">(optional)</span></label>
       <input type="password" id="setting-google-key" placeholder="AIza...">
-      <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px">
+      <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px" data-i18n="settings.google_hint">
         For Gemini models. Optional if using OpenRouter.
       </div>
     </div>
     <div class="form-group">
-      <label>Daily Budget Limit (USD)</label>
+      <label data-i18n="settings.budget_daily">Daily Budget Limit (USD)</label>
       <input type="number" id="setting-budget-daily" min="1" max="1000" step="1" placeholder="15">
     </div>
   </div>
 
   <!-- Appearance -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="5" cy="13" r="2.5"/><circle cx="12" cy="19" r="2.5"/><circle cx="12" cy="12" r="3"/></svg>Appearance</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="5" cy="13" r="2.5"/><circle cx="12" cy="19" r="2.5"/><circle cx="12" cy="12" r="3"/></svg><span data-i18n="settings.appearance">Appearance</span></h3>
     <div class="form-group">
-      <label>Language</label>
-      <select id="setting-language">
+      <label data-i18n="settings.language">Language</label>
+      <select id="setting-language" onchange="setLanguage(this.value)">
         <option value="en">English</option>
         <option value="zh">中文 (Simplified)</option>
         <option value="zht">繁體中文 (Traditional)</option>
@@ -83,58 +83,58 @@
 
   <!-- Behavior -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Behavior</h3>
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span data-i18n="settings.behavior">Behavior</span></h3>
     <div class="checkbox-group" style="margin-bottom:12px">
       <input type="checkbox" id="setting-minimize-tray">
-      <label for="setting-minimize-tray">Minimize to system tray on close</label>
+      <label for="setting-minimize-tray" data-i18n="settings.minimize_tray">Minimize to system tray on close</label>
     </div>
     <div class="checkbox-group" style="margin-bottom:12px">
       <input type="checkbox" id="setting-notifications">
-      <label for="setting-notifications">Show desktop notifications</label>
+      <label for="setting-notifications" data-i18n="settings.notifications">Show desktop notifications</label>
     </div>
     <div class="checkbox-group">
       <input type="checkbox" id="setting-auto-start">
-      <label for="setting-auto-start">Launch ASRP at system startup</label>
+      <label for="setting-auto-start" data-i18n="settings.auto_start">Launch ASRP at system startup</label>
     </div>
   </div>
 
   <!-- OpenClaw Gateway -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>OpenClaw Gateway</h3>
-    <div id="openclaw-status" style="font-size:13px;color:var(--text-secondary);line-height:1.8;margin-bottom:12px">
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span data-i18n="settings.openclaw_gateway">OpenClaw Gateway</span></h3>
+    <div id="openclaw-status" style="font-size:13px;color:var(--text-secondary);line-height:1.8;margin-bottom:12px" data-i18n="settings.checking_openclaw">
       Checking OpenClaw status...
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" id="btn-oc-check" onclick="checkOpenClawUpdate()">Check for Updates</button>
-      <button class="btn btn-primary btn-sm" id="btn-oc-install" onclick="installOpenClaw()" style="display:none">Install OpenClaw</button>
-      <button class="btn btn-primary btn-sm" id="btn-oc-update" onclick="installOpenClaw()" style="display:none">Update OpenClaw</button>
+      <button class="btn btn-outline btn-sm" id="btn-oc-check" onclick="checkOpenClawUpdate()" data-i18n="settings.check_updates">Check for Updates</button>
+      <button class="btn btn-primary btn-sm" id="btn-oc-install" onclick="installOpenClaw()" style="display:none" data-i18n="settings.install_openclaw">Install OpenClaw</button>
+      <button class="btn btn-primary btn-sm" id="btn-oc-update" onclick="installOpenClaw()" style="display:none" data-i18n="settings.update_openclaw">Update OpenClaw</button>
     </div>
   </div>
 
   <!-- T-083: Updates -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>Updates</h3>
-    <div id="updater-status-text" style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg><span data-i18n="settings.updates">Updates</span></h3>
+    <div id="updater-status-text" style="font-size:12px;color:var(--text-secondary);margin-bottom:12px" data-i18n="settings.checking_updates">
       Checking for updates...
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" onclick="checkForUpdates()">Check for Updates</button>
-      <button class="btn btn-primary btn-sm" id="btn-download-update" onclick="downloadUpdate()" style="display:none">Download Update</button>
-      <button class="btn btn-primary btn-sm" id="btn-install-update" onclick="installUpdate()" style="display:none">Restart &amp; Install</button>
+      <button class="btn btn-outline btn-sm" onclick="checkForUpdates()" data-i18n="settings.check_updates">Check for Updates</button>
+      <button class="btn btn-primary btn-sm" id="btn-download-update" onclick="downloadUpdate()" style="display:none" data-i18n="settings.download_update">Download Update</button>
+      <button class="btn btn-primary btn-sm" id="btn-install-update" onclick="installUpdate()" style="display:none" data-i18n="settings.restart_install">Restart &amp; Install</button>
     </div>
   </div>
 
   <!-- About -->
   <div class="panel">
-    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>About ASRP</h3>
-    <div id="about-info" style="font-size:13px;color:var(--text-secondary);line-height:2">
+    <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span data-i18n="settings.about">About ASRP</span></h3>
+    <div id="about-info" style="font-size:13px;color:var(--text-secondary);line-height:2" data-i18n="settings.loading_version">
       Loading version info...
     </div>
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline btn-sm" onclick="window.asrp && window.asrp.system.openPath && Toast.show('Opening docs', 'info')">Documentation</button>
-      <button class="btn btn-outline btn-sm" onclick="Toast.show('GitHub: JackZH26/ASRP-JZIS', 'info')">GitHub</button>
-      <button class="btn btn-outline btn-sm" onclick="rerunSetup()">↻ Re-run Setup</button>
-      <button class="btn btn-outline btn-sm" style="color:var(--error);border-color:var(--error)" onclick="handleLogout()">Logout</button>
+      <button class="btn btn-outline btn-sm" onclick="window.open('https://asrp.jzis.org/', '_blank')" data-i18n="settings.homepage">Homepage</button>
+      <button class="btn btn-outline btn-sm" onclick="Toast.show('GitHub: JackZH26/ASRP-JZIS', 'info')" data-i18n="settings.github">GitHub</button>
+      <button class="btn btn-outline btn-sm" onclick="rerunSetup()" data-i18n="settings.rerun_setup">↻ Re-run Setup</button>
+      <button class="btn btn-outline btn-sm" style="color:var(--error);border-color:var(--error)" onclick="handleLogout()" data-i18n="settings.logout">Logout</button>
     </div>
   </div>
 
@@ -152,11 +152,13 @@
     const info = await window.asrp.system.info();
     const aboutEl = document.getElementById('about-info');
     if (aboutEl) {
+      aboutEl.removeAttribute('data-i18n');
       aboutEl.innerHTML = `
         <div>ASRP v${esc(info.version)}</div>
         <div>Electron v${esc(info.electron)} · Node.js v${esc(info.node)}</div>
-        <div>Platform: ${esc(info.platform)} (${esc(info.arch)})</div>
-        <div>Resources: <span style="font-family:monospace;font-size:11px">${esc(info.resourcesPath)}</span></div>
+        <div>${t('settings.about_platform')} ${esc(info.platform)} (${esc(info.arch)})</div>
+        <div>${t('settings.about_resources')} <span style="font-family:monospace;font-size:11px">${esc(info.resourcesPath)}</span></div>
+        <div>${t('settings.homepage')}: <a href="https://asrp.jzis.org/" target="_blank" style="color:var(--accent);text-decoration:none">asrp.jzis.org</a></div>
       `;
     }
 
@@ -169,7 +171,8 @@
     setValue('setting-anthropic-key', settings.anthropicKey || '');
     setValue('setting-google-key', settings.googleKey || '');
     setValue('setting-budget-daily', settings.budgetDaily || 15);
-    setValue('setting-language', settings.language || 'en');
+    // Language select uses getLang() — the i18n engine is source of truth
+    setValue('setting-language', (typeof getLang === 'function') ? getLang() : (settings.language || 'en'));
     setChecked('setting-minimize-tray', settings.minimizeToTray !== false);
     setChecked('setting-notifications', settings.notifications !== false);
     setChecked('setting-auto-start', !!settings.autoStart);
@@ -196,7 +199,6 @@
       anthropicKey: document.getElementById('setting-anthropic-key').value,
       googleKey: document.getElementById('setting-google-key').value,
       budgetDaily: parseFloat(document.getElementById('setting-budget-daily').value) || 15,
-      language: document.getElementById('setting-language').value,
       minimizeToTray: document.getElementById('setting-minimize-tray').checked,
       notifications: document.getElementById('setting-notifications').checked,
       autoStart: document.getElementById('setting-auto-start').checked,
@@ -205,27 +207,27 @@
     const token = localStorage.getItem('asrp_token');
     const result = await window.asrp.settings.set(token, updates);
     if (result.success) {
-      alert.textContent = '✅ Settings saved successfully';
+      alert.textContent = t('settings.saved_success');
       alert.className = 'alert success show';
-      Toast.show('Settings saved', 'success');
+      Toast.show(t('settings.saved_toast'), 'success');
       // Refresh sidebar workspace path display
       if (typeof Sidebar !== 'undefined' && Sidebar.refreshWorkspace) {
         Sidebar.refreshWorkspace();
       }
       setTimeout(() => { alert.className = 'alert'; }, 3000);
     } else {
-      alert.textContent = '❌ Failed to save settings: ' + result.error;
+      alert.textContent = t('settings.save_failed') + result.error;
       alert.className = 'alert error show';
     }
   };
 
   window.resetSettings = async function() {
     if (!window.asrp) return;
-    if (!confirm('Reset all settings to defaults?')) return;
+    if (!confirm(t('settings.reset_confirm'))) return;
     const token = localStorage.getItem('asrp_token');
     await window.asrp.settings.reset(token);
     loadSettings();
-    Toast.show('Settings reset to defaults', 'info');
+    Toast.show(t('settings.reset_toast'), 'info');
   };
 
   window.browseWorkspace = async function() {
@@ -256,27 +258,31 @@
     if (!el) return;
 
     if (status.checking) {
-      el.textContent = 'Checking for updates...';
+      el.textContent = t('settings.checking_updates');
     } else if (status.ready) {
-      el.textContent = 'Version ' + status.version + ' ready to install';
-      if (btnInstall) btnInstall.style.display = '';
-      if (btnDl) btnDl.style.display = 'none';
+      el.textContent = t('settings.version_ready', { version: status.version });
     } else if (status.downloading) {
-      el.textContent = 'Downloading v' + status.version + '... ' + status.progress + '%';
+      el.textContent = t('settings.downloading_version', { version: status.version, progress: status.progress });
     } else if (status.available) {
-      el.textContent = 'Update available: v' + status.version;
+      el.textContent = t('settings.update_available', { version: status.version });
       if (btnDl) btnDl.style.display = '';
     } else if (status.error) {
-      el.textContent = 'Update check failed: ' + status.error;
+      el.textContent = t('settings.update_check_failed') + status.error;
     } else {
-      el.textContent = 'ASRP is up to date';
+      el.textContent = t('settings.up_to_date');
+    }
+
+    // Update ready/downloading button states
+    if (status.ready) {
+      if (btnInstall) btnInstall.style.display = '';
+      if (btnDl) btnDl.style.display = 'none';
     }
   }
 
   window.checkForUpdates = async function() {
     if (!window.asrp || !window.asrp.updater) return;
     const el = document.getElementById('updater-status-text');
-    if (el) el.textContent = 'Checking...';
+    if (el) el.textContent = t('settings.checking');
     await window.asrp.updater.check();
   };
 
@@ -284,7 +290,7 @@
     if (!window.asrp || !window.asrp.updater) return;
     var token = localStorage.getItem('asrp_token');
     await window.asrp.updater.download(token);
-    Toast.show('Downloading update...', 'info');
+    Toast.show(t('settings.downloading_update_toast'), 'info');
   };
 
   window.installUpdate = function() {
@@ -295,7 +301,7 @@
 
   // P2-fix: Delegate to global Utils.logout (single source of truth)
   window.handleLogout = function() {
-    if (!confirm('Are you sure you want to logout?')) return;
+    if (!confirm(t('settings.logout_confirm'))) return;
     if (window.Utils && window.Utils.logout) {
       window.Utils.logout();
     }
@@ -303,12 +309,12 @@
 
   // Re-run setup: reset setup_complete flag then navigate
   window.rerunSetup = async function() {
-    if (!confirm('Re-run the initial setup wizard?')) return;
+    if (!confirm(t('settings.rerun_setup_confirm'))) return;
     var token = localStorage.getItem('asrp_token');
     if (window.asrp && window.asrp.settings) {
       try { await window.asrp.settings.set(token, { setupComplete: false }); } catch(e) { /* ignore */ }
     }
-    Toast.show('Running setup wizard', 'info');
+    Toast.show(t('settings.running_setup'), 'info');
     setTimeout(function() { Router.navigate('/setup'); }, 300);
   };
 
@@ -326,8 +332,8 @@
     try {
       var status = await window.asrp.gateway.status();
       if (!status.installed) {
-        el.innerHTML = '<div style="color:var(--warning)">OpenClaw is not installed</div>' +
-          '<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px">Install OpenClaw to enable AI agent gateway</div>';
+        el.innerHTML = '<div style="color:var(--warning)">' + esc(t('settings.openclaw_not_installed')) + '</div>' +
+          '<div style="font-size:12px;color:var(--text-tertiary);margin-top:2px">' + esc(t('settings.openclaw_install_hint')) + '</div>';
         if (btnInstall) btnInstall.style.display = '';
         if (btnUpdate) btnUpdate.style.display = 'none';
         return;
@@ -335,16 +341,16 @@
 
       _ocCurrentVersion = status.version || 'unknown';
       var agentCount = (status.agents && status.agents.length) || 0;
-      var running = status.running ? '<span style="color:var(--success)">● Running</span>' : '<span style="color:var(--text-tertiary)">○ Stopped</span>';
+      var running = status.running ? '<span style="color:var(--success)">' + t('settings.openclaw_running') + '</span>' : '<span style="color:var(--text-tertiary)">' + t('settings.openclaw_stopped') + '</span>';
 
       el.innerHTML =
-        '<div>Version: <strong>' + esc(_ocCurrentVersion) + '</strong> &nbsp;' + running + '</div>' +
-        '<div style="font-size:12px;color:var(--text-tertiary)">Agents registered: ' + agentCount + '</div>';
+        '<div>' + t('settings.openclaw_version') + ' <strong>' + esc(_ocCurrentVersion) + '</strong> &nbsp;' + running + '</div>' +
+        '<div style="font-size:12px;color:var(--text-tertiary)">' + t('settings.openclaw_agents') + ' ' + agentCount + '</div>';
 
       // Auto-check for updates after showing status
       checkOpenClawUpdateSilent();
     } catch (e) {
-      el.innerHTML = '<div style="color:var(--error)">Failed to load OpenClaw status</div>';
+      el.innerHTML = '<div style="color:var(--error)">' + esc(t('settings.openclaw_load_failed')) + '</div>';
     }
   }
 
@@ -359,7 +365,7 @@
         // Append update info to existing status
         var updateLine = document.createElement('div');
         updateLine.style.cssText = 'margin-top:4px;color:var(--accent);font-size:12px;font-weight:500';
-        updateLine.textContent = '📦 Update available: v' + result.latestVersion;
+        updateLine.textContent = t('settings.openclaw_update_available', { version: result.latestVersion });
         if (el) el.appendChild(updateLine);
         if (btnUpdate) btnUpdate.style.display = '';
       }
@@ -371,24 +377,24 @@
     var el = document.getElementById('openclaw-status');
     var btnCheck = document.getElementById('btn-oc-check');
     var btnUpdate = document.getElementById('btn-oc-update');
-    if (btnCheck) { btnCheck.disabled = true; btnCheck.textContent = 'Checking...'; }
+    if (btnCheck) { btnCheck.disabled = true; btnCheck.textContent = t('settings.checking'); }
 
     try {
       var result = await window.asrp.gateway.checkUpdate();
       if (result.updateAvailable && result.latestVersion) {
         _ocLatestVersion = result.latestVersion;
-        Toast.show('OpenClaw update available: v' + result.latestVersion, 'info');
+        Toast.show(t('settings.openclaw_update_available', { version: result.latestVersion }), 'info');
         if (btnUpdate) btnUpdate.style.display = '';
         // Refresh full status display
         await loadOpenClawStatus();
       } else {
-        Toast.show('OpenClaw is up to date', 'success');
+        Toast.show(t('settings.openclaw_up_to_date'), 'success');
       }
     } catch (e) {
-      Toast.show('Failed to check for updates', 'error');
+      Toast.show(t('settings.openclaw_check_failed'), 'error');
     }
 
-    if (btnCheck) { btnCheck.disabled = false; btnCheck.textContent = 'Check for Updates'; }
+    if (btnCheck) { btnCheck.disabled = false; btnCheck.textContent = t('settings.check_updates'); }
   };
 
   window.installOpenClaw = async function() {
@@ -397,7 +403,7 @@
     var btnUpdate = document.getElementById('btn-oc-update');
     var el = document.getElementById('openclaw-status');
     var isUpdate = btnUpdate && btnUpdate.style.display !== 'none';
-    var label = isUpdate ? 'Updating' : 'Installing';
+    var label = isUpdate ? t('settings.openclaw_updating') : t('settings.openclaw_installing');
 
     if (btnInstall) { btnInstall.disabled = true; btnInstall.textContent = label + '...'; }
     if (btnUpdate) { btnUpdate.disabled = true; btnUpdate.textContent = label + '...'; }
@@ -405,7 +411,7 @@
       var progressLine = document.createElement('div');
       progressLine.id = 'oc-progress';
       progressLine.style.cssText = 'margin-top:6px;font-size:12px;color:var(--accent)';
-      progressLine.textContent = label + ' OpenClaw, this may take a minute...';
+      progressLine.textContent = label + ' OpenClaw, ' + t('settings.openclaw_wait');
       el.appendChild(progressLine);
     }
 
@@ -413,20 +419,20 @@
       var token = localStorage.getItem('asrp_token');
       var result = await window.asrp.gateway.install(token);
       if (result.success) {
-        Toast.show('OpenClaw ' + (isUpdate ? 'updated' : 'installed') + ' successfully!', 'success');
+        Toast.show(t(isUpdate ? 'settings.openclaw_updated_success' : 'settings.openclaw_installed_success'), 'success');
         // Refresh status to show new version
         await loadOpenClawStatus();
         if (btnInstall) btnInstall.style.display = 'none';
         if (btnUpdate) btnUpdate.style.display = 'none';
       } else {
-        Toast.show('Failed: ' + (result.error || 'Unknown error'), 'error');
+        Toast.show(t('settings.openclaw_install_failed_prefix') + (result.error || t('settings.unknown_error')), 'error');
       }
     } catch (e) {
-      Toast.show('Installation failed: ' + String(e), 'error');
+      Toast.show(t('settings.openclaw_install_failed_prefix') + String(e), 'error');
     }
 
-    if (btnInstall) { btnInstall.disabled = false; btnInstall.textContent = 'Install OpenClaw'; }
-    if (btnUpdate) { btnUpdate.disabled = false; btnUpdate.textContent = 'Update OpenClaw'; }
+    if (btnInstall) { btnInstall.disabled = false; btnInstall.textContent = t('settings.install_openclaw'); }
+    if (btnUpdate) { btnUpdate.disabled = false; btnUpdate.textContent = t('settings.update_openclaw'); }
     var prog = document.getElementById('oc-progress');
     if (prog) prog.remove();
   };

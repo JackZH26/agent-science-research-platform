@@ -1,55 +1,61 @@
 [
   {
-    "title": "Strong Log-Concavity of the Riemann-Jacobi Kernel",
+    "title": "Strong Log-Concavity of the Riemann-Jacobi Kernel: Quantitative Turan Inequalities and Weil Positivity Evidence",
     "filename": "Zhou_Strong-Log-Concavity-Riemann-Jacobi-Kernel_2026-03-28.pdf",
     "date": "2026-03-28",
-    "status": "under review",
-    "figshare": null,
-    "journal": "Experimental Mathematics",
+    "status": "preprint",
+    "figshare": "10.6084/m9.figshare.31879441",
+    "arxiv": null,
+    "journal": null,
     "version": "v1"
   },
   {
-    "title": "Seven Independent Perspectives on the Riemann Hypothesis",
+    "title": "Seven Perspectives on the Riemann Hypothesis: A Unified Computational Exploration with 10,000 Zeros",
     "filename": "Zhou_Seven-Perspectives-Riemann-Hypothesis_2026-03-20.pdf",
     "date": "2026-03-20",
-    "status": "submitted",
-    "figshare": null,
-    "journal": "Experimental Mathematics",
+    "status": "preprint",
+    "figshare": "10.6084/m9.figshare.31817662",
+    "arxiv": null,
+    "journal": null,
     "version": "v2"
   },
   {
-    "title": "Lattice Green Functions in Dimensions d≥4: Domb Number Decomposition",
+    "title": "Lattice Green Functions in d ≥ 4: A Domb Number Decomposition and the Absence of Classical Closed Forms",
     "filename": "Zhou_Lattice-Green-Functions-Higher-Dimensions_2026-03-18.pdf",
     "date": "2026-03-18",
     "status": "preprint",
-    "figshare": "10.6084/m9.figshare.31771295",
+    "figshare": "10.6084/m9.figshare.31802359",
+    "arxiv": null,
     "journal": null,
     "version": "v1"
   },
   {
-    "title": "Mahler Measures of the Bertin-Touafek Polynomial Family and Special Zeta Values",
+    "title": "Mahler Measures of the Bertin-Touafek Family and Special Values of L-Functions",
     "filename": "Zhou_Mahler-Measures-Bertin-Touafek-Family_2026-03-18.pdf",
     "date": "2026-03-18",
     "status": "preprint",
-    "figshare": "10.6084/m9.figshare.31771289",
+    "figshare": "10.6084/m9.figshare.31811689",
+    "arxiv": null,
     "journal": null,
     "version": "v1"
   },
   {
-    "title": "Exact Stokes Multipliers for x²ᴹ Anharmonic Oscillators",
+    "title": "High-Precision Computation and PSLQ Identification of Stokes Multipliers for Anharmonic Oscillators",
     "filename": "Zhou_Stokes-Multipliers-Anharmonic-Oscillators_2026-03-17.pdf",
     "date": "2026-03-17",
     "status": "preprint",
-    "figshare": "10.6084/m9.figshare.31771286",
+    "figshare": "10.6084/m9.figshare.31796332",
+    "arxiv": "2603.27613",
     "journal": null,
     "version": "v1"
   },
   {
-    "title": "Prime Structure of Electromagnetic Constants via PSLQ Algorithm",
+    "title": "The Prime Structure of Electromagnetic Constants",
     "filename": "Zhou_Prime-Structure-Electromagnetic-Constants_2026-03-17.pdf",
     "date": "2026-03-17",
     "status": "preprint",
-    "figshare": "10.6084/m9.figshare.31771283",
+    "figshare": "10.6084/m9.figshare.31758985",
+    "arxiv": null,
     "journal": null,
     "version": "v1"
   },
@@ -59,6 +65,7 @@
     "date": "2026-03-16",
     "status": "preprint",
     "figshare": "10.6084/m9.figshare.31771282",
+    "arxiv": null,
     "journal": null,
     "version": "v1"
   }

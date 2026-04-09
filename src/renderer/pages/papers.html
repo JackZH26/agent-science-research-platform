@@ -1,18 +1,18 @@
 
 <div class="page-header">
   <div>
-    <h1>Papers</h1>
-    <p>Browse agent-written papers organized by research project</p>
+    <h1 data-i18n="papers.title">Papers</h1>
+    <p data-i18n="papers.subtitle">Browse agent-written papers organized by research project</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="refreshPapers()">Refresh</button>
+    <button class="btn btn-outline btn-sm" onclick="refreshPapers()" data-i18n="papers.refresh">Refresh</button>
   </div>
 </div>
 
 <!-- Top tabs: Papers | Authors -->
 <div class="paper-tabs-bar">
-  <button class="paper-main-tab active" data-mtab="papers" onclick="switchMainTab('papers')">Papers</button>
-  <button class="paper-main-tab" data-mtab="authors" onclick="switchMainTab('authors')">Authors</button>
+  <button class="paper-main-tab active" data-mtab="papers" onclick="switchMainTab('papers')" data-i18n="papers.tab_papers">Papers</button>
+  <button class="paper-main-tab" data-mtab="authors" onclick="switchMainTab('authors')" data-i18n="papers.tab_authors">Authors</button>
 </div>
 
 <!-- ============ Papers Tab ============ -->
@@ -21,7 +21,7 @@
     <!-- Left: directory tree -->
     <div class="panel" style="width:260px;min-width:200px;overflow-y:auto;padding:0">
       <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:12px;font-weight:600;color:var(--text-secondary)">PROJECTS</span>
+        <span style="font-size:12px;font-weight:600;color:var(--text-secondary)" data-i18n="papers.projects">PROJECTS</span>
       </div>
       <div id="paper-tree" style="padding:6px 0">
         <div class="loading" style="padding:20px;justify-content:center"><div class="spinner"></div></div>
@@ -31,14 +31,14 @@
     <!-- Right: paper list for selected directory -->
     <div class="panel" style="flex:1;min-width:0;padding:0;display:flex;flex-direction:column">
       <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:14px;font-weight:600;color:var(--text)" id="papers-dir-title">Select a project</span>
+        <span style="font-size:14px;font-weight:600;color:var(--text)" id="papers-dir-title" data-i18n="papers.select_project">Select a project</span>
         <span style="font-size:12px;color:var(--text-tertiary)" id="papers-dir-count"></span>
       </div>
       <div id="papers-file-list" style="flex:1;overflow-y:auto;padding:0">
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);padding:40px">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;opacity:0.4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
-          <p style="font-size:13px">Select a project folder to browse papers</p>
-          <p style="font-size:11px;margin-top:4px">Papers are created by agents during the research pipeline</p>
+          <p style="font-size:13px" data-i18n="papers.select_hint">Select a project folder to browse papers</p>
+          <p style="font-size:11px;margin-top:4px" data-i18n="papers.created_by_agents">Papers are created by agents during the research pipeline</p>
         </div>
       </div>
     </div>
@@ -49,8 +49,8 @@
 <div id="mtab-authors" style="display:none">
   <div class="panel" style="padding:0">
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:14px;font-weight:600;color:var(--text)">Author Profiles</span>
-      <button class="btn btn-primary btn-sm" onclick="showAuthorForm()">+ Add Author</button>
+      <span style="font-size:14px;font-weight:600;color:var(--text)" data-i18n="papers.author_profiles">Author Profiles</span>
+      <button class="btn btn-primary btn-sm" onclick="showAuthorForm()" data-i18n="papers.add_author">+ Add Author</button>
     </div>
     <div id="authors-list" style="padding:0">
       <div class="loading" style="padding:20px;justify-content:center"><div class="spinner"></div></div>
@@ -60,8 +60,8 @@
   <!-- Project Default Authors -->
   <div class="panel mt-2" style="padding:0">
     <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
-      <span style="font-size:14px;font-weight:600;color:var(--text)">Default Authors per Project</span>
-      <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">Select authors to be auto-assigned when agents create papers for each project</div>
+      <span style="font-size:14px;font-weight:600;color:var(--text)" data-i18n="papers.default_authors">Default Authors per Project</span>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px" data-i18n="papers.default_authors_hint">Select authors to be auto-assigned when agents create papers for each project</div>
     </div>
     <div id="project-authors-list" style="padding:12px 16px">
       <div class="loading" style="padding:8px"><div class="spinner"></div></div>
@@ -72,30 +72,30 @@
   <div id="author-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.4);align-items:center;justify-content:center">
     <div class="panel" style="width:440px;max-width:95vw;padding:0">
       <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-        <h3 style="margin:0" id="author-modal-title">Add Author</h3>
+        <h3 style="margin:0" id="author-modal-title" data-i18n="papers.add_author_modal">Add Author</h3>
         <button class="btn btn-ghost btn-sm" onclick="closeAuthorForm()">×</button>
       </div>
       <div style="padding:18px">
         <input type="hidden" id="author-edit-id">
         <div class="form-group">
-          <label>Name <span style="color:var(--error)">*</span></label>
-          <input type="text" id="author-name" placeholder="e.g. John Smith">
+          <label><span data-i18n="papers.author_name">Name</span> <span style="color:var(--error)">*</span></label>
+          <input type="text" id="author-name" data-i18n-placeholder="papers.name_placeholder" placeholder="e.g. John Smith">
         </div>
         <div class="form-group">
-          <label>Title / Honorific</label>
-          <input type="text" id="author-title" placeholder="e.g. Prof., Dr., PhD">
+          <label data-i18n="papers.author_title">Title / Honorific</label>
+          <input type="text" id="author-title" data-i18n-placeholder="papers.title_placeholder" placeholder="e.g. Prof., Dr., PhD">
         </div>
         <div class="form-group">
-          <label>Institution</label>
-          <input type="text" id="author-institution" placeholder="e.g. MIT, University of Cambridge">
+          <label data-i18n="papers.author_institution">Institution</label>
+          <input type="text" id="author-institution" data-i18n-placeholder="papers.institution_placeholder" placeholder="e.g. MIT, University of Cambridge">
         </div>
         <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="author-email" placeholder="e.g. john@university.edu">
+          <label data-i18n="papers.author_email">Email</label>
+          <input type="email" id="author-email" data-i18n-placeholder="papers.email_placeholder" placeholder="e.g. john@university.edu">
         </div>
         <div style="display:flex;gap:8px;margin-top:14px">
-          <button class="btn btn-primary" onclick="saveAuthor()">Save</button>
-          <button class="btn btn-outline" onclick="closeAuthorForm()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveAuthor()" data-i18n="common.save">Save</button>
+          <button class="btn btn-outline" onclick="closeAuthorForm()" data-i18n="common.cancel">Cancel</button>
         </div>
       </div>
     </div>
@@ -246,13 +246,13 @@
 
     if (!selectedDir) return;
     titleEl.textContent = selectedDir.researchLabel;
-    countEl.textContent = selectedDir.papers.length + ' file' + (selectedDir.papers.length !== 1 ? 's' : '');
+    countEl.textContent = t('papers.files_count', { count: selectedDir.papers.length });
 
     if (!selectedDir.papers.length) {
       container.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;color:var(--text-tertiary)">' +
         '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;opacity:0.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
-        '<p style="font-size:13px">No papers yet</p>' +
-        '<p style="font-size:11px;margin-top:4px">Agents will place papers here during the research pipeline</p>' +
+        '<p style="font-size:13px">' + t('papers.no_papers') + '</p>' +
+        '<p style="font-size:11px;margin-top:4px">' + t('papers.created_by_agents') + '</p>' +
       '</div>';
       return;
     }
@@ -266,7 +266,7 @@
           '<div class="paper-file-meta">' + escHtml(p.modified) + ' · ' + ext.toUpperCase() + '</div>' +
         '</div>' +
         '<span class="paper-file-size">' + formatSize(p.size) + '</span>' +
-        '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openExternal(\'' + escHtml(p.path).replace(/'/g, "\\'") + '\')" title="Open in system viewer" style="padding:4px">' + IC.open + '</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openExternal(\'' + escHtml(p.path).replace(/'/g, "\\'") + '\')" title="' + t('papers.open_viewer') + '" style="padding:4px">' + IC.open + '</button>' +
       '</div>';
     }).join('');
   }
@@ -306,7 +306,7 @@
   function renderAuthors() {
     var container = document.getElementById('authors-list');
     if (!allAuthors.length) {
-      container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:13px">No authors configured. Add author profiles to be assigned to papers.</div>';
+      container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:13px">' + t('papers.no_authors') + '</div>';
       return;
     }
     container.innerHTML = allAuthors.map(function(a) {
@@ -330,13 +330,13 @@
   function renderProjectDefaults() {
     var container = document.getElementById('project-authors-list');
     // Show all non-archived researches + global default
-    var projects = [{ id: 'default', label: 'Global Default' }];
+    var projects = [{ id: 'default', label: t('papers.global_default') }];
     allResearches.filter(function(r) { return r.status !== 'archived'; }).forEach(function(r) {
       projects.push({ id: r.id, label: (r.code || r.id) + ' — ' + (r.title || 'Untitled') });
     });
 
     if (!allAuthors.length) {
-      container.innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">Add author profiles first to assign them to projects.</div>';
+      container.innerHTML = '<div style="font-size:12px;color:var(--text-tertiary)">' + t('papers.add_authors_first') + '</div>';
       return;
     }
 
@@ -381,7 +381,7 @@
     document.getElementById('author-title').value = '';
     document.getElementById('author-institution').value = '';
     document.getElementById('author-email').value = '';
-    document.getElementById('author-modal-title').textContent = 'Add Author';
+    document.getElementById('author-modal-title').textContent = t('papers.add_author_modal');
     document.getElementById('author-modal').style.display = 'flex';
   };
 
@@ -393,7 +393,7 @@
     document.getElementById('author-title').value = a.title || '';
     document.getElementById('author-institution').value = a.institution || '';
     document.getElementById('author-email').value = a.email || '';
-    document.getElementById('author-modal-title').textContent = 'Edit Author';
+    document.getElementById('author-modal-title').textContent = t('papers.edit_author_modal');
     document.getElementById('author-modal').style.display = 'flex';
   };
 
@@ -422,7 +422,7 @@
   };
 
   window.deleteAuthor = async function(id) {
-    if (!confirm('Delete this author?')) return;
+    if (!confirm(t('papers.delete_confirm'))) return;
     if (window.asrp && window.asrp.authors) {
       await window.asrp.authors.delete(localStorage.getItem('asrp_token'), id);
       loadAuthors();
@@ -431,5 +431,16 @@
 
   // ===== Init =====
   loadPaperTree();
+  if (typeof translatePage === 'function') translatePage();
+  window.addEventListener('language-changed', function() {
+    if (typeof translatePage === 'function') translatePage();
+    // Re-render dynamic content with new language
+    renderPaperTree();
+    if (selectedDir) renderPaperFiles();
+    if (document.getElementById('mtab-authors').style.display !== 'none') {
+      renderAuthors();
+      renderProjectDefaults();
+    }
+  });
 })();
 </script>

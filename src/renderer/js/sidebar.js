@@ -23,23 +23,26 @@ const Sidebar = (() => {
   };
 
   // Navigation items — Account section removed (now in footer)
-  const navItems = [
-    { section: 'Overview', items: [
-      { route: '/dashboard',   icon: ICONS.dashboard,   label: 'Dashboard',   id: 'nav-dashboard' },
-    ]},
-    { section: 'Research', items: [
-      { route: '/researches',  icon: ICONS.researches,  label: 'Researches',  id: 'nav-researches' },
-      { route: '/papers',      icon: ICONS.papers,      label: 'Papers',       id: 'nav-papers' },
-      { route: '/files',       icon: ICONS.files,       label: 'Files',        id: 'nav-files' },
-      { route: '/audit',       icon: ICONS.audit,       label: 'Log',          id: 'nav-audit' },
-    ]},
-    { section: 'Agents', items: [
-      { route: '/agents',      icon: ICONS.agents,      label: 'Agents',       id: 'nav-agents' },
-    ]},
-    { section: 'System', items: [
-      { route: '/settings',    icon: ICONS.settings,    label: 'Settings',     id: 'nav-settings' },
-    ]},
-  ];
+  // Uses t() for i18n; labels and sections are functions so they pick up the current language.
+  function getNavItems() {
+    return [
+      { section: t('nav.overview'), items: [
+        { route: '/dashboard',   icon: ICONS.dashboard,   label: t('nav.dashboard'),   id: 'nav-dashboard' },
+      ]},
+      { section: t('nav.research'), items: [
+        { route: '/researches',  icon: ICONS.researches,  label: t('nav.researches'),  id: 'nav-researches' },
+        { route: '/papers',      icon: ICONS.papers,      label: t('nav.papers'),       id: 'nav-papers' },
+        { route: '/files',       icon: ICONS.files,       label: t('nav.files'),        id: 'nav-files' },
+        { route: '/audit',       icon: ICONS.audit,       label: t('nav.log'),          id: 'nav-audit' },
+      ]},
+      { section: t('nav.agents_section'), items: [
+        { route: '/agents',      icon: ICONS.agents,      label: t('nav.agents'),       id: 'nav-agents' },
+      ]},
+      { section: t('nav.system'), items: [
+        { route: '/settings',    icon: ICONS.settings,    label: t('nav.settings'),     id: 'nav-settings' },
+      ]},
+    ];
+  }
 
   let currentActive = null;
   let isCollapsed = false;
@@ -59,13 +62,14 @@ const Sidebar = (() => {
           class="sidebar-collapse-btn btn btn-ghost"
           id="sidebar-collapse-btn"
           onclick="Sidebar.toggleCollapse()"
-          title="Toggle sidebar (Ctrl+B)"
+          title="${t('sidebar.toggle')}"
           style="margin-left:auto;padding:2px 5px;font-size:13px;opacity:0.6"
         >‹</button>
       </div>
       <div class="sidebar-nav">
     `;
 
+    const navItems = getNavItems();
     for (const group of navItems) {
       html += `<div class="sidebar-section sidebar-full-only">${group.section}</div>`;
       html += `<div class="sidebar-section sidebar-icon-only" style="display:none">·</div>`;
@@ -93,10 +97,10 @@ const Sidebar = (() => {
         <div class="sidebar-update-inner" id="sidebar-update-inner">
           <div class="sidebar-update-icon" id="sidebar-update-icon">🌿</div>
           <div class="sidebar-update-text sidebar-full-only">
-            <div id="sidebar-update-title" style="font-weight:600;font-size:12px">Update available</div>
-            <div id="sidebar-update-sub" style="font-size:11px;color:var(--text-tertiary);margin-top:1px">Relaunch to apply</div>
+            <div id="sidebar-update-title" style="font-weight:600;font-size:12px">${t('sidebar.update_available')}</div>
+            <div id="sidebar-update-sub" style="font-size:11px;color:var(--text-tertiary);margin-top:1px">${t('sidebar.relaunch_to_apply')}</div>
           </div>
-          <button class="sidebar-update-btn sidebar-full-only" id="sidebar-update-btn" onclick="Sidebar.handleUpdate()">Relaunch</button>
+          <button class="sidebar-update-btn sidebar-full-only" id="sidebar-update-btn" onclick="Sidebar.handleUpdate()">${t('sidebar.relaunch')}</button>
         </div>
         <div class="sidebar-update-progress" id="sidebar-update-progress" style="display:none">
           <div class="sidebar-update-progress-bar" id="sidebar-update-progress-bar"></div>
@@ -110,17 +114,17 @@ const Sidebar = (() => {
         <div class="sidebar-account" id="sidebar-account" onclick="Sidebar.toggleAccountMenu()">
           <div class="sidebar-avatar" id="sidebar-avatar">J</div>
           <div class="sidebar-account-info sidebar-full-only">
-            <div class="sidebar-account-name" id="sidebar-account-name">User</div>
+            <div class="sidebar-account-name" id="sidebar-account-name">${t('sidebar.user')}</div>
             <div class="sidebar-account-plan" id="sidebar-account-plan"></div>
           </div>
           <span class="sidebar-account-arrow sidebar-full-only" id="sidebar-account-arrow">⌃</span>
         </div>
         <div class="sidebar-account-menu" id="sidebar-account-menu" style="display:none">
           <button class="sidebar-account-menu-item" onclick="Router.navigate('/settings');Sidebar.closeAccountMenu()">
-            <span>${svgIcon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>', {w:15})}</span><span>Settings</span>
+            <span>${svgIcon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>', {w:15})}</span><span>${t('sidebar.settings')}</span>
           </button>
           <button class="sidebar-account-menu-item" onclick="Sidebar.handleLogout()">
-            <span>${svgIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>', {w:15})}</span><span>Logout</span>
+            <span>${svgIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>', {w:15})}</span><span>${t('sidebar.logout')}</span>
           </button>
         </div>
       </div>
@@ -196,7 +200,7 @@ const Sidebar = (() => {
         _updateVersion = status.version || '';
         el.style.display = '';
         if (iconEl) iconEl.textContent = '⬇';
-        if (titleEl) titleEl.textContent = 'Downloading v' + _updateVersion;
+        if (titleEl) titleEl.textContent = t('sidebar.downloading', { version: _updateVersion });
         if (subEl) subEl.textContent = (status.progress || 0) + '%';
         if (btnEl) btnEl.style.display = 'none';
         if (progressEl) progressEl.style.display = '';
@@ -207,9 +211,9 @@ const Sidebar = (() => {
         el.style.display = '';
         el.className = 'sidebar-update ready';
         if (iconEl) iconEl.textContent = '🌿';
-        if (titleEl) titleEl.textContent = 'Updated to ' + _updateVersion;
-        if (subEl) subEl.textContent = 'Relaunch to apply';
-        if (btnEl) { btnEl.style.display = ''; btnEl.textContent = 'Relaunch'; }
+        if (titleEl) titleEl.textContent = t('sidebar.updated_to', { version: _updateVersion });
+        if (subEl) subEl.textContent = t('sidebar.relaunch_to_apply');
+        if (btnEl) { btnEl.style.display = ''; btnEl.textContent = t('sidebar.relaunch'); }
         if (progressEl) progressEl.style.display = 'none';
         // Also hide the old bottom bar if present
         const oldBar = document.getElementById('update-bar');
@@ -219,8 +223,8 @@ const Sidebar = (() => {
         _updateVersion = status.version || '';
         el.style.display = '';
         if (iconEl) iconEl.textContent = '🔔';
-        if (titleEl) titleEl.textContent = 'v' + _updateVersion + ' available';
-        if (subEl) subEl.textContent = 'Downloading...';
+        if (titleEl) titleEl.textContent = t('sidebar.version_available', { version: _updateVersion });
+        if (subEl) subEl.textContent = t('sidebar.downloading_short');
         if (btnEl) btnEl.style.display = 'none';
         if (progressEl) progressEl.style.display = 'none';
         // Auto-start download
@@ -238,16 +242,16 @@ const Sidebar = (() => {
   function handleUpdate() {
     if (_updateState === 'ready') {
       const btn = document.getElementById('sidebar-update-btn');
-      if (btn) { btn.textContent = 'Restarting...'; btn.disabled = true; }
+      if (btn) { btn.textContent = t('sidebar.restarting'); btn.disabled = true; }
       if (window.asrp && window.asrp.updater) {
         window.asrp.updater.install().then(function() {
           setTimeout(function() {
-            if (btn) { btn.textContent = 'Relaunch'; btn.disabled = false; }
-            if (window.showToast) window.showToast('Update may have failed. Please restart manually.', 'warning', 8000);
+            if (btn) { btn.textContent = t('sidebar.relaunch'); btn.disabled = false; }
+            if (window.showToast) window.showToast(t('sidebar.update_failed'), 'warning', 8000);
           }, 30000);
         }).catch(function(err) {
-          if (btn) { btn.textContent = 'Relaunch'; btn.disabled = false; }
-          if (window.showToast) window.showToast('Install error: ' + String(err), 'error', 5000);
+          if (btn) { btn.textContent = t('sidebar.relaunch'); btn.disabled = false; }
+          if (window.showToast) window.showToast(t('sidebar.install_error', { error: String(err) }), 'error', 5000);
         });
       }
     }
@@ -290,7 +294,7 @@ const Sidebar = (() => {
 
   function setActive(route) {
     currentActive = route;
-    for (const group of navItems) {
+    for (const group of getNavItems()) {
       for (const item of group.items) {
         const el = document.getElementById(item.id);
         if (!el) continue;
@@ -318,11 +322,18 @@ const Sidebar = (() => {
         toggleCollapse();
       }
     });
+
+    // Re-render sidebar when language changes so labels update
+    window.addEventListener('language-changed', function () {
+      const activeRoute = currentActive;
+      render();
+      if (activeRoute) setActive(activeRoute);
+    });
   }
 
   // P2-fix: Delegate to global Utils.logout (single source of truth)
   function handleLogout() {
-    if (!confirm('Are you sure you want to logout?')) return;
+    if (!confirm(t('sidebar.logout_confirm'))) return;
     closeAccountMenu();
     if (window.Utils && window.Utils.logout) {
       window.Utils.logout();
