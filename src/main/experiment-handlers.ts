@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { getWorkspaceBase, atomicWriteJSON, withAuth } from './ipc-handlers';
+import { bootstrapWorkflow } from './research-workflow';
 
 // ============================================================
 // RESEARCH HANDLERS (channel: 'experiments:*')
@@ -11,7 +12,7 @@ import { getWorkspaceBase, atomicWriteJSON, withAuth } from './ipc-handlers';
 // General (unassigned) folder: {workspace}/general/papers + files
 // ============================================================
 
-interface ResearchRecord {
+export interface ResearchRecord {
   id: string;
   code: string;         // Short code like R001, R002 for cross-referencing
   title: string;
@@ -51,7 +52,7 @@ function nextCode(records: Array<Record<string, unknown>>): string {
   return 'R' + String(max + 1).padStart(3, '0');
 }
 
-function loadResearches(): ResearchRecord[] {
+export function loadResearches(): ResearchRecord[] {
   const filePath = getResearchesFile();
   try {
     if (fs.existsSync(filePath)) {
@@ -337,6 +338,78 @@ export function registerExperimentHandlers(): void {
     ensureResearchDirs(id);
 
     return { success: true, id, code, title: record.title };
+  }));
+
+  // Start a research — register + bootstrap SRW workflow (Phase 0).
+  // This is the new "Start Research" button entry point. It creates the record,
+  // ensures dirs, creates the Discord channel, writes the kickoff inbox to the
+  // Theorist, and posts a human-visible kickoff to the channel.
+  ipcMain.handle('experiments:start-research', withAuth(async (_userId: number, metadata: Record<string, unknown>) => {
+    const records = loadResearches();
+    const id = `EXP-${new Date().toISOString().slice(0, 10)}-${crypto.randomBytes(3).toString('hex')}`;
+    const code = nextCode(records as unknown as Array<Record<string, unknown>>);
+    const record: ResearchRecord = {
+      id,
+      code,
+      title: (typeof metadata.title === 'string') ? metadata.title.trim() : '',
+      abstract: (typeof metadata.abstract === 'string') ? metadata.abstract.trim() : '',
+      tags: Array.isArray(metadata.tags) ? metadata.tags.filter((t): t is string => typeof t === 'string') : [],
+      status: 'running',
+      created: new Date().toISOString().slice(0, 10),
+      score: null,
+      result: null,
+    };
+
+    records.unshift(record);
+    saveResearches(records);
+    ensureResearchDirs(id);
+
+    // Kick off SRW-v1 Phase 0 (bootstrap)
+    try {
+      const boot = await bootstrapWorkflow({
+        id: record.id,
+        code: record.code,
+        title: record.title,
+        abstract: record.abstract,
+        tags: record.tags,
+        status: record.status,
+      });
+      return {
+        success: true,
+        id,
+        code,
+        title: record.title,
+        workflow: {
+          phase: boot.state?.currentPhase || null,
+          discordChannelId: boot.discordChannelId,
+          discordChannelName: boot.discordChannelName,
+          warnings: boot.warnings,
+        },
+      };
+    } catch (err: unknown) {
+      // Workflow bootstrap threw — record is registered but not actually
+      // running. Revert status to 'draft' so the UI doesn't lie, and the
+      // user can click Start again after fixing the underlying issue
+      // (e.g. configuring the Discord bot token).
+      const fresh = loadResearches();
+      const recIdx = fresh.findIndex(r => r.id === id);
+      if (recIdx >= 0) {
+        fresh[recIdx].status = 'draft';
+        saveResearches(fresh);
+      }
+      return {
+        success: true,
+        id,
+        code,
+        title: record.title,
+        workflow: {
+          phase: null,
+          discordChannelId: null,
+          discordChannelName: null,
+          warnings: [`Workflow bootstrap failed: ${String(err)}`],
+        },
+      };
+    }
   }));
 
   // Edit a research record (title, abstract, tags)

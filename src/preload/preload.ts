@@ -179,6 +179,42 @@ const experiments = {
 
   updateStatus: (token: string, expId: string, status: string, extra?: Record<string, unknown>) =>
     invoke<{ success: boolean; error?: string }>('experiments:update-status', token, expId, status, extra),
+
+  // SRW-v1: Create research + run Phase 0 bootstrap in one call.
+  startResearch: (token: string, metadata: Record<string, unknown>) =>
+    invoke<{
+      success: boolean;
+      id?: string;
+      code?: string;
+      title?: string;
+      workflow?: {
+        phase: string | null;
+        discordChannelId: string | null;
+        discordChannelName: string | null;
+        warnings: string[];
+      };
+      error?: string;
+    }>('experiments:start-research', token, metadata),
+};
+
+// ---- Workflows API (SRW-v1) ----
+const workflows = {
+  get: (token: string, researchId: string) =>
+    invoke<{ success: boolean; state?: unknown; error?: string }>('workflows:get', token, researchId),
+  list: (token: string) =>
+    invoke<{ success: boolean; workflows?: unknown[]; error?: string }>('workflows:list', token),
+  pause: (token: string, researchId: string) =>
+    invoke<{ success: boolean; state?: unknown; error?: string }>('workflows:pause', token, researchId),
+  resume: (token: string, researchId: string) =>
+    invoke<{ success: boolean; state?: unknown; error?: string }>('workflows:resume', token, researchId),
+  stop: (token: string, researchId: string) =>
+    invoke<{ success: boolean; state?: unknown; error?: string }>('workflows:stop', token, researchId),
+  markComplete: (token: string, researchId: string) =>
+    invoke<{ success: boolean; state?: unknown; error?: string }>('workflows:mark-complete', token, researchId),
+  start: (token: string, researchId: string) =>
+    invoke<{ success: boolean; state?: unknown; warnings?: string[]; error?: string }>('workflows:start', token, researchId),
+  tickNow: (token: string) =>
+    invoke<{ success: boolean; error?: string }>('workflows:tick-now', token),
 };
 
 // ---- Audit API ----
@@ -446,6 +482,11 @@ const discord = {
     invoke<{ success: boolean; channelId?: string; channelName?: string; error?: string }>(
       'discord:create-channel', token, channelName
     ),
+
+  postMessage: (token: string, channelId: string, content: string) =>
+    invoke<{ success: boolean; messageId?: string; error?: string }>(
+      'discord:post-message', token, channelId, content
+    ),
 };
 
 // ---- OpenClaw Gateway API ----
@@ -517,6 +558,7 @@ contextBridge.exposeInMainWorld('asrp', {
   papers,
   authors,
   experiments,
+  workflows,
   audit,
   settings,
   auth,

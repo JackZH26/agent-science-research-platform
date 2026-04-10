@@ -13,6 +13,8 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { registerIpcHandlers } from './ipc-handlers';
+import { migrateExistingResearches } from './workflow-migrator';
+import { startWorkflowScheduler, stopWorkflowScheduler } from './workflow-scheduler';
 import * as openclawBridge from './openclaw-bridge';
 import { autoUpdater } from './auto-updater';
 import { openclawManager } from './openclaw-manager';
@@ -375,6 +377,17 @@ app.whenReady().then(() => {
   createAppMenu();
   registerIpcHandlers();
 
+  // SRW-v1: Backfill workflow state for any existing researches that
+  // don't yet have one. Runs once per startup, non-blocking. Migrated
+  // workflows are marked so they don't auto-dispatch until user opts in.
+  migrateExistingResearches().catch(err => {
+    console.error('[workflow-migrator] startup migration failed:', err);
+  });
+
+  // SRW-v1: Start the phase scheduler. It ticks every 5 minutes and
+  // advances workflows based on on-disk deliverables agents have written.
+  startWorkflowScheduler();
+
   // T-083: Initialize auto-updater
   autoUpdater.initialize(() => mainWindow);
 
@@ -394,6 +407,9 @@ app.whenReady().then(() => {
       clearInterval(statusPollInterval);
       statusPollInterval = null;
     }
+
+    // Stop SRW workflow scheduler
+    stopWorkflowScheduler();
 
     // Stop all OpenClaw gateway child processes
     openclawManager.stopAll();
@@ -454,6 +470,8 @@ app.on('before-quit', () => {
   isQuitting = true;
   // Issue #32: Clear polling interval to prevent leaks
   if (statusPollInterval) clearInterval(statusPollInterval);
+  // Stop SRW workflow scheduler so its interval doesn't hold the event loop
+  stopWorkflowScheduler();
   // Stop all OpenClaw gateways on app quit
   openclawManager.stopAll();
 });

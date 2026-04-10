@@ -4,6 +4,11 @@ import * as fs from 'fs';
 import * as openclawBridge from './openclaw-bridge';
 import * as safeKeyStore from './safe-key-store';
 import {
+  discordGet,
+  createResearchChannel,
+  postMessageToChannel,
+} from './discord-api';
+import {
   RESOURCES_PATH,
   isValidAgentName,
   isAllowedChatRole,
@@ -407,38 +412,7 @@ export function registerAssistantHandlers(): void {
 // ============================================================
 
 export function registerDiscordHandlers(): void {
-   
-  const https = require('https') as typeof import('https');
-
-  // Helper: make a GET request to the Discord API with a Bot token
-  const discordGet = (apiPath: string, token: string): Promise<unknown> => {
-    return new Promise((resolve, reject) => {
-      const req = https.request(
-        {
-          hostname: 'discord.com',
-          path: `/api/v10${apiPath}`,
-          method: 'GET',
-          timeout: 15000, // 15s timeout
-          headers: {
-            Authorization: `Bot ${token}`,
-            'Content-Type': 'application/json',
-            'User-Agent': 'ASRP-Desktop (https://asrp.jzis.org, 1.0)',
-          },
-        },
-        (res: import('http').IncomingMessage) => {
-          let data = '';
-          res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-          res.on('end', () => {
-            try { resolve(JSON.parse(data)); }
-            catch { resolve({ error: 'Invalid JSON response from Discord API' }); }
-          });
-        },
-      );
-      req.on('timeout', () => { req.destroy(); reject(new Error('Discord API request timed out (15s)')); });
-      req.on('error', reject);
-      req.end();
-    });
-  };
+  // Low-level REST helpers are provided by ./discord-api.ts and imported above.
 
   // Validate a Discord bot token by calling GET /users/@me
   ipcMain.handle('discord:validate-token', async (_event, token: string) => {
@@ -500,104 +474,21 @@ export function registerDiscordHandlers(): void {
     }
   });
 
-  // Helper: make a POST request to the Discord API with a Bot token
-  const discordPost = (apiPath: string, token: string, body: Record<string, unknown>): Promise<unknown> => {
-    return new Promise((resolve, reject) => {
-      const bodyStr = JSON.stringify(body);
-      const req = https.request(
-        {
-          hostname: 'discord.com',
-          path: `/api/v10${apiPath}`,
-          method: 'POST',
-          timeout: 15000, // 15s timeout
-          headers: {
-            Authorization: `Bot ${token}`,
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(bodyStr),
-            'User-Agent': 'ASRP-Desktop (https://asrp.jzis.org, 1.0)',
-          },
-        },
-        (res: import('http').IncomingMessage) => {
-          let data = '';
-          res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
-          res.on('end', () => {
-            try { resolve(JSON.parse(data)); }
-            catch { resolve({ error: 'Invalid JSON response from Discord API' }); }
-          });
-        },
-      );
-      req.on('timeout', () => { req.destroy(); reject(new Error('Discord API request timed out (15s)')); });
-      req.on('error', reject);
-      req.write(bodyStr);
-      req.end();
-    });
-  };
-
   // Create a text channel in a guild for a new research
   // P0-fix: Requires auth — creates Discord resources
   ipcMain.handle('discord:create-channel', withAuth(async (_userId: number, channelName: string) => {
-    try {
-      // Read guildId and a bot token from settings
-      const settingsFile = path.join(app.getPath('userData'), 'settings.json');
-      if (!fs.existsSync(settingsFile)) {
-        return { success: false, error: 'Settings not found' };
-      }
-      const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
-      const guildId = settings.guildId as string;
-      if (!guildId) {
-        return { success: false, error: 'Guild ID not configured' };
-      }
+    return await createResearchChannel(channelName);
+  }));
 
-      // Get a bot token from the first agent config that has one
-      const configs = settings.agentConfigs as Array<{ discordToken?: string }> | undefined;
-      let botToken: string | null = null;
-      if (Array.isArray(configs)) {
-        for (const cfg of configs) {
-          if (cfg.discordToken) {
-            // Token is stored encrypted in safeKeyStore — read from there
-            botToken = cfg.discordToken;
-            break;
-          }
-        }
-      }
-      // Also try safeKeyStore for the first agent's token
-      if (!botToken) {
-        const stored = safeKeyStore.getKey('discordBotToken');
-        if (stored) botToken = stored;
-      }
-      if (!botToken) {
-        return { success: false, error: 'No Discord bot token available' };
-      }
-
-      // Sanitize channel name for Discord (lowercase, alphanumeric + hyphens, max 100 chars)
-      const safeName = channelName
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .slice(0, 100);
-
-      const data = await discordPost(
-        `/guilds/${encodeURIComponent(guildId)}/channels`,
-        botToken,
-        {
-          name: safeName,
-          type: 0, // text channel
-          topic: `Research: ${channelName}`,
-        }
-      ) as Record<string, unknown>;
-
-      if (data['id']) {
-        return {
-          success: true,
-          channelId: data['id'] as string,
-          channelName: data['name'] as string,
-        };
-      }
-      return { success: false, error: (data['message'] as string) || 'Failed to create channel' };
-    } catch (err: unknown) {
-      return { success: false, error: String(err) };
+  // Post a message to a Discord channel. Requires auth — sends to external service.
+  ipcMain.handle('discord:post-message', withAuth(async (_userId: number, channelId: string, content: string) => {
+    if (typeof channelId !== 'string' || !channelId) {
+      return { success: false, error: 'Missing channelId' };
     }
+    if (typeof content !== 'string' || !content.trim()) {
+      return { success: false, error: 'Empty content' };
+    }
+    return await postMessageToChannel(channelId, content);
   }));
 
   // Open a Discord URL in the system default browser (restricted to discord.com only)

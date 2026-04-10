@@ -1,0 +1,301 @@
+<div class="page-header">
+  <div>
+    <h1 data-i18n="workflows.title">Workflow Management</h1>
+    <p data-i18n="workflows.subtitle">Standard Research Workflow (SRW-v1) — all researches</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="wfTickNow()" data-i18n="workflows.force_refresh">Force Refresh</button>
+    <button class="btn btn-outline btn-sm" onclick="wfLoad()" data-i18n="common.refresh">Refresh</button>
+  </div>
+</div>
+
+<!-- Stats row -->
+<div class="panel mb-2" style="padding:12px 14px">
+  <div id="wf-stats" style="display:flex;gap:24px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary)">
+    <span data-i18n="workflows.loading">Loading…</span>
+  </div>
+</div>
+
+<!-- Filter chips -->
+<div class="panel mb-2" style="padding:10px 14px">
+  <div style="display:flex;gap:6px;flex-wrap:wrap" id="wf-filter-chips">
+    <button class="log-chip active" data-filter="all" onclick="wfSetFilter('all')" data-i18n="workflows.filter_all">All</button>
+    <button class="log-chip" data-filter="running" onclick="wfSetFilter('running')" data-i18n="workflows.filter_running">Running</button>
+    <button class="log-chip" data-filter="paused" onclick="wfSetFilter('paused')" data-i18n="workflows.filter_paused">Paused</button>
+    <button class="log-chip" data-filter="migrated" onclick="wfSetFilter('migrated')" data-i18n="workflows.filter_migrated">Migrated</button>
+    <button class="log-chip" data-filter="stopped" onclick="wfSetFilter('stopped')" data-i18n="workflows.filter_stopped">Stopped</button>
+    <button class="log-chip" data-filter="completed" onclick="wfSetFilter('completed')" data-i18n="workflows.filter_completed">Completed</button>
+  </div>
+</div>
+
+<!-- Workflow list -->
+<div id="wf-list" class="panel" style="padding:0">
+  <div style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:13px" data-i18n="workflows.loading">Loading…</div>
+</div>
+
+<style>
+.wf-row {
+  display: grid;
+  grid-template-columns: 70px minmax(180px, 1fr) 180px 120px auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light, #f0f0f0);
+  font-size: 13px;
+}
+.wf-row:last-child { border-bottom: none; }
+.wf-row:hover { background: var(--bg-secondary, #fafafa); }
+.wf-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.wf-title {
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-title-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  margin-top: 2px;
+}
+.wf-phase-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-tertiary, #f0f0f0);
+  color: var(--text-secondary);
+}
+.wf-phase-pill.active { background: #dbeafe; color: #1e40af; }
+.wf-phase-pill.paused { background: #fef3c7; color: #92400e; }
+.wf-phase-pill.stopped { background: #fee2e2; color: #991b1b; }
+.wf-phase-pill.completed { background: #d1fae5; color: #065f46; }
+.wf-phase-pill.migrated { background: #e5e7eb; color: #4b5563; }
+.wf-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.wf-actions button {
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text);
+}
+.wf-actions button:hover { background: var(--bg-tertiary, #e8e8e8); }
+.wf-actions button.danger { color: #991b1b; border-color: #fecaca; }
+.wf-actions button.danger:hover { background: #fee2e2; }
+</style>
+
+<script>
+(function() {
+  var allWorkflows = [];
+  var researchMap = {};
+  var activeFilter = 'all';
+
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function escAttr(s) { return escHtml(s); }
+  function tSafe(k, f) { try { return window.t ? window.t(k) || f : f; } catch { return f; } }
+
+  function phasePillClass(state) {
+    if (state.migratedFromLegacy) return 'migrated';
+    if (state.currentPhase === 'completed') return 'completed';
+    if (state.currentPhase === 'stopped') return 'stopped';
+    if (state.paused) return 'paused';
+    return 'active';
+  }
+  function phaseLabel(state) {
+    if (state.migratedFromLegacy) return tSafe('workflows.status_migrated', 'Migrated');
+    if (state.currentPhase === 'completed') return tSafe('workflows.status_completed', 'Completed');
+    if (state.currentPhase === 'stopped') return tSafe('workflows.status_stopped', 'Stopped');
+    return String(state.currentPhase || '').replace(/phase-\d-/, '').replace(/-/g, ' ');
+  }
+
+  function matchFilter(wf) {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'migrated') return !!wf.migratedFromLegacy;
+    if (activeFilter === 'paused') return wf.paused && wf.currentPhase !== 'completed' && wf.currentPhase !== 'stopped';
+    if (activeFilter === 'stopped') return wf.currentPhase === 'stopped';
+    if (activeFilter === 'completed') return wf.currentPhase === 'completed';
+    if (activeFilter === 'running') {
+      return !wf.paused && !wf.migratedFromLegacy &&
+             wf.currentPhase !== 'completed' && wf.currentPhase !== 'stopped';
+    }
+    return true;
+  }
+
+  function renderStats() {
+    var el = document.getElementById('wf-stats');
+    if (!el) return;
+    var total = allWorkflows.length;
+    var running = allWorkflows.filter(w => !w.paused && !w.migratedFromLegacy &&
+      w.currentPhase !== 'completed' && w.currentPhase !== 'stopped').length;
+    var paused = allWorkflows.filter(w => w.paused && w.currentPhase !== 'completed' && w.currentPhase !== 'stopped').length;
+    var migrated = allWorkflows.filter(w => w.migratedFromLegacy).length;
+    var done = allWorkflows.filter(w => w.currentPhase === 'completed').length;
+    var stopped = allWorkflows.filter(w => w.currentPhase === 'stopped').length;
+    el.innerHTML =
+      '<span><strong style="color:var(--text)">' + total + '</strong> ' + escHtml(tSafe('workflows.stat_total', 'total')) + '</span>' +
+      '<span style="color:#1e40af"><strong>' + running + '</strong> ' + escHtml(tSafe('workflows.filter_running', 'running')) + '</span>' +
+      '<span style="color:#92400e"><strong>' + paused + '</strong> ' + escHtml(tSafe('workflows.filter_paused', 'paused')) + '</span>' +
+      '<span style="color:#4b5563"><strong>' + migrated + '</strong> ' + escHtml(tSafe('workflows.filter_migrated', 'migrated')) + '</span>' +
+      '<span style="color:#065f46"><strong>' + done + '</strong> ' + escHtml(tSafe('workflows.filter_completed', 'completed')) + '</span>' +
+      '<span style="color:#991b1b"><strong>' + stopped + '</strong> ' + escHtml(tSafe('workflows.filter_stopped', 'stopped')) + '</span>';
+  }
+
+  function renderList() {
+    var el = document.getElementById('wf-list');
+    if (!el) return;
+    var filtered = allWorkflows.filter(matchFilter);
+    if (filtered.length === 0) {
+      el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-tertiary);font-size:13px">' +
+        escHtml(tSafe('workflows.empty', 'No workflows match this filter.')) + '</div>';
+      return;
+    }
+    var rows = filtered.map(function(wf) {
+      var rec = researchMap[wf.researchId] || {};
+      var code = rec.code || '';
+      var title = rec.title || wf.researchId;
+      var pill = phasePillClass(wf);
+      var label = phaseLabel(wf);
+      var id = wf.researchId;
+      var actions = [];
+      var isTerminal = wf.currentPhase === 'completed' || wf.currentPhase === 'stopped';
+      if (wf.discordChannelId) {
+        actions.push('<button onclick="wfOpenDiscord(\'' + escAttr(wf.discordChannelId) + '\',\'' + escAttr(wf.discordGuildId || '') + '\')" title="' + escAttr(tSafe('researches.workflow_open_discord','Open Discord Channel')) + '">💬</button>');
+      }
+      if (wf.migratedFromLegacy && !isTerminal) {
+        actions.push('<button onclick="wfAction(\'' + escAttr(id) + '\',\'start\')">' + escHtml(tSafe('workflows.properly_start','Start')) + '</button>');
+      }
+      if (!isTerminal && !wf.migratedFromLegacy) {
+        if (wf.paused) {
+          actions.push('<button onclick="wfAction(\'' + escAttr(id) + '\',\'resume\')">▶</button>');
+        } else {
+          actions.push('<button onclick="wfAction(\'' + escAttr(id) + '\',\'pause\')">⏸</button>');
+        }
+        actions.push('<button class="danger" onclick="wfAction(\'' + escAttr(id) + '\',\'stop\')">⏹</button>');
+        actions.push('<button onclick="wfAction(\'' + escAttr(id) + '\',\'mark-complete\')">✓</button>');
+      }
+      actions.push('<button onclick="wfOpenResearch(\'' + escAttr(id) + '\')" title="' + escAttr(tSafe('workflows.open_research','Open research')) + '">→</button>');
+      return '<div class="wf-row">' +
+        '<div class="wf-code">' + escHtml(code) + '</div>' +
+        '<div><div class="wf-title">' + escHtml(title) + '</div><div class="wf-title-sub">' + escHtml(id) + '</div></div>' +
+        '<div><span class="wf-phase-pill ' + pill + '">' + escHtml(label) + '</span>' +
+          (wf.paused && !isTerminal && !wf.migratedFromLegacy ? ' <span style="font-size:10px;color:var(--text-tertiary)">· paused</span>' : '') +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono)">' + escHtml((wf.lastUpdatedAt||'').slice(0,10)) + '</div>' +
+        '<div class="wf-actions">' + actions.join('') + '</div>' +
+      '</div>';
+    }).join('');
+    el.innerHTML = rows;
+  }
+
+  window.wfSetFilter = function(f) {
+    activeFilter = f;
+    document.querySelectorAll('#wf-filter-chips .log-chip').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-filter') === f);
+    });
+    renderList();
+  };
+
+  window.wfLoad = async function() {
+    if (!window.asrp || !window.asrp.workflows || !window.asrp.experiments) return;
+    var token = localStorage.getItem('asrp_token') || '';
+    try {
+      var exp = await window.asrp.experiments.list();
+      researchMap = {};
+      (exp.experiments || []).forEach(function(r) { researchMap[r.id] = r; });
+      var res = await window.asrp.workflows.list(token);
+      allWorkflows = (res && res.workflows) || [];
+      // Sort: running first, then paused, then migrated, then terminal
+      allWorkflows.sort(function(a, b) {
+        function rank(w) {
+          if (w.currentPhase === 'completed') return 5;
+          if (w.currentPhase === 'stopped') return 4;
+          if (w.migratedFromLegacy) return 3;
+          if (w.paused) return 2;
+          return 1;
+        }
+        var ra = rank(a), rb = rank(b);
+        if (ra !== rb) return ra - rb;
+        return (b.lastUpdatedAt || '').localeCompare(a.lastUpdatedAt || '');
+      });
+      renderStats();
+      renderList();
+    } catch (err) {
+      console.warn('Failed to load workflows:', err);
+      var el = document.getElementById('wf-list');
+      if (el) el.innerHTML = '<div style="padding:24px;color:#991b1b">' + escHtml(String(err)) + '</div>';
+    }
+  };
+
+  window.wfAction = async function(id, action) {
+    if (!window.asrp || !window.asrp.workflows) return;
+    var token = localStorage.getItem('asrp_token') || '';
+    var wf = window.asrp.workflows;
+    var fn = { pause: wf.pause, resume: wf.resume, stop: wf.stop, 'mark-complete': wf.markComplete, start: wf.start }[action];
+    if (!fn) return;
+    if (action === 'stop' || action === 'mark-complete') {
+      var msg = action === 'stop'
+        ? tSafe('workflows.confirm_stop', 'Stop this workflow? Agents will no longer dispatch tasks for it.')
+        : tSafe('workflows.confirm_complete', 'Mark this workflow as complete?');
+      if (!confirm(msg)) return;
+    }
+    try {
+      var res = await fn(token, id);
+      if (res && !res.success) {
+        alert(res.error || 'Action failed');
+        return;
+      }
+      await wfLoad();
+    } catch (err) {
+      alert(String(err));
+    }
+  };
+
+  window.wfTickNow = async function() {
+    if (!window.asrp || !window.asrp.workflows || !window.asrp.workflows.tickNow) return;
+    var token = localStorage.getItem('asrp_token') || '';
+    try {
+      await window.asrp.workflows.tickNow(token);
+      if (window.Toast) window.Toast.show(tSafe('workflows.tick_done','Scheduler tick complete'), 'success', 2000);
+      await wfLoad();
+    } catch (err) {
+      alert(String(err));
+    }
+  };
+
+  window.wfOpenDiscord = function(channelId, guildId) {
+    if (!channelId || !window.asrp || !window.asrp.discord || !window.asrp.discord.openUrl) return;
+    var url = guildId
+      ? 'https://discord.com/channels/' + encodeURIComponent(guildId) + '/' + encodeURIComponent(channelId)
+      : 'https://discord.com/channels/@me/' + encodeURIComponent(channelId);
+    window.asrp.discord.openUrl(url);
+  };
+
+  window.wfOpenResearch = function(id) {
+    if (window.Router) {
+      window.Router.navigate('/researches');
+      // Give the page a moment to load then try to open detail
+      setTimeout(function() {
+        if (typeof window.openExpDetail === 'function') {
+          window.openExpDetail(id);
+        }
+      }, 300);
+    }
+  };
+
+  // Boot
+  wfLoad();
+})();
+</script>

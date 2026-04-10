@@ -343,6 +343,53 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
 
     const isArchived = e.status === 'archived';
 
+    // ---- Workflow (SRW-v1) ----
+    let workflowHtml = '';
+    try {
+      if (window.asrp && window.asrp.workflows && window.asrp.workflows.get) {
+        const tk = localStorage.getItem('asrp_token') || '';
+        const wfRes = await window.asrp.workflows.get(tk, e.id);
+        if (wfRes && wfRes.success && wfRes.state) {
+          const st = wfRes.state;
+          const phaseLabel = String(st.currentPhase || '').replace(/-/g, ' ');
+          const pausedBadge = st.paused ? ` · <span style="color:var(--warning,#d97706)">paused</span>` : '';
+          const migratedBadge = st.migratedFromLegacy ? ` · <span style="color:var(--text-tertiary)">migrated</span>` : '';
+          const discordBtn = st.discordChannelId
+            ? `<button class="detail-action-btn" onclick="openDiscordChannel('${escAttr(String(st.discordChannelId))}','${escAttr(String(st.discordGuildId || ''))}')">${escHtml(t('researches.workflow_open_discord') || 'Open Discord Channel')}</button>`
+            : '';
+          const pauseResumeBtn = st.paused
+            ? `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','resume')">${escHtml(t('researches.workflow_resume') || 'Resume')}</button>`
+            : `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','pause')">${escHtml(t('researches.workflow_pause') || 'Pause')}</button>`;
+          const isTerminal = st.currentPhase === 'completed' || st.currentPhase === 'stopped';
+          workflowHtml = `
+            <div class="panel" style="margin-bottom:12px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
+                <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase">${escHtml(t('researches.workflow_tab') || 'Workflow')} · ${escHtml(String(st.workflowVersion || 'SRW-v1'))}</div>
+                <div style="font-size:11px;color:var(--text-tertiary)">${escHtml(t('researches.workflow_phase') || 'Phase')}: <strong style="color:var(--text)">${escHtml(phaseLabel)}</strong>${pausedBadge}${migratedBadge}</div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+                ${discordBtn}
+                ${isTerminal ? '' : pauseResumeBtn}
+                ${isTerminal ? '' : `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','stop')">${escHtml(t('researches.workflow_stop') || 'Stop')}</button>`}
+                ${isTerminal ? '' : `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','mark-complete')">${escHtml(t('researches.workflow_mark_complete') || 'Mark Complete')}</button>`}
+                ${st.migratedFromLegacy ? `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','start')">${escHtml(t('researches.workflow_properly_start') || 'Properly Start')}</button>` : ''}
+              </div>
+            </div>`;
+        } else {
+          workflowHtml = `
+            <div class="panel" style="margin-bottom:12px">
+              <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px">${escHtml(t('researches.workflow_tab') || 'Workflow')}</div>
+              <div style="font-size:12px;color:var(--text-tertiary)">${escHtml(t('researches.workflow_not_started') || 'No workflow yet.')}</div>
+              <div style="margin-top:8px">
+                <button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','start')">${escHtml(t('researches.start_research_btn') || 'Start Research')}</button>
+              </div>
+            </div>`;
+        }
+      }
+    } catch (wfErr) {
+      console.warn('Failed to load workflow state:', wfErr);
+    }
+
     // Load discoveries and papers concurrently
     let discoveriesHtml = '';
     let papersHtml = '';
@@ -428,6 +475,7 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
         <div style="font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap">${escHtml(e.abstract||'No abstract provided.')}</div>
         ${scoreDisplay}
       </div>
+      ${workflowHtml}
       ${discoveriesHtml}
       ${papersHtml}
       ${e.result ? `<div class="panel" style="margin-bottom:12px">
@@ -446,6 +494,45 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
   window.backToExpList = function() {
     document.getElementById('exp-detail-view').style.display = 'none';
     document.getElementById('exp-list-view').style.display = 'block';
+  };
+
+  // ---- Workflow actions (SRW-v1) ----
+  window.workflowAction = async function(id, action) {
+    if (!window.asrp || !window.asrp.workflows) return;
+    const tk = localStorage.getItem('asrp_token') || '';
+    const wf = window.asrp.workflows;
+    let res;
+    try {
+      if (action === 'pause') res = await wf.pause(tk, id);
+      else if (action === 'resume') res = await wf.resume(tk, id);
+      else if (action === 'stop') res = await wf.stop(tk, id);
+      else if (action === 'mark-complete') res = await wf.markComplete(tk, id);
+      else if (action === 'start') res = await wf.start(tk, id);
+      else return;
+    } catch (err) {
+      console.warn('Workflow action failed:', err);
+      return;
+    }
+    if (res && !res.success) {
+      alert(res.error || 'Workflow action failed');
+      return;
+    }
+    // Re-render detail view
+    window.openExpDetail(id);
+  };
+
+  window.openDiscordChannel = function(channelId, guildId) {
+    if (!channelId || !window.asrp || !window.asrp.discord) return;
+    // Guild text channels must be reached via /channels/{guildId}/{channelId}.
+    // Fall back to @me/ only if we somehow have no guildId (very old state).
+    const url = guildId
+      ? `https://discord.com/channels/${encodeURIComponent(guildId)}/${encodeURIComponent(channelId)}`
+      : `https://discord.com/channels/@me/${encodeURIComponent(channelId)}`;
+    if (window.asrp.discord.openUrl) {
+      window.asrp.discord.openUrl(url);
+    } else {
+      window.open(url, '_blank');
+    }
   };
 
   // ---- Archive / Restore ----
@@ -546,27 +633,25 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
 
     if (window.asrp) {
       const token = localStorage.getItem('asrp_token');
-      const result = await window.asrp.experiments.register(token, title, metadata);
+      // SRW-v1: single call creates the record + runs Phase 0 (Discord channel,
+      // kickoff inbox to Theorist, workflow state.json).
+      const result = window.asrp.experiments.startResearch
+        ? await window.asrp.experiments.startResearch(token, metadata)
+        : await window.asrp.experiments.register(token, title, metadata);
       if (result.success) {
-        // Create Discord channel named after the research title
-        try {
-          if (window.asrp.discord && window.asrp.discord.createChannel) {
-            const tk = localStorage.getItem('asrp_token') || '';
-            const chResult = await window.asrp.discord.createChannel(tk, title);
-            if (chResult.success) {
-              console.log('Discord channel created:', chResult.channelName);
-            } else {
-              console.warn('Discord channel creation failed:', chResult.error);
-            }
+        if (result.workflow) {
+          if (result.workflow.discordChannelName) {
+            console.log('[SRW] Discord channel created:', result.workflow.discordChannelName);
           }
-        } catch (chErr) {
-          console.warn('Discord channel creation error:', chErr);
+          if (Array.isArray(result.workflow.warnings) && result.workflow.warnings.length) {
+            console.warn('[SRW] Bootstrap warnings:', result.workflow.warnings);
+          }
         }
         alertEl.textContent = t('researches.registered_success');
         alertEl.className = 'alert success show';
         allResearches.unshift({
           id: result.id, code: result.code || '', title, abstract, tags,
-          status: 'registered',
+          status: 'running',
           created: new Date().toISOString().slice(0,10),
           score: null, result: null,
           source: pendingChallengeSource || null,
