@@ -6,20 +6,24 @@
 </div>
 
 <!-- Discipline Tabs -->
-<div class="ch-tabs" id="ch-tabs">
-  <button class="ch-tab active" data-discipline="mathematics" onclick="switchDiscipline('mathematics')">
+<div class="ch-tabs" id="ch-tabs" role="tablist" aria-label="Disciplines">
+  <button class="ch-tab active" data-discipline="mathematics" role="tab" aria-selected="true" tabindex="0"
+    onclick="switchDiscipline('mathematics')" onkeydown="onChTabKey(event,'mathematics')">
     <span data-i18n="challenge.tab_mathematics">Mathematics</span>
     <span class="ch-count-badge" id="ch-count-mathematics">—</span>
   </button>
-  <button class="ch-tab" data-discipline="physics" onclick="switchDiscipline('physics')">
+  <button class="ch-tab" data-discipline="physics" role="tab" aria-selected="false" tabindex="-1"
+    onclick="switchDiscipline('physics')" onkeydown="onChTabKey(event,'physics')">
     <span data-i18n="challenge.tab_physics">Physics</span>
     <span class="ch-count-badge" id="ch-count-physics">—</span>
   </button>
-  <button class="ch-tab" data-discipline="chemistry" onclick="switchDiscipline('chemistry')">
+  <button class="ch-tab" data-discipline="chemistry" role="tab" aria-selected="false" tabindex="-1"
+    onclick="switchDiscipline('chemistry')" onkeydown="onChTabKey(event,'chemistry')">
     <span data-i18n="challenge.tab_chemistry">Chemistry</span>
     <span class="ch-count-badge" id="ch-count-chemistry">—</span>
   </button>
-  <button class="ch-tab" data-discipline="life-sciences" onclick="switchDiscipline('life-sciences')">
+  <button class="ch-tab" data-discipline="life-sciences" role="tab" aria-selected="false" tabindex="-1"
+    onclick="switchDiscipline('life-sciences')" onkeydown="onChTabKey(event,'life-sciences')">
     <span data-i18n="challenge.tab_life_sciences">Life Sciences</span>
     <span class="ch-count-badge" id="ch-count-life-sciences">—</span>
   </button>
@@ -28,7 +32,7 @@
 <!-- Filter Bar -->
 <div class="ch-filter-bar">
   <div class="ch-filter-group">
-    <label class="ch-filter-label" data-i18n="challenge.filter_difficulty">Difficulty</label>
+    <label class="ch-filter-label" for="ch-difficulty" data-i18n="challenge.filter_difficulty">Difficulty</label>
     <select id="ch-difficulty" class="ch-select" onchange="renderProblems()">
       <option value="all" data-i18n="challenge.difficulty_all">All</option>
       <option value="1" data-i18n="challenge.difficulty_1">⭐ Attack path clear</option>
@@ -40,7 +44,8 @@
   </div>
   <div class="ch-filter-group ch-filter-search">
     <input type="text" id="ch-search" class="ch-input" data-i18n-placeholder="challenge.search_placeholder"
-      placeholder="Search by title, field, or tag..." oninput="renderProblems()">
+      placeholder="Search by title, field, or tag..." oninput="onChSearchInput()"
+      aria-label="Search challenges">
   </div>
   <label class="ch-filter-checkbox">
     <input type="checkbox" id="ch-asrp-only" onchange="renderProblems()">
@@ -49,7 +54,7 @@
 </div>
 
 <!-- Problem list -->
-<div id="ch-list" class="ch-list">
+<div id="ch-list" class="ch-list" role="list" aria-live="polite" aria-busy="true">
   <div class="loading" style="text-align:center;padding:40px"><div class="spinner"></div>
     <span data-i18n="challenge.loading">Loading problems...</span></div>
 </div>
@@ -82,10 +87,15 @@
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
+.ch-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
 .ch-count-badge {
   padding: 1px 8px;
   border-radius: 10px;
-  background: var(--bg-tertiary, #f0f0f0);
+  background: var(--accent-light, rgba(74, 140, 106, 0.1));
   color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 600;
@@ -148,6 +158,11 @@
   padding: 10px 14px;
   cursor: pointer;
   user-select: none;
+  outline: none;
+}
+.ch-header:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: 6px;
 }
 .ch-arrow {
   flex-shrink: 0;
@@ -198,7 +213,7 @@
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 10px;
-  background: var(--bg-tertiary, #f0f0f0);
+  background: var(--accent-light, rgba(74, 140, 106, 0.08));
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -259,7 +274,7 @@
   font-size: 10px;
   padding: 2px 7px;
   border-radius: 10px;
-  background: var(--bg-tertiary, #f0f0f0);
+  background: var(--accent-light, rgba(74, 140, 106, 0.08));
   color: var(--text-secondary);
 }
 .ch-actions {
@@ -277,14 +292,45 @@
 
 <script>
 (function() {
+  var DISCIPLINES = ['mathematics', 'physics', 'chemistry', 'life-sciences'];
   var currentDiscipline = 'mathematics';
-  var problemsCache = {};  // discipline -> array
+  var problemsCache = {};  // discipline -> array | null (null = load failed)
   var expandedIds = new Set();
+  var renderToken = 0;     // race guard for async renders
+  var searchDebounceTimer = null;
 
-  function escHtml(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // ---------- helpers ----------
+  function tSafe(key, fallback) {
+    if (typeof window.t === 'function') {
+      try {
+        var v = window.t(key);
+        if (v && v !== key) return v;
+      } catch (e) { /* ignore */ }
+    }
+    return (fallback != null) ? fallback : key;
   }
 
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function getProblemById(id) {
+    var arr = problemsCache[currentDiscipline];
+    if (!arr) return null;
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].id === id) return arr[i];
+    }
+    return null;
+  }
+
+  function starsFor(n) {
+    var s = '';
+    for (var i = 0; i < n; i++) s += '⭐';
+    return s;
+  }
+
+  // ---------- data loading ----------
   async function loadDiscipline(disc) {
     if (problemsCache[disc] !== undefined) return problemsCache[disc];
     try {
@@ -294,7 +340,7 @@
         return null;
       }
       var data = await res.json();
-      problemsCache[disc] = data.problems || [];
+      problemsCache[disc] = Array.isArray(data.problems) ? data.problems : [];
       return problemsCache[disc];
     } catch (e) {
       console.warn('[challenge] failed to load ' + disc, e);
@@ -307,40 +353,156 @@
     var arr = await loadDiscipline(disc);
     var el = document.getElementById('ch-count-' + disc);
     if (!el) return;
-    if (arr === null) {
-      el.textContent = '—';
-    } else {
-      el.textContent = arr.length;
-    }
+    el.textContent = (arr === null) ? '—' : String(arr.length);
   }
 
+  // ---------- tab switching ----------
   window.switchDiscipline = function(disc) {
+    if (DISCIPLINES.indexOf(disc) === -1) return;
+    if (currentDiscipline === disc) return;
     currentDiscipline = disc;
     expandedIds.clear();
     var tabs = document.querySelectorAll('.ch-tab');
-    tabs.forEach(function(t) {
-      t.classList.toggle('active', t.getAttribute('data-discipline') === disc);
+    tabs.forEach(function(tab) {
+      var isActive = tab.getAttribute('data-discipline') === disc;
+      tab.classList.toggle('active', isActive);
+      tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      tab.setAttribute('tabindex', isActive ? '0' : '-1');
     });
+    // Show loading state immediately if not cached yet
+    if (problemsCache[disc] === undefined) showLoadingState();
     renderProblems();
   };
+
+  window.onChTabKey = function(evt, disc) {
+    var key = evt.key;
+    if (key === 'ArrowRight' || key === 'ArrowLeft') {
+      evt.preventDefault();
+      var idx = DISCIPLINES.indexOf(disc);
+      if (idx < 0) return;
+      var next = key === 'ArrowRight'
+        ? (idx + 1) % DISCIPLINES.length
+        : (idx - 1 + DISCIPLINES.length) % DISCIPLINES.length;
+      var nextDisc = DISCIPLINES[next];
+      switchDiscipline(nextDisc);
+      var btn = document.querySelector('.ch-tab[data-discipline="' + nextDisc + '"]');
+      if (btn) btn.focus();
+    } else if (key === 'Home') {
+      evt.preventDefault();
+      switchDiscipline(DISCIPLINES[0]);
+      var first = document.querySelector('.ch-tab[data-discipline="' + DISCIPLINES[0] + '"]');
+      if (first) first.focus();
+    } else if (key === 'End') {
+      evt.preventDefault();
+      var last = DISCIPLINES[DISCIPLINES.length - 1];
+      switchDiscipline(last);
+      var lastBtn = document.querySelector('.ch-tab[data-discipline="' + last + '"]');
+      if (lastBtn) lastBtn.focus();
+    }
+  };
+
+  // ---------- rendering ----------
+  function showLoadingState() {
+    var listEl = document.getElementById('ch-list');
+    if (!listEl) return;
+    listEl.setAttribute('aria-busy', 'true');
+    listEl.innerHTML = '<div class="loading" style="text-align:center;padding:40px">' +
+      '<div class="spinner"></div> <span>' +
+      escHtml(tSafe('challenge.loading', 'Loading problems...')) +
+      '</span></div>';
+  }
+
+  function buildItemHtml(p, isExpanded) {
+    var stars = starsFor(p.difficulty);
+    var difficultyClass = 'd' + p.difficulty;
+    var html = '';
+    html += '<div class="ch-item' + (isExpanded ? ' expanded' : '') + '" data-id="' + p.id + '" role="listitem">';
+    html += '  <div class="ch-header" role="button" tabindex="0"' +
+            ' aria-expanded="' + (isExpanded ? 'true' : 'false') + '"' +
+            ' onclick="toggleProblem(' + p.id + ')"' +
+            ' onkeydown="onChHeaderKey(event,' + p.id + ')">';
+    html += '    <span class="ch-arrow" aria-hidden="true">▶</span>';
+    html += '    <span class="ch-num">#' + p.id + '</span>';
+    html += '    <div class="ch-title-line">';
+    html += '      <div class="ch-title">' + escHtml(p.title) + '</div>';
+    html += '      <div class="ch-tagline">' + escHtml(p.tagline || p.summary || '') + '</div>';
+    html += '    </div>';
+    html += '    <div class="ch-badges">';
+    if (p.asrp_related) html += '<span class="ch-asrp-badge" title="ASRP-related">ASRP</span>';
+    html += '      <span class="ch-difficulty-badge ' + difficultyClass + '" aria-label="Difficulty ' + p.difficulty + ' of 5">' + stars + '</span>';
+    html += '    </div>';
+    html += '  </div>';
+    if (isExpanded) html += buildBodyHtml(p);
+    html += '</div>';
+    return html;
+  }
+
+  function buildBodyHtml(p) {
+    var stars = starsFor(p.difficulty);
+    var html = '';
+    html += '<div class="ch-body">';
+    html += '  <div class="ch-meta-row">';
+    html += '    <div><strong>' + escHtml(tSafe('challenge.field', 'Field')) + ':</strong> ' + escHtml(p.field || '') + '</div>';
+    html += '    <div><strong>' + escHtml(tSafe('challenge.difficulty', 'Difficulty')) + ':</strong> ' + stars + '</div>';
+    html += '  </div>';
+    html += '  <div class="ch-section">';
+    html += '    <div class="ch-section-label">' + escHtml(tSafe('challenge.description', 'Description')) + '</div>';
+    html += '    <div class="ch-section-text">' + escHtml(p.description || '') + '</div>';
+    html += '  </div>';
+    html += '  <div class="ch-section">';
+    html += '    <div class="ch-section-label">' + escHtml(tSafe('challenge.suggested_abstract', 'Suggested Abstract')) + '</div>';
+    html += '    <div class="ch-section-text">' + escHtml(p.abstract || '') + '</div>';
+    html += '  </div>';
+    if (p.tags && p.tags.length) {
+      html += '  <div class="ch-section">';
+      html += '    <div class="ch-section-label">' + escHtml(tSafe('challenge.suggested_tags', 'Suggested Tags')) + '</div>';
+      html += '    <div class="ch-tag-list">';
+      for (var ti = 0; ti < p.tags.length; ti++) {
+        html += '<span class="ch-tag">' + escHtml(p.tags[ti]) + '</span>';
+      }
+      html += '    </div>';
+      html += '  </div>';
+    }
+    html += '  <div class="ch-actions">';
+    html += '    <button class="btn btn-primary btn-sm" onclick="startResearch(' + p.id + ')">' +
+            escHtml(tSafe('challenge.start_research', 'Start Research')) + '</button>';
+    html += '  </div>';
+    html += '</div>';
+    return html;
+  }
 
   window.renderProblems = async function() {
     var listEl = document.getElementById('ch-list');
     if (!listEl) return;
 
-    var problems = await loadDiscipline(currentDiscipline);
+    var myToken = ++renderToken;
+    var disc = currentDiscipline;
+
+    var problems = await loadDiscipline(disc);
+    // Race guard: bail if another render/switch happened in the meantime
+    if (myToken !== renderToken || disc !== currentDiscipline) return;
+
+    listEl.setAttribute('aria-busy', 'false');
+
     if (problems === null) {
-      listEl.innerHTML = '<div class="ch-empty">' + escHtml(t('challenge.coming_soon')) + '</div>';
+      listEl.innerHTML = '<div class="ch-empty">' +
+        escHtml(tSafe('challenge.coming_soon', 'Coming soon — problems for this discipline are not yet available.')) +
+        '</div>';
       return;
     }
     if (!problems.length) {
-      listEl.innerHTML = '<div class="ch-empty">' + escHtml(t('challenge.load_failed')) + '</div>';
+      listEl.innerHTML = '<div class="ch-empty">' +
+        escHtml(tSafe('challenge.load_failed', 'Failed to load challenge problems.')) +
+        '</div>';
       return;
     }
 
-    var diff = document.getElementById('ch-difficulty').value;
-    var search = (document.getElementById('ch-search').value || '').trim().toLowerCase();
-    var asrpOnly = document.getElementById('ch-asrp-only').checked;
+    var diffEl = document.getElementById('ch-difficulty');
+    var searchEl = document.getElementById('ch-search');
+    var asrpEl = document.getElementById('ch-asrp-only');
+    var diff = diffEl ? diffEl.value : 'all';
+    var search = searchEl ? (searchEl.value || '').trim().toLowerCase() : '';
+    var asrpOnly = asrpEl ? asrpEl.checked : false;
 
     var filtered = problems.filter(function(p) {
       if (diff !== 'all' && String(p.difficulty) !== diff) return false;
@@ -354,83 +516,62 @@
     });
 
     if (!filtered.length) {
-      listEl.innerHTML = '<div class="ch-empty">' + escHtml(t('challenge.no_results')) + '</div>';
+      listEl.innerHTML = '<div class="ch-empty">' +
+        escHtml(tSafe('challenge.no_results', 'No problems match your filters.')) +
+        '</div>';
       return;
     }
 
     var html = '';
     for (var i = 0; i < filtered.length; i++) {
-      var p = filtered[i];
-      var isExpanded = expandedIds.has(p.id);
-      var stars = '';
-      for (var s = 0; s < p.difficulty; s++) stars += '⭐';
-      var difficultyClass = 'd' + p.difficulty;
-
-      html += '<div class="ch-item ' + (isExpanded ? 'expanded' : '') + '" data-id="' + p.id + '">';
-      html += '  <div class="ch-header" onclick="toggleProblem(' + p.id + ')">';
-      html += '    <span class="ch-arrow">▶</span>';
-      html += '    <span class="ch-num">#' + p.id + '</span>';
-      html += '    <div class="ch-title-line">';
-      html += '      <div class="ch-title">' + escHtml(p.title) + '</div>';
-      html += '      <div class="ch-tagline">' + escHtml(p.tagline || p.summary || '') + '</div>';
-      html += '    </div>';
-      html += '    <div class="ch-badges">';
-      if (p.asrp_related) html += '<span class="ch-asrp-badge">ASRP</span>';
-      html += '      <span class="ch-difficulty-badge ' + difficultyClass + '">' + stars + '</span>';
-      html += '    </div>';
-      html += '  </div>';
-
-      if (isExpanded) {
-        html += '  <div class="ch-body">';
-        html += '    <div class="ch-meta-row">';
-        html += '      <div><strong>' + escHtml(t('challenge.field')) + ':</strong> ' + escHtml(p.field || '') + '</div>';
-        html += '      <div><strong>' + escHtml(t('challenge.difficulty')) + ':</strong> ' + stars + '</div>';
-        html += '    </div>';
-        html += '    <div class="ch-section">';
-        html += '      <div class="ch-section-label">' + escHtml(t('challenge.description')) + '</div>';
-        html += '      <div class="ch-section-text">' + escHtml(p.description || '') + '</div>';
-        html += '    </div>';
-        html += '    <div class="ch-section">';
-        html += '      <div class="ch-section-label">' + escHtml(t('challenge.suggested_abstract')) + '</div>';
-        html += '      <div class="ch-section-text">' + escHtml(p.abstract || '') + '</div>';
-        html += '    </div>';
-        if (p.tags && p.tags.length) {
-          html += '    <div class="ch-section">';
-          html += '      <div class="ch-section-label">' + escHtml(t('challenge.suggested_tags')) + '</div>';
-          html += '      <div class="ch-tag-list">';
-          for (var ti = 0; ti < p.tags.length; ti++) {
-            html += '<span class="ch-tag">' + escHtml(p.tags[ti]) + '</span>';
-          }
-          html += '      </div>';
-          html += '    </div>';
-        }
-        html += '    <div class="ch-actions">';
-        html += '      <button class="btn btn-primary btn-sm" onclick="startResearch(' + p.id + ')">' +
-          escHtml(t('challenge.start_research')) + '</button>';
-        html += '    </div>';
-        html += '  </div>';
-      }
-
-      html += '</div>';
+      html += buildItemHtml(filtered[i], expandedIds.has(filtered[i].id));
     }
     listEl.innerHTML = html;
   };
 
+  // ---------- local expand/collapse (no full re-render) ----------
   window.toggleProblem = function(id) {
-    if (expandedIds.has(id)) expandedIds.delete(id);
-    else expandedIds.add(id);
-    renderProblems();
+    var item = document.querySelector('.ch-item[data-id="' + id + '"]');
+    if (!item) return;
+    var header = item.querySelector('.ch-header');
+
+    if (expandedIds.has(id)) {
+      expandedIds.delete(id);
+      item.classList.remove('expanded');
+      if (header) header.setAttribute('aria-expanded', 'false');
+      var body = item.querySelector('.ch-body');
+      if (body) body.remove();
+    } else {
+      expandedIds.add(id);
+      item.classList.add('expanded');
+      if (header) header.setAttribute('aria-expanded', 'true');
+      var p = getProblemById(id);
+      if (p && !item.querySelector('.ch-body')) {
+        item.insertAdjacentHTML('beforeend', buildBodyHtml(p));
+      }
+    }
   };
 
-  window.startResearch = function(id) {
-    var arr = problemsCache[currentDiscipline];
-    if (!arr) return;
-    var p = null;
-    for (var i = 0; i < arr.length; i++) {
-      if (arr[i].id === id) { p = arr[i]; break; }
+  window.onChHeaderKey = function(evt, id) {
+    if (evt.key === 'Enter' || evt.key === ' ') {
+      evt.preventDefault();
+      toggleProblem(id);
     }
-    if (!p) return;
+  };
 
+  // ---------- search debounce ----------
+  window.onChSearchInput = function() {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(function() {
+      searchDebounceTimer = null;
+      renderProblems();
+    }, 180);
+  };
+
+  // ---------- start research ----------
+  window.startResearch = function(id) {
+    var p = getProblemById(id);
+    if (!p) return;
     var prefill = {
       title: p.title,
       abstract: p.abstract || p.description || '',
@@ -438,33 +579,47 @@
       source: {
         discipline: currentDiscipline,
         problemId: p.id,
-        slug: p.slug || ''
+        slug: p.slug || '',
+        field: p.field || '',
+        difficulty: p.difficulty
       }
     };
     try {
       sessionStorage.setItem('asrp_prefill_research', JSON.stringify(prefill));
-    } catch (e) { /* ignore */ }
-    Router.navigate('/researches');
+    } catch (e) { /* ignore storage errors */ }
+    if (window.Router && typeof window.Router.navigate === 'function') {
+      window.Router.navigate('/researches');
+    } else {
+      window.location.hash = '/researches';
+    }
   };
 
+  // ---------- init ----------
   async function init() {
-    // Populate badges
-    var disciplines = ['mathematics', 'physics', 'chemistry', 'life-sciences'];
-    for (var i = 0; i < disciplines.length; i++) {
-      updateCountBadge(disciplines[i]);
+    // Populate all badges in parallel (don't block initial render)
+    for (var i = 0; i < DISCIPLINES.length; i++) {
+      updateCountBadge(DISCIPLINES[i]);
     }
     renderProblems();
   }
 
   // Re-render on language change
   function _chOnLang() {
-    if (typeof translatePage === 'function') translatePage();
+    if (typeof window.translatePage === 'function') {
+      try { window.translatePage(); } catch (e) { /* ignore */ }
+    }
     renderProblems();
   }
   window.addEventListener('language-changed', _chOnLang);
-  if (window.Utils) window.Utils.onPageUnload(function() {
-    window.removeEventListener('language-changed', _chOnLang);
-  });
+  if (window.Utils && typeof window.Utils.onPageUnload === 'function') {
+    window.Utils.onPageUnload(function() {
+      window.removeEventListener('language-changed', _chOnLang);
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = null;
+      }
+    });
+  }
 
   init();
 })();

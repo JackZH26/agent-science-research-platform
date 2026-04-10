@@ -488,6 +488,10 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
   window.showRegisterModal = function() {
     editingId = null;
     resetModal();
+    // Always clear any stale challenge provenance when opening the modal.
+    // applyPrefillFromChallenge() re-sets it AFTER calling this, so valid
+    // prefills still go through.
+    pendingChallengeSource = null;
     document.getElementById('modal-title').textContent = t('researches.modal_new');
     document.getElementById('modal-submit-btn').textContent = t('researches.register');
     document.getElementById('register-modal').style.display = 'flex';
@@ -514,6 +518,8 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
   window.closeModal = function() {
     document.getElementById('register-modal').style.display = 'none';
     editingId = null;
+    // Drop any pending challenge source if the user cancelled without submitting
+    pendingChallengeSource = null;
   };
 
   window.submitModal = async function() {
@@ -533,6 +539,10 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
 
     const tags = [...currentRegTags];
     const metadata = { title, abstract, tags };
+    // Attach Challenge provenance if this registration originated from a challenge pick
+    if (pendingChallengeSource) {
+      metadata.source = pendingChallengeSource;
+    }
 
     if (window.asrp) {
       const token = localStorage.getItem('asrp_token');
@@ -559,7 +569,10 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
           status: 'registered',
           created: new Date().toISOString().slice(0,10),
           score: null, result: null,
+          source: pendingChallengeSource || null,
         });
+        // Clear the pending source now that it has been attached
+        pendingChallengeSource = null;
         setTimeout(() => { closeModal(); applyFilters(); }, 800);
       }
     }
@@ -636,6 +649,10 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
   function escAttr(s) { return escHtml(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
   function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 
+  // Stores the source metadata from a Challenge prefill (discipline, problemId, slug, field, difficulty)
+  // so it can be attached to the registered research's metadata for provenance tracking.
+  var pendingChallengeSource = null;
+
   function applyPrefillFromChallenge() {
     try {
       var raw = sessionStorage.getItem('asrp_prefill_research');
@@ -653,6 +670,8 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
       if (absEl) absEl.value = data.abstract || '';
       currentRegTags = Array.isArray(data.tags) ? data.tags.slice(0) : [];
       if (typeof renderRegTags === 'function') renderRegTags();
+      // Preserve source metadata to attach on submission
+      pendingChallengeSource = (data.source && typeof data.source === 'object') ? data.source : null;
     } catch (e) {
       console.warn('[researches] prefill from challenge failed:', e);
     }
