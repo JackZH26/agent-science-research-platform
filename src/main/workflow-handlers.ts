@@ -18,6 +18,7 @@ import {
   bootstrapWorkflow,
   hasWorkflow,
   getWorkflowStateFile,
+  dispatchPhaseKickoff,
 } from './research-workflow';
 import { loadResearches } from './experiment-handlers';
 import { runWorkflowSchedulerOnce } from './workflow-scheduler';
@@ -68,6 +69,43 @@ export function registerWorkflowHandlers(): void {
   ipcMain.handle('workflows:tick-now', withAuth(async (_userId: number) => {
     await runWorkflowSchedulerOnce();
     return { success: true };
+  }));
+
+  // Re-dispatch the current phase's kickoff to Discord. This is the "Re-kick"
+  // button — useful if the agent dropped the ball or if the Discord message
+  // got lost. Dispatches regardless of deliverable status or stall state.
+  ipcMain.handle('workflows:rekick', withAuth(async (_userId: number, researchId: string) => {
+    if (typeof researchId !== 'string' || !researchId) {
+      return { success: false, error: 'Missing researchId' };
+    }
+    const state = readWorkflowState(researchId);
+    if (!state) return { success: false, error: 'Workflow not found' };
+    if (state.currentPhase === 'completed' || state.currentPhase === 'stopped' || state.currentPhase === 'legacy') {
+      return { success: false, error: `Cannot re-kick a ${state.currentPhase} workflow` };
+    }
+    if (state.currentPhase === 'phase-0-bootstrap') {
+      return { success: false, error: 'Workflow is still bootstrapping' };
+    }
+    const record = loadResearches().find(r => r.id === researchId);
+    if (!record) return { success: false, error: 'Research not found' };
+
+    try {
+      const result = await dispatchPhaseKickoff(
+        state.currentPhase,
+        { id: record.id, code: record.code, title: record.title, abstract: record.abstract, tags: record.tags, status: record.status },
+        state,
+      );
+      if (!result.discordPosted) {
+        return { success: false, error: result.discordError || 'Kickoff dispatch failed' };
+      }
+      return {
+        success: true,
+        phase: state.currentPhase,
+        agentMentioned: result.agentMentioned,
+      };
+    } catch (err: unknown) {
+      return { success: false, error: String(err) };
+    }
   }));
 
   // Manually (re-)bootstrap a legacy/migrated research — this is how the

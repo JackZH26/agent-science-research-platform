@@ -1,7 +1,7 @@
 <div class="page-header">
   <div>
     <h1 data-i18n="workflows.title">Workflow Management</h1>
-    <p data-i18n="workflows.subtitle">Standard Research Workflow (SRW-v1) — all researches</p>
+    <p data-i18n="workflows.subtitle">Standard Research Workflow (SRW-v2) — all researches</p>
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" onclick="wfTickNow()" data-i18n="workflows.force_refresh">Force Refresh</button>
@@ -183,6 +183,9 @@
         } else {
           actions.push('<button onclick="wfAction(\'' + escAttr(id) + '\',\'pause\')">⏸</button>');
         }
+        if (wf.currentPhase !== 'phase-0-bootstrap') {
+          actions.push('<button onclick="wfAction(\'' + escAttr(id) + '\',\'rekick\')" title="' + escAttr(tSafe('researches.workflow_rekick_hint','Re-dispatch current phase kickoff to Discord')) + '">' + escHtml(tSafe('researches.workflow_rekick','Re-kick')) + '</button>');
+        }
         actions.push('<button class="danger" onclick="wfAction(\'' + escAttr(id) + '\',\'stop\')">⏹</button>');
         actions.push('<button onclick="wfAction(\'' + escAttr(id) + '\',\'mark-complete\')">✓</button>');
       }
@@ -243,7 +246,7 @@
     if (!window.asrp || !window.asrp.workflows) return;
     var token = localStorage.getItem('asrp_token') || '';
     var wf = window.asrp.workflows;
-    var fn = { pause: wf.pause, resume: wf.resume, stop: wf.stop, 'mark-complete': wf.markComplete, start: wf.start }[action];
+    var fn = { pause: wf.pause, resume: wf.resume, stop: wf.stop, 'mark-complete': wf.markComplete, start: wf.start, rekick: wf.rekick }[action];
     if (!fn) return;
     if (action === 'stop' || action === 'mark-complete') {
       var msg = action === 'stop'
@@ -256,6 +259,9 @@
       if (res && !res.success) {
         alert(res.error || 'Action failed');
         return;
+      }
+      if (action === 'rekick' && window.Toast) {
+        window.Toast.show(tSafe('researches.workflow_rekick_done','Kickoff re-dispatched to Discord'), 'success', 2500);
       }
       await wfLoad();
     } catch (err) {

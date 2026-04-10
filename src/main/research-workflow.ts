@@ -1,28 +1,54 @@
 // ============================================================
-// Research Workflow Orchestrator — SRW-v1
+// Research Workflow Orchestrator — SRW-v2
 // ============================================================
-// Owns the lifecycle of a research from bootstrap through the
-// six standard phases. Writes state/inbox files that agents
-// pick up via their normal message-polling loop. Phase 1–6
-// orchestration lives in workflow-scheduler.ts.
+// Owns the full lifecycle of a research:
+//
+//   Phase 0  Bootstrap       — create channel + welcome post
+//   Phase 1  Intake          — Assistant Q&A with user (3 core + follow-ups)
+//   Phase 2  Reconnaissance  — Theorist scans ~10 papers, writes background.md
+//   Phase 3  Synthesis       — Theorist produces 3–5 opportunities
+//   Phase 4  Direction Pick  — Assistant + user select direction
+//   Phase 5  Plan            — Theorist plan.json + Engineer feasibility
+//   Phase 6  Schedule        — Theorist schedules next 7 nights
+//   Phase 7  Active Loop     — nightly execution + daily standup
+//
+// Triggering: every phase transition posts a Discord message to the
+// research's channel with an explicit @mention of the responsible agent's
+// bot user ID. This is what actually kicks the agent into action; the
+// inbox JSON files are kept only as an audit trail.
+//
+// Phase advancement: scheduler detects deliverable files the agents
+// write and calls advancePhase → dispatchPhaseKickoff(next).
 // ============================================================
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { getWorkspaceBase, atomicWriteJSON, RESOURCES_PATH } from './ipc-handlers';
-import { createResearchChannel, postMessageToChannel, readBotToken, readGuildId } from './discord-api';
-import { canDispatchColdStart, markDispatched, enqueue as enqueueColdStart } from './workflow-throttle';
+import {
+  createResearchChannel,
+  postMessageToChannel,
+  readBotToken,
+  readGuildId,
+  getAgentDiscordBotId,
+  getAgentDiscordDisplayName,
+  SrwAgentRole,
+} from './discord-api';
+// Note: cold-start throttling (workflow-throttle.ts) is now owned by
+// workflow-scheduler.ts. Bootstrap calls dispatchPhaseKickoff directly
+// because Phase 1 (Intake) is user-facing and must not be throttled.
 
-export const WORKFLOW_VERSION = 'SRW-v1';
+export const WORKFLOW_VERSION = 'SRW-v2';
+export const WORKFLOW_SCHEMA_VERSION = 2;
 
 export type WorkflowPhase =
   | 'phase-0-bootstrap'
-  | 'phase-1-reconnaissance'
-  | 'phase-2-synthesis'
-  | 'phase-3-intake'
-  | 'phase-4-plan'
-  | 'phase-5-schedule'
-  | 'phase-6-active'
+  | 'phase-1-intake'
+  | 'phase-2-reconnaissance'
+  | 'phase-3-synthesis'
+  | 'phase-4-direction'
+  | 'phase-5-plan'
+  | 'phase-6-schedule'
+  | 'phase-7-active'
   | 'completed'
   | 'stopped'
   | 'legacy';
@@ -30,6 +56,8 @@ export type WorkflowPhase =
 export interface WorkflowState {
   researchId: string;
   workflowVersion: string;
+  /** Schema version of this state.json file (for future migrations). */
+  schemaVersion: number;
   currentPhase: WorkflowPhase;
   paused: boolean;
   manuallyCompleted: boolean;
@@ -42,6 +70,9 @@ export interface WorkflowState {
   lastUpdatedAt: string;
   /** Set when the research was retrofitted by the migrator (not started via Start Research) */
   migratedFromLegacy?: boolean;
+  /** Last time dispatchPhaseKickoff successfully posted to Discord for the current phase.
+   * Used by the scheduler to detect stuck phases and self-heal. */
+  lastKickoffAt?: string | null;
 }
 
 /** Minimal research fields the workflow needs. Keeps this module decoupled from experiment-handlers. */
@@ -95,11 +126,88 @@ export function hasWorkflow(researchId: string): boolean {
   return fs.existsSync(getWorkflowStateFile(researchId));
 }
 
+/** Map SRW-v1 phase names to SRW-v2. */
+const LEGACY_PHASE_MAP: Record<string, WorkflowPhase> = {
+  'phase-1-reconnaissance': 'phase-2-reconnaissance',
+  'phase-2-synthesis': 'phase-3-synthesis',
+  'phase-3-intake': 'phase-1-intake',
+  'phase-4-plan': 'phase-5-plan',
+  'phase-5-schedule': 'phase-6-schedule',
+  'phase-6-active': 'phase-7-active',
+};
+
+/**
+ * Migrate an SRW-v1 state blob to SRW-v2 in-place. Called by readWorkflowState
+ * on load so legacy files are self-healing without a one-shot migrator.
+ */
+function migrateStateToV2(raw: WorkflowState & { schemaVersion?: number }): {
+  state: WorkflowState;
+  changed: boolean;
+  reason: string | null;
+} {
+  if (raw.schemaVersion === WORKFLOW_SCHEMA_VERSION) {
+    return { state: raw, changed: false, reason: null };
+  }
+
+  // Remap phaseHistory
+  const newHistory = (raw.phaseHistory || []).map(entry => {
+    const mapped = LEGACY_PHASE_MAP[entry.phase as string] || entry.phase;
+    return { ...entry, phase: mapped };
+  });
+
+  // Remap currentPhase
+  const oldCurrent = raw.currentPhase as string;
+  const mappedCurrent = (LEGACY_PHASE_MAP[oldCurrent] || oldCurrent) as WorkflowPhase;
+
+  // If the legacy workflow was stuck at phase-1-reconnaissance with no
+  // deliverables (the common "never actually started" case), reset to
+  // phase-1-intake so the scheduler will Q&A the user and re-run the pipeline.
+  let finalCurrent: WorkflowPhase = mappedCurrent;
+  let reason = `schema-migrate v1→v2: ${oldCurrent} → ${mappedCurrent}`;
+  if (oldCurrent === 'phase-1-reconnaissance') {
+    const recon = path.join(getWorkflowDir(raw.researchId), 'literature', 'papers.json');
+    const bg = path.join(getWorkflowDir(raw.researchId), 'background.md');
+    if (!fs.existsSync(recon) && !fs.existsSync(bg)) {
+      finalCurrent = 'phase-1-intake';
+      // Rewrite history: replace the old reconnaissance entry with a fresh intake
+      const lastIdx = newHistory.length - 1;
+      if (lastIdx >= 0) {
+        newHistory[lastIdx] = { phase: 'phase-1-intake', startedAt: nowIso(), completedAt: null };
+      } else {
+        newHistory.push({ phase: 'phase-1-intake', startedAt: nowIso(), completedAt: null });
+      }
+      reason = 'schema-migrate v1→v2: reset stuck reconnaissance → phase-1-intake';
+    }
+  }
+
+  const migrated: WorkflowState = {
+    ...raw,
+    schemaVersion: WORKFLOW_SCHEMA_VERSION,
+    workflowVersion: WORKFLOW_VERSION,
+    currentPhase: finalCurrent,
+    phaseHistory: newHistory,
+    lastKickoffAt: raw.lastKickoffAt ?? null,
+    discordGuildId: raw.discordGuildId ?? null,
+  };
+  return { state: migrated, changed: true, reason };
+}
+
 export function readWorkflowState(researchId: string): WorkflowState | null {
   const file = getWorkflowStateFile(researchId);
   if (!fs.existsSync(file)) return null;
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf-8')) as WorkflowState;
+    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as WorkflowState & { schemaVersion?: number };
+    const { state, changed, reason } = migrateStateToV2(raw);
+    if (changed) {
+      console.log(`[research-workflow] ${researchId}: ${reason}`);
+      // Persist the migration so we don't repeat work next read
+      try {
+        atomicWriteJSON(file, state);
+      } catch (err) {
+        console.warn(`[research-workflow] ${researchId}: failed to persist migration:`, err);
+      }
+    }
+    return state;
   } catch {
     return null;
   }
@@ -185,62 +293,6 @@ export interface InboxMessage {
 }
 
 /**
- * Build and write the Phase 1 kickoff message to the Theorist's inbox.
- * Exposed so the scheduler can drain the cold-start throttle queue.
- * The caller is responsible for throttle accounting (markDispatched).
- */
-export function writePhase1KickoffInbox(research: ResearchRef): void {
-  const now = new Date().toISOString();
-  const srw = loadSrwTemplate();
-  const body = [
-    `# Kickoff — ${research.code || research.id}: ${research.title || ''}`,
-    '',
-    `**Research ID**: ${research.id}`,
-    `**Workflow**: ${WORKFLOW_VERSION}`,
-    `**Current phase**: phase-1-reconnaissance`,
-    '',
-    '## Research abstract',
-    '',
-    research.abstract || '_(no abstract provided)_',
-    '',
-    research.tags && research.tags.length ? `**Tags**: ${research.tags.join(', ')}` : '',
-    '',
-    '## Your first task (Phase 1 — Reconnaissance)',
-    '',
-    '1. Search for the **10 most relevant papers** to this research topic.',
-    '   Use your own tools (web, arxiv, google scholar, etc.).',
-    '2. Read each carefully and extract: key claim, key method, key result, relevance.',
-    `3. Write \`workflows/${research.id}/literature/papers.json\` with the 10 entries.`,
-    `4. Write \`workflows/${research.id}/background.md\` — 200–400 words on the domain,`,
-    '   open questions, and common pitfalls, from first principles.',
-    '5. When done, move on to Phase 2 (Synthesis) and produce',
-    `   \`workflows/${research.id}/opportunities.md\` with 3–5 breakthrough opportunities.`,
-    '',
-    '**Time budget**: ~3 AI hours. **Deadline**: flexible, but aim to finish Phase 1 + 2',
-    'inside one work session so the researcher gets their first insights quickly.',
-    '',
-    '## The full standard workflow',
-    '',
-    srw,
-  ].join('\n');
-
-  writeInboxMessage({
-    from: 'system',
-    to: 'theorist',
-    researchId: research.id,
-    researchCode: research.code || '',
-    researchTitle: research.title || '',
-    phase: 'phase-1-reconnaissance',
-    taskId: 'SRW-P1-KICKOFF',
-    subject: `Kickoff: ${research.code || research.id} — ${research.title || 'Untitled'}`,
-    body,
-    deadline: null,
-    deliverable: `workflows/${research.id}/opportunities.md`,
-    createdAt: now,
-  });
-}
-
-/**
  * Canonical inbox filename format used by BOTH bootstrap and scheduler.
  * Includes taskId so we never collide between e.g. a kickoff and a stall nudge
  * written in the same millisecond, and so agents can dedupe by filename.
@@ -287,6 +339,349 @@ export function inboxHasTask(researchId: string, taskId: string): boolean {
   } catch {
     return false;
   }
+}
+
+// ============================================================
+// Phase ownership + kickoff content
+// ============================================================
+
+/** Which agent role owns each phase. */
+export const PHASE_OWNER: Record<WorkflowPhase, SrwAgentRole | null> = {
+  'phase-0-bootstrap': null,
+  'phase-1-intake': 'assistant',
+  'phase-2-reconnaissance': 'theorist',
+  'phase-3-synthesis': 'theorist',
+  'phase-4-direction': 'assistant',
+  'phase-5-plan': 'theorist',
+  'phase-6-schedule': 'theorist',
+  'phase-7-active': 'theorist',
+  'completed': null,
+  'stopped': null,
+  'legacy': null,
+};
+
+/** Deliverable file (relative to workflows/{id}/) the scheduler watches to detect completion. */
+export const PHASE_DELIVERABLES: Record<WorkflowPhase, string[] | null> = {
+  'phase-0-bootstrap': null,
+  'phase-1-intake': ['intake.json'],
+  'phase-2-reconnaissance': ['literature/papers.json', 'background.md'],
+  'phase-3-synthesis': ['opportunities.md'],
+  'phase-4-direction': ['direction.json'],
+  'phase-5-plan': ['plan.json', 'plan-feasibility.md'],
+  'phase-6-schedule': ['schedule.json'],
+  'phase-7-active': null,
+  'completed': null,
+  'stopped': null,
+  'legacy': null,
+};
+
+/** Per-phase kickoff content. Short, role-specific, budget-aware. */
+export interface PhaseKickoffSpec {
+  role: SrwAgentRole;
+  taskId: string;
+  subject: string;
+  body: string;
+  deliverable: string | null;
+}
+
+export function buildPhaseKickoff(phase: WorkflowPhase, research: ResearchRef): PhaseKickoffSpec | null {
+  const id = research.id;
+  const code = research.code || id;
+  const title = research.title || id;
+
+  switch (phase) {
+    case 'phase-1-intake':
+      return {
+        role: 'assistant',
+        taskId: 'SRW-P1-INTAKE',
+        subject: `[${code}] Phase 1 — Researcher Intake (start now)`,
+        deliverable: `workflows/${id}/intake.json`,
+        body: [
+          `**Research**: ${code} — ${title}`,
+          research.abstract ? `> ${research.abstract}` : '',
+          '',
+          'Your job: **start a friendly Q&A with the user right now, in this channel**, to understand what they actually want before Theorist wastes cycles on the wrong framing.',
+          '',
+          '## How to run Intake',
+          '',
+          '1. **Greet + ask the first of THREE core questions**. Wait for the user to answer before asking the next.',
+          '   - Q1: "What outcome would make this research a win for you — a published paper, a thesis chapter, a working prototype, or personal understanding?"',
+          '   - Q2: "Is there a deadline or target venue I should plan around, or is this open-ended?"',
+          '   - Q3: "What\'s your background depth here — beginner, practitioner, or domain expert? And are there any constraints (tools, budget, ethical limits) I should know?"',
+          '2. **Follow up 0–4 extra questions** if anything is unclear. Be surgical, don\'t interrogate.',
+          '3. When you\'re confident you have enough, write the structured result to',
+          `   \`workflows/${id}/intake.json\` with this shape:`,
+          '   ```json',
+          '   {',
+          '     "outputType": "paper|thesis|prototype|personal|other",',
+          '     "targetVenue": "string or null",',
+          '     "deadline": "ISO date or \\"none\\"",',
+          '     "backgroundDepth": "beginner|practitioner|expert",',
+          '     "constraints": "free-form string",',
+          '     "additionalNotes": "anything extra from follow-ups"',
+          '   }',
+          '   ```',
+          '4. **Post a 1-line confirmation** to the channel ("Thanks! Sending this to Albert now.") and you\'re done — the scheduler will detect `intake.json` and advance to Phase 2.',
+          '',
+          '**Budget**: ≤ 10 AI minutes of your own time (the clock that matters is the user answering — be patient).',
+          '**Timeout**: if no reply within 2h, gently nudge. If no reply within 12h, write `intake.json` with sensible defaults (outputType=personal, deadline=none, depth=practitioner) and include `"_auto": true` so we know it was auto-filled.',
+        ].filter(Boolean).join('\n'),
+      };
+
+    case 'phase-2-reconnaissance':
+      return {
+        role: 'theorist',
+        taskId: 'SRW-P2-RECON',
+        subject: `[${code}] Phase 2 — Reconnaissance`,
+        deliverable: `workflows/${id}/background.md`,
+        body: [
+          `**Research**: ${code} — ${title}`,
+          `User intake is in \`workflows/${id}/intake.json\`. Read it first — it tells you their background depth and target.`,
+          '',
+          '## Your task (~8 AI minutes, solo)',
+          '',
+          `1. Search the literature. Find the **10 most relevant papers** using your own tools.`,
+          `2. Write \`workflows/${id}/literature/papers.json\`:`,
+          '   `[{title, authors, year, venue, url, keyClaim, keyMethod, keyResult, relevance}, ...]`',
+          `3. Write \`workflows/${id}/background.md\` — **200–400 words** covering:`,
+          '   - The state of the field in plain terms (calibrate to the user\'s declared depth)',
+          '   - 3–5 open questions that make this research interesting NOW',
+          '   - 2–3 common pitfalls / failure modes',
+          '',
+          '**Budget**: ≤ 8 AI minutes. Prioritize signal over completeness — you\'re giving Phase 3 a launch pad, not a PhD lit review.',
+        ].join('\n'),
+      };
+
+    case 'phase-3-synthesis':
+      return {
+        role: 'theorist',
+        taskId: 'SRW-P3-SYNTHESIS',
+        subject: `[${code}] Phase 3 — Synthesis: 3–5 directions`,
+        deliverable: `workflows/${id}/opportunities.md`,
+        body: [
+          `**Research**: ${code} — ${title}`,
+          `Literature + background are in \`workflows/${id}/literature/papers.json\` and \`workflows/${id}/background.md\`.`,
+          `The user's intake is in \`workflows/${id}/intake.json\` — align your directions with their outputType and constraints.`,
+          '',
+          '## Your task (~5 AI minutes)',
+          '',
+          `Produce \`workflows/${id}/opportunities.md\` with **3 to 5 concrete breakthrough directions**. For each:`,
+          '',
+          '- **Title** (one line)',
+          '- **Why interesting** (2 sentences)',
+          '- **Why now** (what makes it tractable today)',
+          '- **Difficulty**: easy / medium / hard / moonshot',
+          '- **Rough cost**: how many AI hours you\'d expect Phase 7 execution to burn',
+          '- **Key risks** (2 bullets)',
+          '',
+          `Then self-critique: drop a 5-line "critic hat" section at the bottom pointing out which direction has the weakest argument. Don\'t hide weaknesses — surface them.`,
+          '',
+          '**Budget**: ≤ 5 AI minutes. Assistant will format this into a Discord menu for the user.',
+        ].join('\n'),
+      };
+
+    case 'phase-4-direction':
+      return {
+        role: 'assistant',
+        taskId: 'SRW-P4-DIRECTION',
+        subject: `[${code}] Phase 4 — Direction pick`,
+        deliverable: `workflows/${id}/direction.json`,
+        body: [
+          `**Research**: ${code} — ${title}`,
+          `Theorist just wrote \`workflows/${id}/opportunities.md\`.`,
+          '',
+          '## Your task',
+          '',
+          `1. **Read** \`workflows/${id}/opportunities.md\` and format it into a clean, numbered Discord post. Keep it tight — title + 1-sentence why + difficulty per direction.`,
+          '2. Ask the user: *"Which direction excites you most? Reply with 1/2/3/… or tell me if none of these hit."*',
+          '3. Wait for their pick. Ask at most **one follow-up question** if you need to refine (e.g. "You picked #2 — want the fast/cheap variant or the ambitious variant?").',
+          `4. Write \`workflows/${id}/direction.json\`:`,
+          '   ```json',
+          '   {',
+          '     "pick": 1,',
+          '     "pickTitle": "string from opportunities.md",',
+          '     "variant": "string or null",',
+          '     "userRationale": "what they said, paraphrased"',
+          '   }',
+          '   ```',
+          '',
+          '**Timeout**: 24h → friendly nudge. 48h → pick Theorist\'s top recommendation automatically and note `"_auto": true`.',
+        ].join('\n'),
+      };
+
+    case 'phase-5-plan':
+      return {
+        role: 'theorist',
+        taskId: 'SRW-P5-PLAN',
+        subject: `[${code}] Phase 5 — Plan construction`,
+        deliverable: `workflows/${id}/plan.json`,
+        body: [
+          `**Research**: ${code} — ${title}`,
+          `User picked their direction: see \`workflows/${id}/direction.json\`.`,
+          '',
+          '## Your task (~10 AI minutes total)',
+          '',
+          `1. **Draft** (~6 min): write \`workflows/${id}/plan.json\` with a task DAG.`,
+          '   Each task: `{id, title, owner, phase, description, estimateAiHours, dependsOn, deliverable, successCriteria}`.',
+          '   Owners are `theorist`, `engineer`, or `assistant`.',
+          '2. **Feasibility review** (~3 min): drop a message in',
+          `   \`workspace/messages/theorist-to-engineer-*.json\` asking Engineer to independently`,
+          `   review the plan and write \`workflows/${id}/plan-feasibility.md\`. Wait for it.`,
+          `3. **Revise + human summary** (~1 min): incorporate Engineer\'s flags, then produce`,
+          `   \`workflows/${id}/plan.md\` — a Discord-ready markdown summary (Assistant will post it).`,
+          '',
+          '**Budget guideline**: total Phase 7 execution should fit in ≤ 50 AI hours. If you blow past that, trim scope in `plan.md` and explain why.',
+          '',
+          '**Time convention**: 1 human day = 1 AI hour (used for Phase 7 nightly task sizing only, not for this planning phase).',
+        ].join('\n'),
+      };
+
+    case 'phase-6-schedule':
+      return {
+        role: 'theorist',
+        taskId: 'SRW-P6-SCHEDULE',
+        subject: `[${code}] Phase 6 — Schedule next 7 nights`,
+        deliverable: `workflows/${id}/schedule.json`,
+        body: [
+          `**Research**: ${code} — ${title}`,
+          `Plan is locked in \`workflows/${id}/plan.json\`.`,
+          '',
+          '## Your task (~2 AI minutes)',
+          '',
+          `1. Write \`workflows/${id}/schedule.json\`:`,
+          '   `{ nights: [{ date, tasks: [{ agent, taskId, kickoffMessage }] }] }`',
+          '2. Respect `dependsOn` from `plan.json`.',
+          '3. Compute-heavy tasks → **00:00–06:00 local** window. Light tasks (standups, formatting, intake) can run any time.',
+          '4. Leave night 7 lighter — it\'s the weekly review slot.',
+        ].join('\n'),
+      };
+
+    case 'phase-7-active':
+      return {
+        role: 'theorist',
+        taskId: 'SRW-P7-ACTIVE',
+        subject: `[${code}] Phase 7 — Active Loop`,
+        deliverable: null,
+        body: [
+          `**Research**: ${code} — ${title}`,
+          `Schedule is live in \`workflows/${id}/schedule.json\`.`,
+          '',
+          '## Ongoing responsibilities',
+          '',
+          '- **Each night at 00:00 local**, dispatch that night\'s tasks (inbox messages per the schedule).',
+          '- For any numerical result, ask Engineer to **independently recompute** before marking done.',
+          '- Each morning Assistant writes the Daily Standup automatically — proactively flag anything broken from last night.',
+          '- Update status → `confirmed` / `refuted` / `completed` when stop conditions fire.',
+          '',
+          '## Stop conditions',
+          '1. Reviewer-grade evidence confirms hypothesis → `confirmed`',
+          '2. Engineer\'s independent recompute contradicts it → `refuted`',
+          '3. User marks complete / stops from the Workflow tab',
+        ].join('\n'),
+      };
+
+    default:
+      return null;
+  }
+}
+
+// ============================================================
+// Kickoff dispatch — writes inbox audit trail AND posts a
+// Discord @mention so the agent actually starts working.
+// ============================================================
+
+export interface DispatchResult {
+  success: boolean;
+  discordPosted: boolean;
+  discordError?: string;
+  agentMentioned?: string | null;
+}
+
+/**
+ * Dispatch a phase kickoff:
+ *   1. Write an inbox JSON file for audit
+ *   2. Post a Discord message to the research channel that @mentions
+ *      the responsible agent's bot user ID
+ *
+ * Returns whether the Discord post succeeded. Caller should decide whether
+ * to treat a failed post as fatal (bootstrap: warn) or retryable (scheduler: retry next tick).
+ */
+export async function dispatchPhaseKickoff(
+  phase: WorkflowPhase,
+  research: ResearchRef,
+  state: WorkflowState,
+): Promise<DispatchResult> {
+  const spec = buildPhaseKickoff(phase, research);
+  if (!spec) {
+    return { success: false, discordPosted: false, discordError: `No kickoff defined for phase ${phase}` };
+  }
+
+  const now = nowIso();
+
+  // 1) Audit trail — inbox JSON file
+  writeInboxMessage({
+    from: 'system',
+    to: spec.role,
+    researchId: research.id,
+    researchCode: research.code || '',
+    researchTitle: research.title || '',
+    phase,
+    taskId: spec.taskId,
+    subject: spec.subject,
+    body: spec.body,
+    deadline: null,
+    deliverable: spec.deliverable,
+    createdAt: now,
+  });
+
+  // 2) Discord kickoff — the actual trigger the agent sees
+  if (!state.discordChannelId) {
+    return { success: false, discordPosted: false, discordError: 'No Discord channel for this workflow' };
+  }
+
+  let mentionText = '';
+  let botId: string | null = null;
+  try {
+    botId = await getAgentDiscordBotId(spec.role);
+    if (botId) {
+      mentionText = `<@${botId}> `;
+    } else {
+      // Fallback: plain text tag — not as reliable as @mention but better than nothing
+      const displayName = getAgentDiscordDisplayName(spec.role);
+      mentionText = `**@${displayName}** `;
+    }
+  } catch (err) {
+    console.warn(`[research-workflow] getAgentDiscordBotId(${spec.role}) failed:`, err);
+  }
+
+  const content = [
+    `${mentionText}${spec.subject}`,
+    '',
+    spec.body,
+    '',
+    `— Scheduler (task=\`${spec.taskId}\`)`,
+  ].join('\n');
+
+  try {
+    // Post AS the owning role so the message appears from that bot's identity
+    // when possible. The @mention still correctly pings whichever bot we're
+    // addressing (which is itself — harmless but makes the agent's message
+    // loop definitely see the task).
+    const posted = await postMessageToChannel(state.discordChannelId, content, { asRole: spec.role });
+    if (!posted.success) {
+      return { success: false, discordPosted: false, discordError: posted.error, agentMentioned: botId };
+    }
+  } catch (err) {
+    return { success: false, discordPosted: false, discordError: String(err), agentMentioned: botId };
+  }
+
+  // Stamp lastKickoffAt on state so scheduler can measure stall
+  try {
+    state.lastKickoffAt = now;
+    writeWorkflowState(state);
+  } catch { /* non-fatal */ }
+
+  return { success: true, discordPosted: true, agentMentioned: botId };
 }
 
 // ============================================================
@@ -365,12 +760,13 @@ export async function bootstrapWorkflow(
   const state: WorkflowState = {
     researchId: research.id,
     workflowVersion: WORKFLOW_VERSION,
-    currentPhase: 'phase-1-reconnaissance', // Bootstrap is instant; next phase is reconnaissance
+    schemaVersion: WORKFLOW_SCHEMA_VERSION,
+    currentPhase: 'phase-1-intake', // Bootstrap is instant; first real phase is Intake Q&A
     paused: false,
     manuallyCompleted: false,
     phaseHistory: [
       { phase: 'phase-0-bootstrap', startedAt: now, completedAt: now },
-      { phase: 'phase-1-reconnaissance', startedAt: now, completedAt: null },
+      { phase: 'phase-1-intake', startedAt: now, completedAt: null },
     ],
     discordChannelId: channelId,
     discordChannelName: channelName,
@@ -378,6 +774,7 @@ export async function bootstrapWorkflow(
     createdAt: now,
     lastUpdatedAt: now,
     migratedFromLegacy: options.migrated === true,
+    lastKickoffAt: null,
   };
   writeWorkflowState(state);
 
@@ -397,26 +794,8 @@ export async function bootstrapWorkflow(
     fs.writeFileSync(path.join(getWorkflowDir(research.id), 'README.md'), readme, 'utf-8');
   } catch { /* non-fatal */ }
 
-  // Write the initial kickoff message to the Theorist's inbox.
-  // Gated by the cold-start throttle: if Theorist has already received
-  // COLD_START_DAILY_LIMIT brand-new research kickoffs today, queue this
-  // one instead. The scheduler will drain the queue on a later tick / day.
-  if (!options.skipInbox) {
-    if (!canDispatchColdStart('theorist', research.id)) {
-      enqueueColdStart({
-        researchId: research.id,
-        agent: 'theorist',
-        taskId: 'SRW-P1-KICKOFF',
-        enqueuedAt: now,
-      });
-      warnings.push('Cold-start throttle hit — Phase 1 kickoff queued (will dispatch on a later scheduler tick/day)');
-    } else {
-      writePhase1KickoffInbox(research);
-      markDispatched('theorist', research.id);
-    }
-  }
-
-  // Post a human-visible kickoff message to Discord
+  // Post a human-visible welcome message to Discord FIRST (so the user sees
+  // the research exists before Akira @-pings itself with the intake task).
   if (channelId) {
     const human = [
       `# 🚀 Research started — ${research.code || research.id}`,
@@ -425,25 +804,42 @@ export async function bootstrapWorkflow(
       '',
       research.abstract ? `> ${research.abstract}` : '',
       '',
-      '**Standard Research Workflow** is now running. Here\'s what happens next:',
+      '**Standard Research Workflow (SRW-v2)** is now running. Here\'s the flow:',
       '',
-      '1. **Phase 1 — Reconnaissance** (Theorist): Find 10 relevant papers and read them',
-      '2. **Phase 2 — Synthesis** (Theorist): Identify 3–5 breakthrough opportunities',
-      '3. **Phase 3 — Intake** (Assistant): Short Q&A with you to pick a direction',
-      '4. **Phase 4 — Plan** (Theorist + Engineer): Detailed task plan',
-      '5. **Phase 5 — Schedule**: Next 7 nights of work',
-      '6. **Phase 6 — Active Loop**: Daily standups, nightly execution',
+      '1. **Phase 1 — Intake** (Assistant): a quick Q&A with you right now so we understand what you actually want',
+      '2. **Phase 2 — Reconnaissance** (Theorist): scan ~10 relevant papers + a 200-word background',
+      '3. **Phase 3 — Synthesis** (Theorist): 3–5 concrete research directions',
+      '4. **Phase 4 — Direction Pick** (Assistant): you pick one',
+      '5. **Phase 5 — Plan** (Theorist + Engineer): detailed task DAG + feasibility review',
+      '6. **Phase 6 — Schedule**: next 7 nights of work',
+      '7. **Phase 7 — Active Loop**: nightly execution + daily standups',
       '',
-      '⏱ Expect your first batch of direction ideas in ~1.5 hours.',
+      '⏱ **Assistant will start asking you a few quick questions right now** — expect your first direction menu in ~20 minutes after that.',
     ].filter(Boolean).join('\n');
 
     try {
       const posted = await postMessageToChannel(channelId, human);
       if (!posted.success) {
-        warnings.push(`Failed to post Discord kickoff message: ${posted.error}`);
+        warnings.push(`Failed to post Discord welcome message: ${posted.error}`);
       }
     } catch (err) {
-      warnings.push(`Discord post threw: ${String(err)}`);
+      warnings.push(`Discord welcome post threw: ${String(err)}`);
+    }
+  }
+
+  // Kick off Phase 1 — Intake. Assistant (Akira) is the owner. User interaction
+  // phases are NOT cold-start throttled because the user expects an immediate
+  // response, but we still write the audit inbox.
+  if (!options.skipInbox) {
+    // For Theorist-owned phases we keep the cold-start throttle on Phase 2,
+    // not on Phase 1. Phase 1 is Assistant-owned and must not be throttled.
+    try {
+      const kickResult = await dispatchPhaseKickoff('phase-1-intake', research, state);
+      if (!kickResult.discordPosted) {
+        warnings.push(`Phase 1 Intake kickoff failed: ${kickResult.discordError || 'unknown'}`);
+      }
+    } catch (err) {
+      warnings.push(`Phase 1 Intake kickoff threw: ${String(err)}`);
     }
   }
 

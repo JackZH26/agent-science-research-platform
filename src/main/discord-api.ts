@@ -91,6 +91,107 @@ export function readBotToken(): string | null {
 }
 
 /**
+ * SRW role key — logical name the workflow orchestrator uses.
+ * Maps to the capitalized `role` field stored in settings.json agentConfigs.
+ */
+export type SrwAgentRole = 'theorist' | 'engineer' | 'assistant';
+
+interface AgentConfigEntry {
+  role?: string;
+  discordToken?: string;
+  discordBotId?: string;
+  discordBotName?: string;
+  customName?: string;
+}
+
+function readAgentConfigs(): AgentConfigEntry[] {
+  try {
+    const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+    if (!fs.existsSync(settingsFile)) return [];
+    const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
+    const configs = settings.agentConfigs;
+    return Array.isArray(configs) ? configs as AgentConfigEntry[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeAgentConfigs(configs: AgentConfigEntry[]): void {
+  try {
+    const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+    let settings: Record<string, unknown> = {};
+    if (fs.existsSync(settingsFile)) {
+      settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
+    }
+    settings.agentConfigs = configs;
+    fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+  } catch (err) {
+    console.warn('[discord-api] failed to write agentConfigs:', err);
+  }
+}
+
+function findAgentConfig(role: SrwAgentRole): AgentConfigEntry | null {
+  const target = role.toLowerCase();
+  const configs = readAgentConfigs();
+  return configs.find(c => (c.role || '').toLowerCase() === target) || null;
+}
+
+/**
+ * Return the bot's per-agent Discord token (each SRW role uses a different bot).
+ * Falls back to the first configured token if no role match is found.
+ */
+export function readAgentBotToken(role: SrwAgentRole): string | null {
+  const cfg = findAgentConfig(role);
+  if (cfg?.discordToken) return cfg.discordToken;
+  // Legacy fall-through: first token in the list
+  const any = readAgentConfigs().find(c => c.discordToken);
+  return any?.discordToken || readBotToken();
+}
+
+/**
+ * Return the Discord user/bot ID for a given SRW role so we can build a
+ * proper `<@id>` mention. Tries settings.json first; if missing (old configs),
+ * fetches it from GET /users/@me using the stored token and persists the
+ * result so we don't hit the API every tick.
+ */
+export async function getAgentDiscordBotId(role: SrwAgentRole): Promise<string | null> {
+  const configs = readAgentConfigs();
+  const target = role.toLowerCase();
+  const idx = configs.findIndex(c => (c.role || '').toLowerCase() === target);
+  if (idx < 0) return null;
+
+  const cfg = configs[idx];
+  if (cfg.discordBotId && /^\d{15,25}$/.test(cfg.discordBotId)) return cfg.discordBotId;
+
+  // Fallback: fetch from Discord API and cache
+  if (!cfg.discordToken) return null;
+  try {
+    const me = await discordGet('/users/@me', cfg.discordToken) as Record<string, unknown>;
+    if (me && typeof me.id === 'string' && /^\d+$/.test(me.id)) {
+      configs[idx] = {
+        ...cfg,
+        discordBotId: me.id,
+        discordBotName: (me.username as string) || cfg.discordBotName,
+      };
+      writeAgentConfigs(configs);
+      return me.id;
+    }
+  } catch (err) {
+    console.warn(`[discord-api] failed to fetch bot ID for ${role}:`, err);
+  }
+  return null;
+}
+
+/**
+ * Return the Discord display name (customName / discordBotName) for an agent
+ * role — used in Discord kickoff messages and inbox records.
+ */
+export function getAgentDiscordDisplayName(role: SrwAgentRole): string {
+  const cfg = findAgentConfig(role);
+  return cfg?.customName || cfg?.discordBotName || role;
+}
+
+/**
  * Read the configured guild ID from settings.
  */
 export function readGuildId(): string | null {
@@ -157,8 +258,9 @@ export async function createResearchChannel(
 export async function postMessageToChannel(
   channelId: string,
   content: string,
+  options?: { asRole?: SrwAgentRole },
 ): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
-  const token = readBotToken();
+  const token = options?.asRole ? readAgentBotToken(options.asRole) : readBotToken();
   if (!token) return { success: false, error: 'No Discord bot token available' };
   if (!channelId) return { success: false, error: 'Missing channelId' };
 

@@ -370,6 +370,7 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
               <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
                 ${discordBtn}
                 ${isTerminal ? '' : pauseResumeBtn}
+                ${isTerminal ? '' : `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','rekick')" title="${escAttr(t('researches.workflow_rekick_hint') || 'Re-send the current phase kickoff to Discord — useful if the agent lost the thread.')}">${escHtml(t('researches.workflow_rekick') || 'Re-kick')}</button>`}
                 ${isTerminal ? '' : `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','stop')">${escHtml(t('researches.workflow_stop') || 'Stop')}</button>`}
                 ${isTerminal ? '' : `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','mark-complete')">${escHtml(t('researches.workflow_mark_complete') || 'Mark Complete')}</button>`}
                 ${st.migratedFromLegacy ? `<button class="detail-action-btn" onclick="workflowAction('${escAttr(e.id)}','start')">${escHtml(t('researches.workflow_properly_start') || 'Properly Start')}</button>` : ''}
@@ -508,6 +509,7 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
       else if (action === 'stop') res = await wf.stop(tk, id);
       else if (action === 'mark-complete') res = await wf.markComplete(tk, id);
       else if (action === 'start') res = await wf.start(tk, id);
+      else if (action === 'rekick') res = await wf.rekick(tk, id);
       else return;
     } catch (err) {
       console.warn('Workflow action failed:', err);
@@ -516,6 +518,9 @@ input:checked + .toggle-track::after { transform:translateX(16px); }
     if (res && !res.success) {
       alert(res.error || 'Workflow action failed');
       return;
+    }
+    if (action === 'rekick' && window.Toast) {
+      window.Toast.show((window.t && window.t('researches.workflow_rekick_done')) || 'Kickoff re-dispatched to Discord', 'success', 2500);
     }
     // Re-render detail view
     window.openExpDetail(id);

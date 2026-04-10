@@ -197,7 +197,7 @@ const experiments = {
     }>('experiments:start-research', token, metadata),
 };
 
-// ---- Workflows API (SRW-v1) ----
+// ---- Workflows API (SRW-v2) ----
 const workflows = {
   get: (token: string, researchId: string) =>
     invoke<{ success: boolean; state?: unknown; error?: string }>('workflows:get', token, researchId),
@@ -215,6 +215,8 @@ const workflows = {
     invoke<{ success: boolean; state?: unknown; warnings?: string[]; error?: string }>('workflows:start', token, researchId),
   tickNow: (token: string) =>
     invoke<{ success: boolean; error?: string }>('workflows:tick-now', token),
+  rekick: (token: string, researchId: string) =>
+    invoke<{ success: boolean; phase?: string; agentMentioned?: string | null; error?: string }>('workflows:rekick', token, researchId),
 };
 
 // ---- Audit API ----
