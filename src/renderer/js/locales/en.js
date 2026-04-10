@@ -236,7 +236,7 @@ window.__i18n_en = {
     workflow_rekick_hint: 'Re-dispatch current phase kickoff to Discord',
     workflow_rekick_done: 'Kickoff re-dispatched to Discord',
     workflow_not_started: 'Workflow has not started yet.',
-    workflow_started_success: 'Research started — Assistant is kicking off the intake Q&A in Discord (first direction menu within ~20 min).',
+    workflow_started_success: 'Research started — Theorist is kicking off the intake Q&A in Discord (first direction menu within ~20 min).',
     workflow_start_failed: 'Failed to start research workflow',
     filter_all: 'All',
     filter_registered: 'Registered',

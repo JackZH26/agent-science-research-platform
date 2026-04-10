@@ -105,7 +105,11 @@ function syncAgentWorkspaces(
     const agentId = (cfg as Record<string, string>).agentId;
     if (!agentId) continue;
 
-    const role = ((cfg as Record<string, string>).role || 'assistant').toLowerCase();
+    // SRW-v3: default role renamed assistant→reviewer. Legacy 'assistant'
+    // is still accepted as an alias here (discord-api.ts auto-migrates settings).
+    let rawRole = ((cfg as Record<string, string>).role || 'reviewer').toLowerCase();
+    if (rawRole === 'assistant') rawRole = 'reviewer';
+    const role = rawRole;
     const safeName = agentId.toLowerCase().replace(/[^a-z0-9]/g, '');
     const profileDir = path.join(os.homedir(), `.openclaw-asrp-${safeName}`);
     const configPath = path.join(profileDir, 'openclaw.json');
@@ -381,7 +385,7 @@ export function registerGatewayHandlers(): void {
           if (Array.isArray(configs) && guildId) {
             const agents = configs.filter(c => c && c.discordToken).map(c => ({
               name: c.agentId || 'Agent',
-              role: c.role || 'Assistant',
+              role: c.role === 'Assistant' ? 'Reviewer' : (c.role || 'Reviewer'),
               model: c.model || 'claude-sonnet-4-6',
               discordToken: c.discordToken || '',
               customName: c.customName || '',

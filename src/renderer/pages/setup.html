@@ -711,7 +711,7 @@
   var AGENTS = [
     { emoji: '🧠', name: 'Albert',  role: 'Theorist',  model: 'anthropic/claude-opus-4-6' },
     { emoji: '⚙️', name: 'Wall-E',  role: 'Engineer',  model: 'anthropic/claude-sonnet-4-6' },
-    { emoji: '🤖', name: 'Aria',    role: 'Assistant',  model: 'anthropic/claude-haiku-4-5' },
+    { emoji: '🤖', name: 'Aria',    role: 'Reviewer',  model: 'anthropic/claude-haiku-4-5' },
   ];
 
   var INIT_MESSAGES = [
@@ -903,8 +903,8 @@
       suggestedBotName: 'ASRP-WallE',
     },
     {
-      emoji: '🤖', name: 'Aria',    role: 'Assistant', defaultName: 'Aria',
-      desc: 'General assistant: task coordination, workflow management, and system monitoring.',
+      emoji: '🤖', name: 'Aria',    role: 'Reviewer', defaultName: 'Aria',
+      desc: 'Dispatcher, standup author, and critic: moves the workflow forward, writes honest daily standups, and challenges conclusions.',
       defaultModel: 'anthropic/claude-haiku-4-5',
       suggestedBotName: 'ASRP-Aria',
     },

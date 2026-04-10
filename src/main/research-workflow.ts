@@ -1,21 +1,30 @@
 // ============================================================
-// Research Workflow Orchestrator — SRW-v2
+// Research Workflow Orchestrator — SRW-v3
 // ============================================================
 // Owns the full lifecycle of a research:
 //
 //   Phase 0  Bootstrap       — create channel + welcome post
-//   Phase 1  Intake          — Assistant Q&A with user (3 core + follow-ups)
+//   Phase 1  Intake          — Theorist Q&A with user (3 core + follow-ups)
 //   Phase 2  Reconnaissance  — Theorist scans ~10 papers, writes background.md
 //   Phase 3  Synthesis       — Theorist produces 3–5 opportunities
-//   Phase 4  Direction Pick  — Assistant + user select direction
+//   Phase 4  Direction Pick  — Theorist + user select direction
 //   Phase 5  Plan            — Theorist plan.json + Engineer feasibility
 //   Phase 6  Schedule        — Theorist schedules next 7 nights
 //   Phase 7  Active Loop     — nightly execution + daily standup
 //
-// Triggering: every phase transition posts a Discord message to the
-// research's channel with an explicit @mention of the responsible agent's
-// bot user ID. This is what actually kicks the agent into action; the
-// inbox JSON files are kept only as an audit trail.
+// SRW-v3 architectural changes vs v2:
+//   • Theorist owns every user-facing phase (was split Assistant/Theorist).
+//   • Reviewer (formerly "Assistant") is the dispatcher / standup / critic —
+//     it posts kickoff messages but never to itself.
+//   • Kickoff messages are SLIM: `<@theorist> 初始化研究 R002` + a 2-line
+//     pointer. The full procedure lives in the agent's SOUL / skill files,
+//     not in every Discord post, so the user's channel stays readable.
+//
+// Sender / Mention invariant:
+//   Discord bots never receive their own @mention events. Every dispatch
+//   MUST use senderRole !== mentionRole. dispatchPhaseKickoff asserts this
+//   at runtime; buildPhaseDispatch picks Reviewer as sender by default and
+//   Theorist as the fallback sender when the mention target is Reviewer.
 //
 // Phase advancement: scheduler detects deliverable files the agents
 // write and calls advancePhase → dispatchPhaseKickoff(next).
@@ -37,7 +46,10 @@ import {
 // workflow-scheduler.ts. Bootstrap calls dispatchPhaseKickoff directly
 // because Phase 1 (Intake) is user-facing and must not be throttled.
 
-export const WORKFLOW_VERSION = 'SRW-v2';
+// SRW-v3: slim-dispatch + sender/mention split. State schema is still v2
+// — no state.json migration is required; the change is confined to role
+// labels (assistant→reviewer, auto-migrated on read) and dispatch text.
+export const WORKFLOW_VERSION = 'SRW-v3';
 export const WORKFLOW_SCHEMA_VERSION = 2;
 
 export type WorkflowPhase =
@@ -345,13 +357,19 @@ export function inboxHasTask(researchId: string, taskId: string): boolean {
 // Phase ownership + kickoff content
 // ============================================================
 
-/** Which agent role owns each phase. */
+/**
+ * Which agent role owns each phase (the "actor" — who actually does the work
+ * and who gets @mentioned by the dispatcher).
+ *
+ * SRW-v3: Theorist owns every active phase because it is the single
+ * user-facing interlocutor. Reviewer never appears here — it only dispatches.
+ */
 export const PHASE_OWNER: Record<WorkflowPhase, SrwAgentRole | null> = {
   'phase-0-bootstrap': null,
-  'phase-1-intake': 'assistant',
+  'phase-1-intake': 'theorist',
   'phase-2-reconnaissance': 'theorist',
   'phase-3-synthesis': 'theorist',
-  'phase-4-direction': 'assistant',
+  'phase-4-direction': 'theorist',
   'phase-5-plan': 'theorist',
   'phase-6-schedule': 'theorist',
   'phase-7-active': 'theorist',
@@ -375,214 +393,176 @@ export const PHASE_DELIVERABLES: Record<WorkflowPhase, string[] | null> = {
   'legacy': null,
 };
 
-/** Per-phase kickoff content. Short, role-specific, budget-aware. */
-export interface PhaseKickoffSpec {
-  role: SrwAgentRole;
+/**
+ * Slim Discord dispatch spec for a phase kickoff.
+ *
+ * SRW-v3 design: the Discord message the user sees is short and command-like
+ * (≤ ~6 lines). The agent's full procedure for each command lives in its
+ * SOUL file (see resources/agents/theorist-soul.md §"Discord 命令响应表"),
+ * so we don't spam the channel with 40-line instruction walls.
+ *
+ * Sender / Mention split is mandatory: senderRole posts the message, and
+ * mentionRole is the actor that gets @pinged. They MUST differ, otherwise
+ * Discord silently drops the self-mention event and the agent never wakes.
+ */
+export interface PhaseDispatchSpec {
+  /** Which bot token posts the message. Never equal to mentionRole. */
+  senderRole: SrwAgentRole;
+  /** Which role to @mention — this is the phase actor. */
+  mentionRole: SrwAgentRole;
   taskId: string;
+  /** Short command the agent looks up in its SOUL response table. */
+  command: string;
+  /** One-line human-readable subject for the inbox audit entry. */
   subject: string;
-  body: string;
+  /** Up to 3 context lines shown in Discord. No procedural bodies. */
+  contextLines: string[];
+  /** File the scheduler watches to detect completion. */
   deliverable: string | null;
 }
 
-export function buildPhaseKickoff(phase: WorkflowPhase, research: ResearchRef): PhaseKickoffSpec | null {
+/** Pick a sender role that is guaranteed not to equal the mention target. */
+function pickSender(mention: SrwAgentRole): SrwAgentRole {
+  // Reviewer is the dispatcher for every phase owned by Theorist/Engineer.
+  // If the phase actor is Reviewer itself (currently never, but future-proof),
+  // fall back to Theorist as the sender so the invariant still holds.
+  return mention === 'reviewer' ? 'theorist' : 'reviewer';
+}
+
+export function buildPhaseDispatch(phase: WorkflowPhase, research: ResearchRef): PhaseDispatchSpec | null {
   const id = research.id;
   const code = research.code || id;
   const title = research.title || id;
 
+  // SRW-v3 dispatch: every phase that touches science or the user is
+  // owned by Theorist. Reviewer is the dispatcher. The agent's procedural
+  // "how" lives in resources/agents/theorist-soul.md §"Discord 命令响应表",
+  // keyed by the `command` field below.
   switch (phase) {
     case 'phase-1-intake':
       return {
-        role: 'assistant',
+        senderRole: pickSender('theorist'),
+        mentionRole: 'theorist',
         taskId: 'SRW-P1-INTAKE',
-        subject: `[${code}] Phase 1 — Researcher Intake (start now)`,
+        command: `初始化研究 ${code}`,
+        subject: `[${code}] Phase 1 — Intake (Theorist hosts user Q&A)`,
         deliverable: `workflows/${id}/intake.json`,
-        body: [
-          `**Research**: ${code} — ${title}`,
+        contextLines: [
+          `**${code} — ${title}**`,
           research.abstract ? `> ${research.abstract}` : '',
-          '',
-          'Your job: **start a friendly Q&A with the user right now, in this channel**, to understand what they actually want before Theorist wastes cycles on the wrong framing.',
-          '',
-          '## How to run Intake',
-          '',
-          '1. **Greet + ask the first of THREE core questions**. Wait for the user to answer before asking the next.',
-          '   - Q1: "What outcome would make this research a win for you — a published paper, a thesis chapter, a working prototype, or personal understanding?"',
-          '   - Q2: "Is there a deadline or target venue I should plan around, or is this open-ended?"',
-          '   - Q3: "What\'s your background depth here — beginner, practitioner, or domain expert? And are there any constraints (tools, budget, ethical limits) I should know?"',
-          '2. **Follow up 0–4 extra questions** if anything is unclear. Be surgical, don\'t interrogate.',
-          '3. When you\'re confident you have enough, write the structured result to',
-          `   \`workflows/${id}/intake.json\` with this shape:`,
-          '   ```json',
-          '   {',
-          '     "outputType": "paper|thesis|prototype|personal|other",',
-          '     "targetVenue": "string or null",',
-          '     "deadline": "ISO date or \\"none\\"",',
-          '     "backgroundDepth": "beginner|practitioner|expert",',
-          '     "constraints": "free-form string",',
-          '     "additionalNotes": "anything extra from follow-ups"',
-          '   }',
-          '   ```',
-          '4. **Post a 1-line confirmation** to the channel ("Thanks! Sending this to Albert now.") and you\'re done — the scheduler will detect `intake.json` and advance to Phase 2.',
-          '',
-          '**Budget**: ≤ 10 AI minutes of your own time (the clock that matters is the user answering — be patient).',
-          '**Timeout**: if no reply within 2h, gently nudge. If no reply within 12h, write `intake.json` with sensible defaults (outputType=personal, deadline=none, depth=practitioner) and include `"_auto": true` so we know it was auto-filled.',
-        ].filter(Boolean).join('\n'),
+          `Deliverable: \`workflows/${id}/intake.json\``,
+        ].filter(Boolean),
       };
 
     case 'phase-2-reconnaissance':
       return {
-        role: 'theorist',
+        senderRole: pickSender('theorist'),
+        mentionRole: 'theorist',
         taskId: 'SRW-P2-RECON',
+        command: `文献侦察 ${code}`,
         subject: `[${code}] Phase 2 — Reconnaissance`,
         deliverable: `workflows/${id}/background.md`,
-        body: [
-          `**Research**: ${code} — ${title}`,
-          `User intake is in \`workflows/${id}/intake.json\`. Read it first — it tells you their background depth and target.`,
-          '',
-          '## Your task (~8 AI minutes, solo)',
-          '',
-          `1. Search the literature. Find the **10 most relevant papers** using your own tools.`,
-          `2. Write \`workflows/${id}/literature/papers.json\`:`,
-          '   `[{title, authors, year, venue, url, keyClaim, keyMethod, keyResult, relevance}, ...]`',
-          `3. Write \`workflows/${id}/background.md\` — **200–400 words** covering:`,
-          '   - The state of the field in plain terms (calibrate to the user\'s declared depth)',
-          '   - 3–5 open questions that make this research interesting NOW',
-          '   - 2–3 common pitfalls / failure modes',
-          '',
-          '**Budget**: ≤ 8 AI minutes. Prioritize signal over completeness — you\'re giving Phase 3 a launch pad, not a PhD lit review.',
-        ].join('\n'),
+        contextLines: [
+          `**${code} — ${title}**`,
+          `Input: \`workflows/${id}/intake.json\``,
+          `Deliverable: \`workflows/${id}/background.md\` + \`literature/papers.json\``,
+        ],
       };
 
     case 'phase-3-synthesis':
       return {
-        role: 'theorist',
+        senderRole: pickSender('theorist'),
+        mentionRole: 'theorist',
         taskId: 'SRW-P3-SYNTHESIS',
-        subject: `[${code}] Phase 3 — Synthesis: 3–5 directions`,
+        command: `综合方向 ${code}`,
+        subject: `[${code}] Phase 3 — Synthesis`,
         deliverable: `workflows/${id}/opportunities.md`,
-        body: [
-          `**Research**: ${code} — ${title}`,
-          `Literature + background are in \`workflows/${id}/literature/papers.json\` and \`workflows/${id}/background.md\`.`,
-          `The user's intake is in \`workflows/${id}/intake.json\` — align your directions with their outputType and constraints.`,
-          '',
-          '## Your task (~5 AI minutes)',
-          '',
-          `Produce \`workflows/${id}/opportunities.md\` with **3 to 5 concrete breakthrough directions**. For each:`,
-          '',
-          '- **Title** (one line)',
-          '- **Why interesting** (2 sentences)',
-          '- **Why now** (what makes it tractable today)',
-          '- **Difficulty**: easy / medium / hard / moonshot',
-          '- **Rough cost**: how many AI hours you\'d expect Phase 7 execution to burn',
-          '- **Key risks** (2 bullets)',
-          '',
-          `Then self-critique: drop a 5-line "critic hat" section at the bottom pointing out which direction has the weakest argument. Don\'t hide weaknesses — surface them.`,
-          '',
-          '**Budget**: ≤ 5 AI minutes. Assistant will format this into a Discord menu for the user.',
-        ].join('\n'),
+        contextLines: [
+          `**${code} — ${title}**`,
+          `Input: \`background.md\` + \`literature/papers.json\` + \`intake.json\``,
+          `Deliverable: \`workflows/${id}/opportunities.md\` (3–5 directions)`,
+        ],
       };
 
     case 'phase-4-direction':
       return {
-        role: 'assistant',
+        senderRole: pickSender('theorist'),
+        mentionRole: 'theorist',
         taskId: 'SRW-P4-DIRECTION',
+        command: `方向选择 ${code}`,
         subject: `[${code}] Phase 4 — Direction pick`,
         deliverable: `workflows/${id}/direction.json`,
-        body: [
-          `**Research**: ${code} — ${title}`,
-          `Theorist just wrote \`workflows/${id}/opportunities.md\`.`,
-          '',
-          '## Your task',
-          '',
-          `1. **Read** \`workflows/${id}/opportunities.md\` and format it into a clean, numbered Discord post. Keep it tight — title + 1-sentence why + difficulty per direction.`,
-          '2. Ask the user: *"Which direction excites you most? Reply with 1/2/3/… or tell me if none of these hit."*',
-          '3. Wait for their pick. Ask at most **one follow-up question** if you need to refine (e.g. "You picked #2 — want the fast/cheap variant or the ambitious variant?").',
-          `4. Write \`workflows/${id}/direction.json\`:`,
-          '   ```json',
-          '   {',
-          '     "pick": 1,',
-          '     "pickTitle": "string from opportunities.md",',
-          '     "variant": "string or null",',
-          '     "userRationale": "what they said, paraphrased"',
-          '   }',
-          '   ```',
-          '',
-          '**Timeout**: 24h → friendly nudge. 48h → pick Theorist\'s top recommendation automatically and note `"_auto": true`.',
-        ].join('\n'),
+        contextLines: [
+          `**${code} — ${title}**`,
+          `Input: \`workflows/${id}/opportunities.md\``,
+          `Deliverable: \`workflows/${id}/direction.json\``,
+        ],
       };
 
     case 'phase-5-plan':
       return {
-        role: 'theorist',
+        senderRole: pickSender('theorist'),
+        mentionRole: 'theorist',
         taskId: 'SRW-P5-PLAN',
+        command: `制定计划 ${code}`,
         subject: `[${code}] Phase 5 — Plan construction`,
         deliverable: `workflows/${id}/plan.json`,
-        body: [
-          `**Research**: ${code} — ${title}`,
-          `User picked their direction: see \`workflows/${id}/direction.json\`.`,
-          '',
-          '## Your task (~10 AI minutes total)',
-          '',
-          `1. **Draft** (~6 min): write \`workflows/${id}/plan.json\` with a task DAG.`,
-          '   Each task: `{id, title, owner, phase, description, estimateAiHours, dependsOn, deliverable, successCriteria}`.',
-          '   Owners are `theorist`, `engineer`, or `assistant`.',
-          '2. **Feasibility review** (~3 min): drop a message in',
-          `   \`workspace/messages/theorist-to-engineer-*.json\` asking Engineer to independently`,
-          `   review the plan and write \`workflows/${id}/plan-feasibility.md\`. Wait for it.`,
-          `3. **Revise + human summary** (~1 min): incorporate Engineer\'s flags, then produce`,
-          `   \`workflows/${id}/plan.md\` — a Discord-ready markdown summary (Assistant will post it).`,
-          '',
-          '**Budget guideline**: total Phase 7 execution should fit in ≤ 50 AI hours. If you blow past that, trim scope in `plan.md` and explain why.',
-          '',
-          '**Time convention**: 1 human day = 1 AI hour (used for Phase 7 nightly task sizing only, not for this planning phase).',
-        ].join('\n'),
+        contextLines: [
+          `**${code} — ${title}**`,
+          `Input: \`workflows/${id}/direction.json\``,
+          `Deliverable: \`plan.json\` + \`plan-feasibility.md\` (request from Engineer)`,
+        ],
       };
 
     case 'phase-6-schedule':
       return {
-        role: 'theorist',
+        senderRole: pickSender('theorist'),
+        mentionRole: 'theorist',
         taskId: 'SRW-P6-SCHEDULE',
+        command: `排期 ${code}`,
         subject: `[${code}] Phase 6 — Schedule next 7 nights`,
         deliverable: `workflows/${id}/schedule.json`,
-        body: [
-          `**Research**: ${code} — ${title}`,
-          `Plan is locked in \`workflows/${id}/plan.json\`.`,
-          '',
-          '## Your task (~2 AI minutes)',
-          '',
-          `1. Write \`workflows/${id}/schedule.json\`:`,
-          '   `{ nights: [{ date, tasks: [{ agent, taskId, kickoffMessage }] }] }`',
-          '2. Respect `dependsOn` from `plan.json`.',
-          '3. Compute-heavy tasks → **00:00–06:00 local** window. Light tasks (standups, formatting, intake) can run any time.',
-          '4. Leave night 7 lighter — it\'s the weekly review slot.',
-        ].join('\n'),
+        contextLines: [
+          `**${code} — ${title}**`,
+          `Input: \`workflows/${id}/plan.json\``,
+          `Deliverable: \`workflows/${id}/schedule.json\``,
+        ],
       };
 
     case 'phase-7-active':
       return {
-        role: 'theorist',
+        senderRole: pickSender('theorist'),
+        mentionRole: 'theorist',
         taskId: 'SRW-P7-ACTIVE',
+        command: `夜间执行 ${code}`,
         subject: `[${code}] Phase 7 — Active Loop`,
         deliverable: null,
-        body: [
-          `**Research**: ${code} — ${title}`,
-          `Schedule is live in \`workflows/${id}/schedule.json\`.`,
-          '',
-          '## Ongoing responsibilities',
-          '',
-          '- **Each night at 00:00 local**, dispatch that night\'s tasks (inbox messages per the schedule).',
-          '- For any numerical result, ask Engineer to **independently recompute** before marking done.',
-          '- Each morning Assistant writes the Daily Standup automatically — proactively flag anything broken from last night.',
-          '- Update status → `confirmed` / `refuted` / `completed` when stop conditions fire.',
-          '',
-          '## Stop conditions',
-          '1. Reviewer-grade evidence confirms hypothesis → `confirmed`',
-          '2. Engineer\'s independent recompute contradicts it → `refuted`',
-          '3. User marks complete / stops from the Workflow tab',
-        ].join('\n'),
+        contextLines: [
+          `**${code} — ${title}**`,
+          `Schedule: \`workflows/${id}/schedule.json\``,
+          `Active loop — nightly dispatch + daily standup (Reviewer).`,
+        ],
       };
 
     default:
       return null;
   }
+}
+
+/** @deprecated Use buildPhaseDispatch. Kept as a thin shim for callers that
+ *  only need the actor role + deliverable. */
+export function buildPhaseKickoff(phase: WorkflowPhase, research: ResearchRef): {
+  role: SrwAgentRole; taskId: string; subject: string; body: string; deliverable: string | null;
+} | null {
+  const spec = buildPhaseDispatch(phase, research);
+  if (!spec) return null;
+  return {
+    role: spec.mentionRole,
+    taskId: spec.taskId,
+    subject: spec.subject,
+    body: spec.contextLines.join('\n'),
+    deliverable: spec.deliverable,
+  };
 }
 
 // ============================================================
@@ -611,24 +591,44 @@ export async function dispatchPhaseKickoff(
   research: ResearchRef,
   state: WorkflowState,
 ): Promise<DispatchResult> {
-  const spec = buildPhaseKickoff(phase, research);
+  const spec = buildPhaseDispatch(phase, research);
   if (!spec) {
     return { success: false, discordPosted: false, discordError: `No kickoff defined for phase ${phase}` };
   }
 
+  // --- Invariant (role-label layer) -----------------------------------
+  // Discord bots never receive their own @mention events. Any code path
+  // that posts as bot X and @mentions bot X is silently dead. The label
+  // check catches the obvious case; the bot-ID check below catches the
+  // subtler case where two role labels silently resolve to the same bot
+  // (e.g. a 2-bot install where Reviewer isn't configured and the sender
+  // token falls through to Theorist's).
+  if (spec.senderRole === spec.mentionRole) {
+    const msg = `[research-workflow] sender===mention invariant violated for ${phase} (role=${spec.senderRole}) — refusing to dispatch`;
+    console.error(msg);
+    return { success: false, discordPosted: false, discordError: msg };
+  }
+
   const now = nowIso();
 
-  // 1) Audit trail — inbox JSON file
+  // 1) Audit trail — inbox JSON file addressed to the *actor* (mentionRole).
+  //    Include a pointer to the SOUL response table so a human browsing the
+  //    inbox can see where the procedure lives.
   writeInboxMessage({
     from: 'system',
-    to: spec.role,
+    to: spec.mentionRole,
     researchId: research.id,
     researchCode: research.code || '',
     researchTitle: research.title || '',
     phase,
     taskId: spec.taskId,
     subject: spec.subject,
-    body: spec.body,
+    body: [
+      spec.command,
+      ...spec.contextLines,
+      '',
+      `(Procedure: see §"Discord 命令响应表" in resources/agents/${spec.mentionRole}-soul.md)`,
+    ].join('\n'),
     deadline: null,
     deliverable: spec.deliverable,
     createdAt: now,
@@ -639,40 +639,77 @@ export async function dispatchPhaseKickoff(
     return { success: false, discordPosted: false, discordError: 'No Discord channel for this workflow' };
   }
 
-  let mentionText = '';
-  let botId: string | null = null;
+  // --- Resolve bot IDs for BOTH sender and mention target -------------
+  // We need the mention target's snowflake to build a real `<@id>` ping,
+  // and we need the sender's snowflake to enforce the invariant at the
+  // bot-ID layer. If either resolution fails, fail the dispatch loudly
+  // rather than silently degrading to a plain-text tag that no bot will
+  // ever receive as a mention event.
+  let mentionBotId: string | null = null;
+  let senderBotId: string | null = null;
   try {
-    botId = await getAgentDiscordBotId(spec.role);
-    if (botId) {
-      mentionText = `<@${botId}> `;
-    } else {
-      // Fallback: plain text tag — not as reliable as @mention but better than nothing
-      const displayName = getAgentDiscordDisplayName(spec.role);
-      mentionText = `**@${displayName}** `;
-    }
+    [mentionBotId, senderBotId] = await Promise.all([
+      getAgentDiscordBotId(spec.mentionRole),
+      getAgentDiscordBotId(spec.senderRole),
+    ]);
   } catch (err) {
-    console.warn(`[research-workflow] getAgentDiscordBotId(${spec.role}) failed:`, err);
+    console.warn(`[research-workflow] bot ID resolution failed for ${phase}:`, err);
   }
 
+  if (!mentionBotId) {
+    const displayName = getAgentDiscordDisplayName(spec.mentionRole);
+    const msg = `Cannot dispatch ${phase}: no Discord bot ID for mention target '${spec.mentionRole}' (${displayName}). ` +
+      `Check that this role is configured in Settings → Agents with a valid bot token.`;
+    console.error('[research-workflow]', msg);
+    return { success: false, discordPosted: false, discordError: msg };
+  }
+  if (!senderBotId) {
+    const displayName = getAgentDiscordDisplayName(spec.senderRole);
+    const msg = `Cannot dispatch ${phase}: no Discord bot ID for sender role '${spec.senderRole}' (${displayName}). ` +
+      `The SRW dispatcher role is not configured — add a bot for this role in Settings → Agents.`;
+    console.error('[research-workflow]', msg);
+    return { success: false, discordPosted: false, discordError: msg };
+  }
+
+  // --- Invariant (bot-ID layer) ---------------------------------------
+  // The original self-mention deadlock was that the sender bot === mention
+  // bot. Catch it here even if the role labels differ — this happens when
+  // `readAgentBotToken` falls back to the first configured token because
+  // the requested role isn't set up (e.g. only 2 of 3 agents configured).
+  // Strict token resolution in step 3 below also blocks this, but we
+  // double-check at the ID layer so the error message is actionable.
+  if (senderBotId === mentionBotId) {
+    const msg = `Cannot dispatch ${phase}: sender role '${spec.senderRole}' and mention role '${spec.mentionRole}' ` +
+      `resolve to the same Discord bot (id=${senderBotId}). Discord drops self-mention events, so this ` +
+      `dispatch would be silently dead. Configure a distinct bot for '${spec.senderRole}'.`;
+    console.error('[research-workflow]', msg);
+    return { success: false, discordPosted: false, discordError: msg, agentMentioned: mentionBotId };
+  }
+
+  // Slim Discord body — just the command + up to 3 context lines. The
+  // full procedure lives in the agent's SOUL file (see "Discord 命令响应表").
   const content = [
-    `${mentionText}${spec.subject}`,
-    '',
-    spec.body,
-    '',
-    `— Scheduler (task=\`${spec.taskId}\`)`,
+    `<@${mentionBotId}> ${spec.command}`,
+    ...spec.contextLines,
+    `— task \`${spec.taskId}\``,
   ].join('\n');
 
   try {
-    // Post AS the owning role so the message appears from that bot's identity
-    // when possible. The @mention still correctly pings whichever bot we're
-    // addressing (which is itself — harmless but makes the agent's message
-    // loop definitely see the task).
-    const posted = await postMessageToChannel(state.discordChannelId, content, { asRole: spec.role });
+    // 3) Post from the dispatcher role (Reviewer by default), NEVER from
+    //    the mention target. strictRole:true means `readAgentBotToken`
+    //    will return null rather than fall back to some other bot if
+    //    `senderRole` isn't configured — belt-and-suspenders with the
+    //    bot-ID check above.
+    const posted = await postMessageToChannel(
+      state.discordChannelId,
+      content,
+      { asRole: spec.senderRole, strictRole: true },
+    );
     if (!posted.success) {
-      return { success: false, discordPosted: false, discordError: posted.error, agentMentioned: botId };
+      return { success: false, discordPosted: false, discordError: posted.error, agentMentioned: mentionBotId };
     }
   } catch (err) {
-    return { success: false, discordPosted: false, discordError: String(err), agentMentioned: botId };
+    return { success: false, discordPosted: false, discordError: String(err), agentMentioned: mentionBotId };
   }
 
   // Stamp lastKickoffAt on state so scheduler can measure stall
@@ -681,7 +718,7 @@ export async function dispatchPhaseKickoff(
     writeWorkflowState(state);
   } catch { /* non-fatal */ }
 
-  return { success: true, discordPosted: true, agentMentioned: botId };
+  return { success: true, discordPosted: true, agentMentioned: mentionBotId };
 }
 
 // ============================================================
@@ -795,7 +832,9 @@ export async function bootstrapWorkflow(
   } catch { /* non-fatal */ }
 
   // Post a human-visible welcome message to Discord FIRST (so the user sees
-  // the research exists before Akira @-pings itself with the intake task).
+  // the research exists before the first agent @mention lands). We post as
+  // the Reviewer role so that the *next* message — a Reviewer-posted
+  // `<@theorist> 初始化研究 …` — can still safely reach Theorist.
   if (channelId) {
     const human = [
       `# 🚀 Research started — ${research.code || research.id}`,
@@ -804,21 +843,35 @@ export async function bootstrapWorkflow(
       '',
       research.abstract ? `> ${research.abstract}` : '',
       '',
-      '**Standard Research Workflow (SRW-v2)** is now running. Here\'s the flow:',
+      '**Standard Research Workflow (SRW-v3)** is now running:',
       '',
-      '1. **Phase 1 — Intake** (Assistant): a quick Q&A with you right now so we understand what you actually want',
-      '2. **Phase 2 — Reconnaissance** (Theorist): scan ~10 relevant papers + a 200-word background',
+      '1. **Phase 1 — Intake** (Theorist): a quick Q&A with you to understand what you actually want',
+      '2. **Phase 2 — Reconnaissance** (Theorist): scan ~10 relevant papers + 200-word background',
       '3. **Phase 3 — Synthesis** (Theorist): 3–5 concrete research directions',
-      '4. **Phase 4 — Direction Pick** (Assistant): you pick one',
-      '5. **Phase 5 — Plan** (Theorist + Engineer): detailed task DAG + feasibility review',
+      '4. **Phase 4 — Direction Pick** (Theorist + you): pick one',
+      '5. **Phase 5 — Plan** (Theorist + Engineer): task DAG + feasibility review',
       '6. **Phase 6 — Schedule**: next 7 nights of work',
-      '7. **Phase 7 — Active Loop**: nightly execution + daily standups',
+      '7. **Phase 7 — Active Loop**: nightly execution + daily standups (Reviewer)',
       '',
-      '⏱ **Assistant will start asking you a few quick questions right now** — expect your first direction menu in ~20 minutes after that.',
+      '⏱ **Theorist will start asking you a few quick questions in a moment.**',
     ].filter(Boolean).join('\n');
 
     try {
-      const posted = await postMessageToChannel(channelId, human);
+      // Post the welcome as Reviewer (the dispatcher role) — strict, because
+      // we want the next message (the Phase 1 `<@Theorist> 初始化研究 …`
+      // kickoff) to come from a DIFFERENT bot than Theorist. If Reviewer
+      // isn't configured we still post the welcome (cosmetic, non-strict)
+      // and add a warning — dispatchPhaseKickoff will then fail the Phase 1
+      // dispatch explicitly with an actionable error message.
+      let posted = await postMessageToChannel(channelId, human, { asRole: 'reviewer', strictRole: true });
+      if (!posted.success) {
+        console.warn(`[research-workflow] welcome strict post as reviewer failed (${posted.error}); retrying cosmetic`);
+        posted = await postMessageToChannel(channelId, human);
+        warnings.push(
+          'Reviewer bot is not configured — welcome message was posted by the fallback bot and ' +
+          'SRW Phase 1 dispatch will fail until a Reviewer bot is added in Settings → Agents.',
+        );
+      }
       if (!posted.success) {
         warnings.push(`Failed to post Discord welcome message: ${posted.error}`);
       }
@@ -827,12 +880,10 @@ export async function bootstrapWorkflow(
     }
   }
 
-  // Kick off Phase 1 — Intake. Assistant (Akira) is the owner. User interaction
-  // phases are NOT cold-start throttled because the user expects an immediate
-  // response, but we still write the audit inbox.
+  // Kick off Phase 1 — Intake. Theorist (SRW-v3) is the owner and is
+  // @mentioned by Reviewer. User-interaction phases are NOT cold-start
+  // throttled because the user expects an immediate response.
   if (!options.skipInbox) {
-    // For Theorist-owned phases we keep the cold-start throttle on Phase 2,
-    // not on Phase 1. Phase 1 is Assistant-owned and must not be throttled.
     try {
       const kickResult = await dispatchPhaseKickoff('phase-1-intake', research, state);
       if (!kickResult.discordPosted) {

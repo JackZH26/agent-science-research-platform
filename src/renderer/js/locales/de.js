@@ -236,7 +236,7 @@ window.__i18n_de = {
     workflow_rekick_hint: 'Kickoff der aktuellen Phase erneut an Discord senden',
     workflow_rekick_done: 'Kickoff erneut an Discord gesendet',
     workflow_not_started: 'Workflow wurde noch nicht gestartet.',
-    workflow_started_success: 'Forschung gestartet — Assistant startet das Intake in Discord (Richtungsmenü in ~20 Min).',
+    workflow_started_success: 'Forschung gestartet — Theorist startet das Intake in Discord (Richtungsmenü in ~20 Min).',
     workflow_start_failed: 'Workflow-Start fehlgeschlagen',
     filter_all: 'Alle',
     filter_registered: 'Registriert',

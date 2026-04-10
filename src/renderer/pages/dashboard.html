@@ -206,7 +206,8 @@
         const s = await window.asrp.settings.get();
         if (Array.isArray(s.agentConfigs)) {
           agents = s.agentConfigs.filter(c => c && c.agentId).map(c => ({
-            name: c.discordBotName || c.customName || c.agentId, role: c.role || 'Assistant',
+            name: c.discordBotName || c.customName || c.agentId,
+            role: c.role === 'Assistant' ? 'Reviewer' : (c.role || 'Reviewer'),
             status: 'stopped', model: c.model || '',
           }));
         }

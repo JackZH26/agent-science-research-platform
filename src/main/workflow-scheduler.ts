@@ -81,7 +81,8 @@ let ticking = false;
 // Small helpers
 // ============================================================
 
-type AgentName = 'theorist' | 'engineer' | 'assistant';
+// SRW-v3: 'assistant' → 'reviewer'. See discord-api.ts SrwAgentRole.
+type AgentName = 'theorist' | 'engineer' | 'reviewer';
 
 function ensureDir(p: string): void {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
@@ -286,7 +287,7 @@ function dispatchStandup(state: WorkflowState, record: ResearchRecord, ledger: S
   const today = todayLocal();
   dispatchInbox({
     from: 'system',
-    to: 'assistant',
+    to: 'reviewer',
     researchId: record.id,
     researchCode: record.code || '',
     researchTitle: record.title || '',
@@ -341,11 +342,10 @@ function checkStall(state: WorkflowState, record: ResearchRecord, ledger: Schedu
     if (!isNaN(lastNudge) && Date.now() - lastNudge < threshold) return;
   }
 
-  // Owner of the current phase
-  let owner: AgentName = 'theorist';
-  if (state.currentPhase === 'phase-1-intake' || state.currentPhase === 'phase-4-direction') {
-    owner = 'assistant';
-  }
+  // Owner of the current phase. SRW-v3: every active phase is owned by
+  // Theorist (including Phase 1 Intake and Phase 4 Direction, which were
+  // previously assigned to Assistant/Reviewer).
+  const owner: AgentName = 'theorist';
 
   dispatchInbox({
     from: 'system',

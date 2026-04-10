@@ -21,7 +21,9 @@ import { getWorkflowsRoot } from './research-workflow';
 
 export const COLD_START_DAILY_LIMIT = 5;
 
-export type ThrottleAgent = 'theorist' | 'engineer' | 'assistant';
+// SRW-v3: role formerly called 'assistant' is now 'reviewer'. Persisted
+// throttle state from older builds is auto-migrated in readState().
+export type ThrottleAgent = 'theorist' | 'engineer' | 'reviewer';
 
 export interface ThrottleQueueEntry {
   researchId: string;
@@ -55,35 +57,49 @@ function todayLocal(): string {
 function emptyState(): ThrottleState {
   return {
     date: todayLocal(),
-    counts: { theorist: 0, engineer: 0, assistant: 0 },
+    counts: { theorist: 0, engineer: 0, reviewer: 0 },
     queue: [],
-    seenByAgent: { theorist: [], engineer: [], assistant: [] },
+    seenByAgent: { theorist: [], engineer: [], reviewer: [] },
   };
+}
+
+/** Accept either the new 'reviewer' key or the legacy 'assistant' key from
+ *  persisted v2 state, preferring the new one when both are present. */
+function coalesceReviewer<T>(raw: Partial<Record<string, T>> | undefined, def: T): T {
+  if (!raw) return def;
+  return (raw['reviewer'] ?? raw['assistant'] ?? def) as T;
 }
 
 function readState(): ThrottleState {
   const file = stateFile();
   if (!fs.existsSync(file)) return emptyState();
   try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as Partial<ThrottleState>;
+    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as Partial<ThrottleState> & {
+      counts?: Record<string, number>;
+      seenByAgent?: Record<string, string[]>;
+    };
     const st: ThrottleState = {
       date: raw.date || todayLocal(),
       counts: {
         theorist: raw.counts?.theorist ?? 0,
         engineer: raw.counts?.engineer ?? 0,
-        assistant: raw.counts?.assistant ?? 0,
+        reviewer: coalesceReviewer(raw.counts, 0),
       },
-      queue: Array.isArray(raw.queue) ? raw.queue : [],
+      queue: (Array.isArray(raw.queue) ? raw.queue : []).map(q => ({
+        ...q,
+        // Migrate legacy queue entries that still use 'assistant'
+        agent: (q.agent as string) === 'assistant' ? 'reviewer' : q.agent,
+      })) as ThrottleQueueEntry[],
       seenByAgent: {
         theorist: Array.isArray(raw.seenByAgent?.theorist) ? raw.seenByAgent!.theorist : [],
         engineer: Array.isArray(raw.seenByAgent?.engineer) ? raw.seenByAgent!.engineer : [],
-        assistant: Array.isArray(raw.seenByAgent?.assistant) ? raw.seenByAgent!.assistant : [],
+        reviewer: coalesceReviewer(raw.seenByAgent, [] as string[]),
       },
     };
     // Roll over at midnight local
     if (st.date !== todayLocal()) {
       st.date = todayLocal();
-      st.counts = { theorist: 0, engineer: 0, assistant: 0 };
+      st.counts = { theorist: 0, engineer: 0, reviewer: 0 };
       // seenByAgent persists — a research only counts as "new" to an agent once, ever
     }
     return st;
@@ -146,7 +162,7 @@ export function drain(): ThrottleQueueEntry[] {
   const slots: Record<ThrottleAgent, number> = {
     theorist: Math.max(0, COLD_START_DAILY_LIMIT - st.counts.theorist),
     engineer: Math.max(0, COLD_START_DAILY_LIMIT - st.counts.engineer),
-    assistant: Math.max(0, COLD_START_DAILY_LIMIT - st.counts.assistant),
+    reviewer: Math.max(0, COLD_START_DAILY_LIMIT - st.counts.reviewer),
   };
   for (const e of st.queue) {
     if (slots[e.agent] > 0 && !st.seenByAgent[e.agent].includes(e.researchId)) {

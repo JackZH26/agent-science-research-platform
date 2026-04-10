@@ -93,8 +93,13 @@ export function readBotToken(): string | null {
 /**
  * SRW role key — logical name the workflow orchestrator uses.
  * Maps to the capitalized `role` field stored in settings.json agentConfigs.
+ *
+ * SRW-v3 uses: theorist (science + user interaction) / engineer (code +
+ * recompute) / reviewer (dispatch + standup + critic). Legacy installs
+ * used `assistant` instead of `reviewer`; readAgentConfigs() auto-migrates
+ * those on first read.
  */
-export type SrwAgentRole = 'theorist' | 'engineer' | 'assistant';
+export type SrwAgentRole = 'theorist' | 'engineer' | 'reviewer';
 
 interface AgentConfigEntry {
   role?: string;
@@ -110,7 +115,22 @@ function readAgentConfigs(): AgentConfigEntry[] {
     if (!fs.existsSync(settingsFile)) return [];
     const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
     const configs = settings.agentConfigs;
-    return Array.isArray(configs) ? configs as AgentConfigEntry[] : [];
+    if (!Array.isArray(configs)) return [];
+    // Legacy migration: Assistant → Reviewer. Users' custom bot names,
+    // tokens, and bot IDs are preserved untouched; only the logical role
+    // label changes so SRW-v3 PHASE_OWNER lookups resolve correctly.
+    let migrated = false;
+    for (const c of configs as AgentConfigEntry[]) {
+      if ((c.role || '').toLowerCase() === 'assistant') {
+        c.role = 'Reviewer';
+        migrated = true;
+      }
+    }
+    if (migrated) {
+      console.log('[discord-api] migrated legacy Assistant → Reviewer in agentConfigs');
+      writeAgentConfigs(configs as AgentConfigEntry[]);
+    }
+    return configs as AgentConfigEntry[];
   } catch {
     return [];
   }
@@ -138,12 +158,26 @@ function findAgentConfig(role: SrwAgentRole): AgentConfigEntry | null {
 
 /**
  * Return the bot's per-agent Discord token (each SRW role uses a different bot).
- * Falls back to the first configured token if no role match is found.
+ *
+ * By default (non-strict) falls back to the first configured token if no role
+ * match is found. This is fine for cosmetic posts (welcome banners, generic
+ * channel creation) but **dangerous for SRW dispatch**: if the requested role
+ * silently resolves to some other bot, that bot will happily post a message
+ * that @mentions itself and Discord will drop the event → dead dispatch.
+ *
+ * SRW dispatch paths MUST pass `{ strict: true }` so a missing role fails
+ * loudly instead of falling through. See `dispatchPhaseKickoff` in
+ * research-workflow.ts for the bot-ID level invariant check that depends on
+ * this.
  */
-export function readAgentBotToken(role: SrwAgentRole): string | null {
+export function readAgentBotToken(
+  role: SrwAgentRole,
+  opts?: { strict?: boolean },
+): string | null {
   const cfg = findAgentConfig(role);
   if (cfg?.discordToken) return cfg.discordToken;
-  // Legacy fall-through: first token in the list
+  if (opts?.strict) return null;
+  // Legacy fall-through: first token in the list (cosmetic posts only)
   const any = readAgentConfigs().find(c => c.discordToken);
   return any?.discordToken || readBotToken();
 }
@@ -258,10 +292,21 @@ export async function createResearchChannel(
 export async function postMessageToChannel(
   channelId: string,
   content: string,
-  options?: { asRole?: SrwAgentRole },
+  options?: { asRole?: SrwAgentRole; strictRole?: boolean },
 ): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
-  const token = options?.asRole ? readAgentBotToken(options.asRole) : readBotToken();
-  if (!token) return { success: false, error: 'No Discord bot token available' };
+  // When a caller names a specific role AND sets strictRole, we must NOT
+  // silently fall back to another bot's token — otherwise the SRW sender/
+  // mention invariant collapses at the bot-ID level (see research-workflow.ts
+  // dispatchPhaseKickoff comments for why this matters).
+  const token = options?.asRole
+    ? readAgentBotToken(options.asRole, { strict: options.strictRole === true })
+    : readBotToken();
+  if (!token) {
+    const scope = options?.asRole
+      ? `for role '${options.asRole}'${options.strictRole ? ' (strict)' : ''}`
+      : '';
+    return { success: false, error: `No Discord bot token available ${scope}`.trim() };
+  }
   if (!channelId) return { success: false, error: 'Missing channelId' };
 
   const chunks = splitMessage(content, 1900);

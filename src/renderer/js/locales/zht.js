@@ -236,7 +236,7 @@ window.__i18n_zht = {
     workflow_rekick_hint: '重新向 Discord 派發當前階段的啟動訊息',
     workflow_rekick_done: '啟動訊息已重新送至 Discord',
     workflow_not_started: '工作流尚未啟動。',
-    workflow_started_success: '研究已啟動 — Assistant 正在 Discord 中開始訪談（約 20 分鐘內給出方向選單）。',
+    workflow_started_success: '研究已啟動 — Theorist 正在 Discord 中開始訪談（約 20 分鐘內給出方向選單）。',
     workflow_start_failed: '啟動研究工作流失敗',
     filter_all: '全部',
     filter_registered: '已註冊',
