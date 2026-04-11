@@ -3,18 +3,25 @@
 // ============================================================
 //
 // Problem this module solves:
-//   Each OpenClaw agent runs with its own workspace dir
-//   ({wsRoot}/agent-{name}/). When Theorist writes
-//   `workflows/{id}/intake.json` relative to her CWD, it lands inside
-//   `agent-wall-e/workflows/...` — invisible to Engineer, Reviewer, and
-//   the desktop app's scheduler which all look at `{wsRoot}/workflows/`.
+//   Each OpenClaw agent runs with its own workspace dir. Historically
+//   this was `{wsRoot}/agent-{nickname}/` (e.g. `agent-wall-e`), then
+//   `{wsRoot}/system/agent-{nickname}/` — both keyed on the user's
+//   Discord bot nickname, which varies per install. Two bugs:
+//     1. When Theorist writes `workflows/{id}/intake.json` relative to
+//        her CWD it lands inside her private silo, invisible to
+//        Engineer, Reviewer, and the desktop app's scheduler.
+//     2. Code that needs to find "the Theorist" has to know the
+//        nickname — but every install picks a different one.
 //
 // Fix (SRW-v3.1):
-//   Promote `workflows/`, `literature/`, `messages/` to real shared
-//   directories at the workspace root, and replace each agent's
-//   per-agent subdir with a symlink (Windows: junction). All three
-//   agents + the desktop app now read/write the same physical tree,
-//   while per-agent SOUL.md / IDENTITY.md / state/ stay isolated.
+//   (a) Canonicalize per-agent workspace paths to role-based names:
+//       `{wsRoot}/system/agent-{role}/` where role ∈ {theorist,
+//       engineer, reviewer}. Legacy name-based dirs are auto-migrated.
+//   (b) Promote `workflows/`, `literature/`, `messages/` to real shared
+//       directories at the workspace root, and replace each agent's
+//       per-agent subdir with a symlink (Windows: junction). All three
+//       agents + the desktop app now read/write the same physical tree,
+//       while per-agent SOUL.md / IDENTITY.md / state/ stay isolated.
 //
 // Cross-platform:
 //   - macOS / Linux: fs.symlinkSync(target, link, 'dir')
@@ -204,23 +211,130 @@ function deriveSharedRoot(agentWs: string, settingsWorkspace: string | null): st
   return root;
 }
 
+/** Roles that ASRP recognizes. Order matches SRW-v3 dispatch layout. */
+export const CANONICAL_ROLES = ['theorist', 'engineer', 'reviewer'] as const;
+export type CanonicalRole = (typeof CANONICAL_ROLES)[number];
+
+function normalizeRole(raw: unknown): CanonicalRole | null {
+  const s = String(raw ?? '').toLowerCase().trim();
+  // Legacy SRW-v2 alias.
+  const normalized = s === 'assistant' ? 'reviewer' : s;
+  return (CANONICAL_ROLES as readonly string[]).includes(normalized)
+    ? (normalized as CanonicalRole)
+    : null;
+}
+
+/**
+ * Build a map of profile-safe name → role by reading settings.json.
+ * The profile dir is `~/.openclaw-asrp-{profileSafe}` where
+ * `profileSafe = agentId.toLowerCase().replace(/[^a-z0-9]/g, '')`
+ * (see openclaw-config-generator + openclaw-manager for the same rule).
+ */
+function buildRoleMap(): Map<string, CanonicalRole> {
+  const map = new Map<string, CanonicalRole>();
+  try {
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+    if (!fs.existsSync(settingsPath)) return map;
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    const configs = settings?.agentConfigs;
+    if (!Array.isArray(configs)) return map;
+    for (const c of configs) {
+      if (!c || typeof c !== 'object') continue;
+      const agentId = (c as Record<string, unknown>).agentId;
+      const role = normalizeRole((c as Record<string, unknown>).role);
+      if (typeof agentId !== 'string' || !role) continue;
+      const profileSafe = agentId.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (profileSafe) map.set(profileSafe, role);
+    }
+  } catch {
+    /* ignore */
+  }
+  return map;
+}
+
+/**
+ * Rename a legacy per-agent workspace to the canonical role-based path.
+ *   src: {wsRoot}/agent-wall-e       (or {wsRoot}/system/agent-wall-e)
+ *   dst: {wsRoot}/system/agent-theorist
+ *
+ * If `dst` already exists, merges src into dst (newest mtime wins) and
+ * removes src. If `src` doesn't exist, just creates dst. Returns true if
+ * any filesystem change was made. Never throws — errors are logged.
+ */
+function canonicalizeAgentWorkspace(src: string, dst: string): boolean {
+  if (path.resolve(src) === path.resolve(dst)) return false;
+  try {
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+  } catch {
+    /* ignore */
+  }
+  const srcExists = fs.existsSync(src);
+  const dstExists = fs.existsSync(dst);
+  try {
+    if (!srcExists && !dstExists) {
+      fs.mkdirSync(dst, { recursive: true });
+      return true;
+    }
+    if (srcExists && !dstExists) {
+      fs.renameSync(src, dst);
+      return true;
+    }
+    if (srcExists && dstExists) {
+      // Both exist — merge src → dst (newest wins) then remove src.
+      mergeDir(src, dst);
+      rmrfSafe(src);
+      return true;
+    }
+    // !srcExists && dstExists — nothing to do.
+    return false;
+  } catch (err) {
+    console.warn(`[shared-dirs] canonicalize failed ${src} → ${dst}: ${String(err)}`);
+    return false;
+  }
+}
+
+/** Update the `agents.defaults.workspace` field in one openclaw.json atomically. */
+function updateOpenclawWorkspaceField(configPath: string, newWs: string): void {
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const cfg = JSON.parse(raw);
+    if (!cfg.agents) cfg.agents = {};
+    if (!cfg.agents.defaults) cfg.agents.defaults = {};
+    if (cfg.agents.defaults.workspace === newWs) return;
+    cfg.agents.defaults.workspace = newWs;
+    const tmp = configPath + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), { encoding: 'utf-8', mode: 0o600 });
+    fs.renameSync(tmp, configPath);
+  } catch (err) {
+    console.warn(`[shared-dirs] failed to update ${configPath}: ${String(err)}`);
+  }
+}
+
 export interface SelfHealReport {
   linked: number;
   migrated: number;
+  renamed: number;
   errors: string[];
 }
 
 /**
  * Startup self-heal. Idempotent & cheap — safe to call on every gateway
- * start. Scans all `~/.openclaw-asrp-*` profile dirs, reads each agent's
- * `openclaw.json` for its real workspace, migrates legacy per-agent
- * `workflows/literature/messages` subdirs into the shared root, and
- * replaces them with symlinks.
+ * start. For every `~/.openclaw-asrp-*` profile:
+ *   1. Read the agent's openclaw.json `workspace` field + settings.json
+ *      to derive the shared root and the agent's role.
+ *   2. If the workspace path is a legacy nickname-based path
+ *      (`…/agent-wall-e` or `…/system/agent-wall-e`), rename it to the
+ *      canonical `…/system/agent-{role}/` and update the openclaw.json.
+ *   3. Promote/link shared `workflows/literature/messages` subdirs into
+ *      the (now canonical) agent workspace.
+ *
+ * Safe to run repeatedly — all operations short-circuit when the layout
+ * already matches the target.
  */
 export function selfHealAgentWorkspaces(): SelfHealReport {
-  const report: SelfHealReport = { linked: 0, migrated: 0, errors: [] };
+  const report: SelfHealReport = { linked: 0, migrated: 0, renamed: 0, errors: [] };
 
-  // Read settings.workspace (preferred shared root).
+  // Read settings.workspace (preferred shared root) + role map.
   let settingsWorkspace: string | null = null;
   try {
     const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -233,6 +347,7 @@ export function selfHealAgentWorkspaces(): SelfHealReport {
   } catch {
     /* ignore */
   }
+  const roleMap = buildRoleMap();
 
   // Scan profile dirs.
   let homeEntries: string[] = [];
@@ -244,23 +359,41 @@ export function selfHealAgentWorkspaces(): SelfHealReport {
   const profiles = homeEntries.filter(e => e.startsWith('.openclaw-asrp-'));
 
   for (const prof of profiles) {
+    const profileSafe = prof.substring('.openclaw-asrp-'.length);
     const configPath = path.join(os.homedir(), prof, 'openclaw.json');
     if (!fs.existsSync(configPath)) continue;
     try {
       const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      const agentWs: string | undefined = cfg?.agents?.defaults?.workspace;
-      if (!agentWs) continue;
+      const currentWs: string | undefined = cfg?.agents?.defaults?.workspace;
+      if (!currentWs) continue;
+
+      const root = deriveSharedRoot(currentWs, settingsWorkspace);
+      const role = roleMap.get(profileSafe);
+
+      // Canonical role-based path (only if we know the role).
+      let effectiveWs = currentWs;
+      if (role) {
+        const canonical = path.join(root, 'system', `agent-${role}`);
+        if (path.resolve(canonical) !== path.resolve(currentWs)) {
+          if (canonicalizeAgentWorkspace(currentWs, canonical)) {
+            report.renamed++;
+            console.log(`[shared-dirs] canonicalized ${currentWs} → ${canonical}`);
+          }
+          effectiveWs = canonical;
+          updateOpenclawWorkspaceField(configPath, canonical);
+        }
+      }
+
+      // Ensure the (now canonical) dir exists.
       try {
-        fs.mkdirSync(agentWs, { recursive: true });
+        fs.mkdirSync(effectiveWs, { recursive: true });
       } catch {
         /* ignore */
       }
 
-      const root = deriveSharedRoot(agentWs, settingsWorkspace);
-
-      // Count real (non-symlink) subdirs before migration for reporting.
+      // Count real (non-symlink) subdirs before linking for reporting.
       for (const name of SHARED_SUBDIRS) {
-        const p = path.join(agentWs, name);
+        const p = path.join(effectiveWs, name);
         try {
           const lst = fs.lstatSync(p);
           if (!lst.isSymbolicLink() && lst.isDirectory()) report.migrated++;
@@ -269,16 +402,16 @@ export function selfHealAgentWorkspaces(): SelfHealReport {
         }
       }
 
-      linkSharedDirsForAgent(root, agentWs);
+      linkSharedDirsForAgent(root, effectiveWs);
       report.linked++;
     } catch (err) {
       report.errors.push(`${prof}: ${String(err)}`);
     }
   }
 
-  if (report.linked > 0 || report.migrated > 0) {
+  if (report.linked > 0 || report.migrated > 0 || report.renamed > 0) {
     console.log(
-      `[shared-dirs] self-heal: linked=${report.linked} migrated=${report.migrated} errors=${report.errors.length}`,
+      `[shared-dirs] self-heal: linked=${report.linked} renamed=${report.renamed} migrated=${report.migrated} errors=${report.errors.length}`,
     );
   }
   return report;

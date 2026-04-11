@@ -133,8 +133,11 @@ function ensureResearchDirs(researchId: string): void {
       fs.mkdirSync(d, { recursive: true });
     }
   }
-  // Migrate: move agent-* dirs from workspace root into system/
-  // Also clean up old name-based agent dirs (they've been replaced by role-based dirs)
+  // Shallow migration: move any `{workspace}/agent-*` dir into `{workspace}/system/`.
+  // This only relocates nickname-based legacy dirs up one level; the full
+  // canonicalization to `system/agent-{role}/` (including renaming away
+  // from the user's nickname) happens in `workspace-shared-dirs.selfHealAgentWorkspaces()`
+  // when the gateway starts, where we have authoritative role info from settings.json.
   try {
     const entries = fs.readdirSync(workspace);
     for (const entry of entries) {
