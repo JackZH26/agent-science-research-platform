@@ -426,8 +426,11 @@ class OpenClawManager extends EventEmitter {
         inst.lastError = err.message;
       });
 
-      // Wait for health (increased to 20s — first start can be slow)
-      const healthy = await this.waitForHealth(inst.port, 20000);
+      // Wait for health. 35s gives a fresh OpenClaw process plenty of time
+      // even on slow disks / cold-cache Discord token validation. Used to be
+      // 20s, but with 3 agents starting in parallel some tokens occasionally
+      // missed the window during fan-out.
+      const healthy = await this.waitForHealth(inst.port, 35000);
       if (healthy) {
         inst.running = true;
         inst.restartCount = 0;
@@ -439,7 +442,7 @@ class OpenClawManager extends EventEmitter {
         const detail = earlyStderr.trim()
           ? `\nProcess output:\n${earlyStderr.trim().slice(0, 500)}`
           : '';
-        inst.lastError = `Gateway did not become healthy within 20s` + detail;
+        inst.lastError = `Gateway did not become healthy within 35s` + detail;
         console.error(`[OpenClaw] ${name} failed health check. stderr: ${earlyStderr.trim().slice(0, 500)}`);
         this.stopAgent(name);
         return { success: false, error: inst.lastError };
@@ -477,11 +480,16 @@ class OpenClawManager extends EventEmitter {
       console.warn('[OpenClaw] workspace self-heal failed:', err);
     }
 
-    const results: Array<{ name: string; success: boolean; error?: string }> = [];
-    for (const [name] of this.instances) {
-      const res = await this.startAgent(name);
-      results.push({ name, ...res });
-    }
+    // Parallel startup: previously this loop was serial with 20s waitForHealth
+    // each, so 3 agents could take up to 60s and any per-agent jitter pushed
+    // the third agent past its budget, manifesting as "1 of 3 failed". Each
+    // gateway listens on a distinct port and writes to its own profile dir,
+    // so there is no shared mutable state to race over — Promise.all is safe.
+    const names = Array.from(this.instances.keys());
+    const settled = await Promise.all(
+      names.map(async (name) => ({ name, ...(await this.startAgent(name)) })),
+    );
+    const results: Array<{ name: string; success: boolean; error?: string }> = settled;
 
     this.startHealthPolling();
     return { results };

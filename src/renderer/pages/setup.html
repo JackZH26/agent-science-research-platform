@@ -274,30 +274,6 @@
           </div>
         </div>
 
-        <!-- Local Model Prompt -->
-        <div style="border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:24px;background:var(--card-alt)">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <span style="font-size:22px">🦙</span>
-            <div>
-              <div style="font-weight:600;font-size:14px">Gemma 3 27B — Run AI Locally</div>
-              <div style="font-size:12px;color:var(--text-secondary)">No API costs. Fully private. ~17 GB download.</div>
-            </div>
-          </div>
-          <!-- Hardware detection -->
-          <div style="display:flex;gap:20px;margin-bottom:12px;font-size:12px;color:var(--text-secondary)">
-            <span>🧠 RAM: <span id="s5-ram" style="font-weight:500;color:var(--text)">Detecting…</span></span>
-            <span>🎮 GPU: <span id="s5-gpu" style="font-weight:500;color:var(--text)">Detecting…</span></span>
-            <span>💾 Disk: <span id="s5-disk" style="font-weight:500;color:var(--text)">Detecting…</span></span>
-          </div>
-          <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px">
-            Requires 32 GB+ RAM or 16 GB VRAM GPU. Ollama must be installed separately.
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-outline btn-sm" onclick="swOllamaDownload()">⬇️ Download Now</button>
-            <button class="btn btn-ghost btn-sm" onclick="swOllamaLater()">Maybe Later</button>
-          </div>
-        </div>
-
         <!-- CTA Buttons -->
         <div style="display:flex;gap:10px">
           <button class="btn btn-primary btn-lg" style="flex:1;justify-content:center" onclick="swFinish()">
@@ -708,10 +684,12 @@
   };
 
   // ── Step 3: OpenClaw + Agent Init ─────────────────────────
+  // Roles are fixed; nicknames are user-defined later in Step 4. Show role
+  // as the primary label so the wizard isn't tied to any one install's names.
   var AGENTS = [
-    { emoji: '🧠', name: 'Albert',  role: 'Theorist',  model: 'anthropic/claude-opus-4-6' },
-    { emoji: '⚙️', name: 'Wall-E',  role: 'Engineer',  model: 'anthropic/claude-sonnet-4-6' },
-    { emoji: '🤖', name: 'Aria',    role: 'Reviewer',  model: 'anthropic/claude-haiku-4-5' },
+    { emoji: '🧠', role: 'Theorist',  model: 'anthropic/claude-opus-4-6' },
+    { emoji: '⚙️', role: 'Engineer',  model: 'anthropic/claude-sonnet-4-6' },
+    { emoji: '🤖', role: 'Reviewer',  model: 'anthropic/claude-haiku-4-5' },
   ];
 
   var INIT_MESSAGES = [
@@ -829,9 +807,9 @@
     list.innerHTML = AGENTS.map(function(a, i) {
       return '<div class="sw-agent-card" id="sw-card-' + i + '">' +
         '<span class="sw-agent-status" id="sw-status-' + i + '">⏳</span>' +
-        '<div style="flex:1"><div class="sw-agent-name">' + swEscape(a.emoji) + ' ' + swEscape(a.name) + '</div>' +
-        '<div class="sw-agent-role">' + swEscape(a.role) + '</div></div>' +
-        '<span class="sw-agent-model">' + swEscape(a.model.replace('claude-', '').replace('-4-6','').replace('-4-5','')) + '</span>' +
+        '<div style="flex:1"><div class="sw-agent-name">' + swEscape(a.emoji) + ' ' + swEscape(a.role) + '</div>' +
+        '<div class="sw-agent-role">You\'ll name this bot in the next step</div></div>' +
+        '<span class="sw-agent-model">' + swEscape(a.model.replace('anthropic/', '').replace('claude-', '').replace('-4-6','').replace('-4-5','')) + '</span>' +
       '</div>';
     }).join('');
 
@@ -889,24 +867,26 @@
 
   // ── Step 4: Agent Configuration (Phase A/B/C) ─────────────
 
+  // CONFIG_AGENTS keys on role (Theorist/Engineer/Reviewer). The user picks
+  // a custom nickname per role in Phase B; the suggested name is just a hint.
   var CONFIG_AGENTS = [
     {
-      emoji: '🧠', name: 'Albert',  role: 'Theorist',  defaultName: 'Albert',
+      emoji: '🧠', role: 'Theorist',  defaultName: 'ASRP-Theorist',
       desc: 'Theoretical research: hypotheses, experiment design, literature search, and citations.',
       defaultModel: 'anthropic/claude-opus-4-6',
-      suggestedBotName: 'ASRP-Albert',
+      suggestedBotName: 'ASRP-Theorist',
     },
     {
-      emoji: '⚙️', name: 'Wall-E',  role: 'Engineer',  defaultName: 'Wall-E',
+      emoji: '⚙️', role: 'Engineer',  defaultName: 'ASRP-Engineer',
       desc: 'Engineering & review: code implementation, numerical experiments, and result validation.',
       defaultModel: 'anthropic/claude-sonnet-4-6',
-      suggestedBotName: 'ASRP-WallE',
+      suggestedBotName: 'ASRP-Engineer',
     },
     {
-      emoji: '🤖', name: 'Aria',    role: 'Reviewer', defaultName: 'Aria',
+      emoji: '🤖', role: 'Reviewer', defaultName: 'ASRP-Reviewer',
       desc: 'Dispatcher, standup author, and critic: moves the workflow forward, writes honest daily standups, and challenges conclusions.',
       defaultModel: 'anthropic/claude-haiku-4-5',
-      suggestedBotName: 'ASRP-Aria',
+      suggestedBotName: 'ASRP-Reviewer',
     },
   ];
 
@@ -956,9 +936,7 @@
         '<div class="agent-header">' +
           '<span class="agent-emoji">' + a.emoji + '</span>' +
           '<div style="flex:1">' +
-            '<div class="agent-title">' + swEscape(a.name) +
-              ' <span style="font-size:12px;font-weight:400;color:var(--text-tertiary)">(' + swEscape(a.role) + ')</span>' +
-            '</div>' +
+            '<div class="agent-title">' + swEscape(a.role) + '</div>' +
             '<div class="agent-desc">' + swEscape(a.desc) + '</div>' +
           '</div>' +
           (isDone ? '<span class="configured-badge" style="display:inline">✓ Configured</span>' : '') +
@@ -975,7 +953,6 @@
             '<option value="claude-opus-4-6"'   + (modelVal === 'claude-opus-4-6'   ? ' selected' : '') + '>Claude Opus 4.6</option>' +
             '<option value="claude-sonnet-4-6"' + (modelVal === 'claude-sonnet-4-6' ? ' selected' : '') + '>Claude Sonnet 4.6</option>' +
             '<option value="claude-haiku-4-5"'  + (modelVal === 'claude-haiku-4-5'  ? ' selected' : '') + '>Claude Haiku 4.5</option>' +
-            '<option value="gemma:27b"'          + (modelVal === 'gemma:27b'          ? ' selected' : '') + '>Gemma 27B (Local)</option>' +
           '</select>' +
         '</div>' +
         '<div class="form-group" style="margin-bottom:0">' +
@@ -1404,17 +1381,6 @@
 
   // ── Step 5: Complete ──────────────────────────────────────
   function swInitStep5() {
-    // Hardware detection
-    var ramEl = document.getElementById('s5-ram');
-    var gpuEl = document.getElementById('s5-gpu');
-    var diskEl = document.getElementById('s5-disk');
-    setTimeout(function() {
-      if (ramEl) ramEl.textContent = '≥ 16 GB';
-      if (gpuEl) gpuEl.textContent = 'Integrated / Unknown';
-      if (diskEl) diskEl.textContent = 'Checking…';
-    }, 800);
-    setTimeout(function() { if (diskEl) diskEl.textContent = 'Available'; }, 1400);
-
     // Gateway status element
     var gwStatus = document.createElement('div');
     gwStatus.id = 's5-gw-status';
@@ -1453,11 +1419,15 @@
         return;
       }
 
-      // Use CONFIG_AGENTS as source of truth for name/role (B8 fix)
+      // Use CONFIG_AGENTS as source of truth for role; the agent's `name`
+      // (internal identifier) defaults to the user's customName, falling back
+      // to the role-derived suggestedBotName so we never end up with duplicate
+      // ids when multiple agents share the same default.
       var gwAgents = CONFIG_AGENTS.map(function(ca, idx) {
         var cfg = state.agentConfigs[idx] || {};
+        var internalName = cfg.customName || ca.defaultName;
         return {
-          name: ca.name,
+          name: internalName,
           role: ca.role,
           model: cfg.model || ca.defaultModel,
           discordToken: cfg.discordToken || '',
@@ -1468,7 +1438,7 @@
 
       var gwGuildId = state.guildId || '';
       console.log('[S5] gwAgents:', gwAgents.length, 'guildId:', gwGuildId);
-      console.log('[S5] tokens:', gwAgents.map(function(a) { return a.name + ':' + (a.discordToken ? 'yes' : 'no'); }));
+      console.log('[S5] tokens:', gwAgents.map(function(a) { return a.role + ':' + (a.discordToken ? 'yes' : 'no'); }));
 
       if (gwAgents.length === 0) {
         gwStatus.textContent = '⚠️ No agents with Discord tokens. Go back to Step 4.';
@@ -1497,9 +1467,6 @@
       });
     });
   }
-
-  window.swOllamaDownload = function() {};
-  window.swOllamaLater = function() {};
 
   window.swFinish = function() {
     if (window.showToast) window.showToast('Welcome to ASRP!', 'success');

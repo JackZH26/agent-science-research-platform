@@ -310,10 +310,38 @@ function updateOpenclawWorkspaceField(configPath: string, newWs: string): void {
   }
 }
 
+/**
+ * SRW-v3.1: ensure existing openclaw.json files have `allowBots: 'mentions'`
+ * on the discord channel. Old configs default to OpenClaw's `allowBots=off`,
+ * which silently drops every bot-to-bot @mention — including the Reviewer →
+ * Theorist Phase 1 kickoff that drives the entire SRW. Self-loop protection
+ * remains in place at the message-handler `botUserId` layer regardless of
+ * this setting. Returns true if the file was modified.
+ */
+function ensureAllowBotsField(configPath: string): boolean {
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const cfg = JSON.parse(raw);
+    if (!cfg.channels || !cfg.channels.discord) return false;
+    const cur = cfg.channels.discord.allowBots;
+    // Already permissive enough to receive bot @mentions — leave alone.
+    if (cur === 'mentions' || cur === true || cur === 'all') return false;
+    cfg.channels.discord.allowBots = 'mentions';
+    const tmp = configPath + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), { encoding: 'utf-8', mode: 0o600 });
+    fs.renameSync(tmp, configPath);
+    return true;
+  } catch (err) {
+    console.warn(`[shared-dirs] failed to update allowBots in ${configPath}: ${String(err)}`);
+    return false;
+  }
+}
+
 export interface SelfHealReport {
   linked: number;
   migrated: number;
   renamed: number;
+  allowBotsPatched: number;
   errors: string[];
 }
 
@@ -332,7 +360,7 @@ export interface SelfHealReport {
  * already matches the target.
  */
 export function selfHealAgentWorkspaces(): SelfHealReport {
-  const report: SelfHealReport = { linked: 0, migrated: 0, renamed: 0, errors: [] };
+  const report: SelfHealReport = { linked: 0, migrated: 0, renamed: 0, allowBotsPatched: 0, errors: [] };
 
   // Read settings.workspace (preferred shared root) + role map.
   let settingsWorkspace: string | null = null;
@@ -404,14 +432,21 @@ export function selfHealAgentWorkspaces(): SelfHealReport {
 
       linkSharedDirsForAgent(root, effectiveWs);
       report.linked++;
+
+      // SRW-v3.1: ensure existing configs accept bot @mentions so the
+      // Reviewer→Theorist Phase 1 dispatch is not silently dropped.
+      if (ensureAllowBotsField(configPath)) {
+        report.allowBotsPatched++;
+        console.log(`[shared-dirs] patched allowBots → 'mentions' in ${configPath}`);
+      }
     } catch (err) {
       report.errors.push(`${prof}: ${String(err)}`);
     }
   }
 
-  if (report.linked > 0 || report.migrated > 0 || report.renamed > 0) {
+  if (report.linked > 0 || report.migrated > 0 || report.renamed > 0 || report.allowBotsPatched > 0) {
     console.log(
-      `[shared-dirs] self-heal: linked=${report.linked} renamed=${report.renamed} migrated=${report.migrated} errors=${report.errors.length}`,
+      `[shared-dirs] self-heal: linked=${report.linked} renamed=${report.renamed} migrated=${report.migrated} allowBotsPatched=${report.allowBotsPatched} errors=${report.errors.length}`,
     );
   }
   return report;
