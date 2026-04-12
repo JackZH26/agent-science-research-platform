@@ -216,13 +216,46 @@ export function registerAgentHandlers(): void {
       return { success: false, error: 'Cannot delete base agents (Theorist, Engineer, Reviewer)' };
     }
 
-    // Stop agent if running
-    openclawManager.removeAgent(agentName);
+    // Stop agent if running — resolve display name to internal name first
+    const internalName = openclawManager.resolveAgentName(agentName);
+    openclawManager.removeAgent(internalName);
+    // Also try the raw name in case resolveAgentName didn't match
+    if (internalName !== agentName) openclawManager.removeAgent(agentName);
+    // Also try agentId from config directly
+    const cfgAgentId = cfg.agentId as string;
+    if (cfgAgentId && cfgAgentId !== internalName && cfgAgentId !== agentName) {
+      openclawManager.removeAgent(cfgAgentId);
+    }
 
     // Remove from settings
     configs.splice(idx, 1);
     settings.agentConfigs = configs;
     atomicWriteJSON(settingsPath, settings);
+
+    // Reload manager instances from updated settings so in-memory state is consistent
+    // Clear all instances and re-register from the updated configs
+    for (const [name] of Array.from(((openclawManager as any).instances as Map<string, unknown>) || new Map())) {
+      // Only remove non-running agents to avoid killing live processes
+      const inst = openclawManager.getAgentInstance(name);
+      if (inst && !inst.running) {
+        openclawManager.removeAgent(name);
+      }
+    }
+    // Re-register remaining agents from settings
+    const updatedConfigs = configs as Array<Record<string, unknown>>;
+    updatedConfigs.forEach((c, i) => {
+      if (c && c.agentId) {
+        const existingInst = openclawManager.getAgentInstance(c.agentId as string);
+        if (!existingInst) {
+          openclawManager.registerAgent(
+            c.agentId as string,
+            (c.role as string) || 'Custom',
+            i,
+            c.discordBotName as string,
+          );
+        }
+      }
+    });
 
     appendAudit({
       type: 'config',

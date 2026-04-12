@@ -67,11 +67,20 @@
       </div>
       <div class="wizard-field">
         <label data-i18n="agents.wizard_bot_token">Bot Token *</label>
-        <input type="password" id="wiz-token" class="wizard-input" placeholder="Paste your Discord bot token">
+        <div style="display:flex;gap:8px">
+          <input type="password" id="wiz-token" class="wizard-input" style="flex:1" placeholder="Paste your Discord bot token" oninput="onWizTokenInput()">
+          <button class="btn btn-outline btn-sm" id="wiz-test-btn" onclick="wizTestToken()" style="white-space:nowrap" data-i18n="agents.wizard_test">Test</button>
+        </div>
+        <div id="wiz-token-status" style="font-size:11px;margin-top:4px;min-height:16px"></div>
       </div>
       <div class="wizard-field">
         <label data-i18n="agents.wizard_bot_name">Bot Display Name *</label>
         <input type="text" id="wiz-botname" class="wizard-input" placeholder="ASRP-Darwin" maxlength="32">
+      </div>
+      <!-- Add to Server button (hidden until token validated) -->
+      <div id="wiz-invite-row" style="display:none;background:rgba(74,140,106,0.06);border:1px solid rgba(74,140,106,0.2);border-radius:8px;padding:10px 14px;display:none;align-items:center;justify-content:space-between">
+        <span style="font-size:12px;color:var(--text-secondary)" id="wiz-invite-label">✅ Token valid</span>
+        <button class="btn btn-primary btn-sm" onclick="wizAddToServer()" data-i18n="agents.wizard_add_server">Add to Server</button>
       </div>
       <a href="#" onclick="event.preventDefault();openHomepageUrl('https://discord.com/developers/applications')" style="font-size:11px;color:var(--accent)" data-i18n="agents.wizard_discord_help">How to create a Discord Bot? →</a>
     </div>
@@ -284,17 +293,7 @@
 .add-agent-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
 .add-agent-hint { font-size: 11px; color: var(--text-tertiary); text-align: center; max-width: 180px; line-height: 1.4; }
 
-/* Delete button on custom agent card */
-.agent-delete-btn {
-  position: absolute; top: 10px; right: 10px;
-  width: 24px; height: 24px; border-radius: 50%;
-  border: none; background: rgba(220,38,38,0.08); color: #dc2626;
-  font-size: 14px; cursor: pointer; display: flex;
-  align-items: center; justify-content: center; opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
-}
-.agent-card-new:hover .agent-delete-btn { opacity: 1; }
-.agent-delete-btn:hover { background: rgba(220,38,38,0.15); }
+/* (Delete button is now inside expanded details section, no extra CSS needed) */
 
 /* Wizard styles */
 .wizard-step-dot {
@@ -422,12 +421,7 @@
       var isCustom = isCustomAgent(a);
       var cardClass = 'agent-card-new' + (isCustom ? ' custom-agent' : '');
 
-      return '<div class="' + cardClass + '" id="card-' + safeName + '" style="position:relative">' +
-
-        // Delete button (custom agents only)
-        (isCustom
-          ? '<button class="agent-delete-btn" onclick="event.stopPropagation();deleteAgent(\'' + jsName + '\')" title="' + escHtml(t('agents.delete_agent')) + '">×</button>'
-          : '') +
+      return '<div class="' + cardClass + '" id="card-' + safeName + '">' +
 
         // Header
         '<div class="agent-card-header" onclick="toggleCard(\'' + jsName + '\')">' +
@@ -518,6 +512,17 @@
                '<span class="log-line info">No logs yet — logs appear when agents are running.</span>') +
             '</div>' +
           '</div>' +
+
+          // Delete button at bottom of details (custom agents only)
+          (isCustom
+            ? '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:right">' +
+                '<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:rgba(220,38,38,0.3)" onclick="deleteAgent(\'' + jsName + '\')">' +
+                  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ' +
+                  escHtml(t('agents.delete_agent')) +
+                '</button>' +
+              '</div>'
+            : '') +
+
         '</div>' +
 
       '</div>';
@@ -770,6 +775,76 @@
     if (wizardStep > 1) { wizardStep--; updateWizardUI(); }
   };
 
+  // Wizard token validation state
+  var wizTokenValid = false;
+  var wizBotAppId = '';
+  var wizTokenDebounce = null;
+
+  window.onWizTokenInput = function() {
+    wizTokenValid = false;
+    wizBotAppId = '';
+    document.getElementById('wiz-invite-row').style.display = 'none';
+    document.getElementById('wiz-token-status').innerHTML = '';
+    // Auto-test after 500ms pause
+    clearTimeout(wizTokenDebounce);
+    var val = document.getElementById('wiz-token').value.trim();
+    if (val.length >= 50) {
+      wizTokenDebounce = setTimeout(function() { wizTestToken(); }, 500);
+    }
+  };
+
+  window.wizTestToken = async function() {
+    var tokenInput = document.getElementById('wiz-token');
+    var statusEl = document.getElementById('wiz-token-status');
+    var inviteRow = document.getElementById('wiz-invite-row');
+    var val = tokenInput.value.trim();
+    if (!val || val.length < 50) {
+      statusEl.innerHTML = '<span style="color:#dc2626">' + escHtml(t('agents.wizard_token_error')) + '</span>';
+      return;
+    }
+    statusEl.innerHTML = '<span style="color:var(--accent)">🔄 ' + escHtml(t('agents.wizard_testing')) + '</span>';
+    document.getElementById('wiz-test-btn').disabled = true;
+    try {
+      var res = await window.asrp.discord.validateToken(val);
+      if (res.valid) {
+        wizTokenValid = true;
+        // Extract appId from token (base64 first segment)
+        try { wizBotAppId = atob(val.split('.')[0]); } catch(e) { wizBotAppId = ''; }
+        statusEl.innerHTML = '<span style="color:#16a34a">✅ ' + escHtml(res.botName) + ' (' + escHtml(res.botTag) + ')</span>';
+        // Auto-fill bot name if empty
+        var botNameEl = document.getElementById('wiz-botname');
+        if (!botNameEl.value.trim()) botNameEl.value = res.botName;
+        // Show invite row
+        document.getElementById('wiz-invite-label').textContent = '✅ ' + res.botName;
+        inviteRow.style.display = 'flex';
+      } else {
+        wizTokenValid = false;
+        statusEl.innerHTML = '<span style="color:#dc2626">❌ ' + escHtml(res.error || 'Invalid token') + '</span>';
+        inviteRow.style.display = 'none';
+      }
+    } catch(e) {
+      statusEl.innerHTML = '<span style="color:#dc2626">❌ ' + escHtml(String(e)) + '</span>';
+    }
+    document.getElementById('wiz-test-btn').disabled = false;
+  };
+
+  window.wizAddToServer = async function() {
+    if (!wizBotAppId) { showToast('No bot app ID', 'error'); return; }
+    try {
+      // Read guildId from settings (same server as base agents)
+      var settings = await window.asrp.settings.get();
+      var guildId = settings.guildId || settings.discordGuildId || '';
+      if (!guildId) {
+        showToast(t('agents.wizard_no_guild'), 'warning');
+        return;
+      }
+      await window.asrp.discord.inviteUrl(wizBotAppId, guildId);
+      showToast(t('agents.wizard_invite_sent'), 'success');
+    } catch(e) {
+      showToast('Invite failed: ' + e.message, 'error');
+    }
+  };
+
   window.wizardNext = async function() {
     if (wizardStep === 1) {
       var name = document.getElementById('wiz-name').value.trim();
@@ -790,7 +865,13 @@
       }
       wizardStep = 2; updateWizardUI();
     } else if (wizardStep === 2) {
+      // Reset token validation state when entering step 3
+      wizTokenValid = false;
+      wizBotAppId = '';
       wizardStep = 3; updateWizardUI();
+      // If token already has value, auto-test
+      var existingToken = document.getElementById('wiz-token').value.trim();
+      if (existingToken.length >= 50) setTimeout(function() { wizTestToken(); }, 100);
     } else if (wizardStep === 3) {
       await createAgent();
     }

@@ -337,6 +337,11 @@ window.__i18n_en = {
     wizard_create: 'Create Agent',
     wizard_creating: 'Creating...',
     wizard_token_error: 'Please enter a valid Discord bot token (50+ characters)',
+    wizard_test: 'Test',
+    wizard_testing: 'Validating token...',
+    wizard_add_server: 'Add to Server',
+    wizard_no_guild: 'Server not configured yet. Please complete base agent setup first.',
+    wizard_invite_sent: 'Bot invite link opened — please authorize in the browser.',
   },
 
   papers: {

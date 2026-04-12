@@ -337,6 +337,11 @@ window.__i18n_zht = {
     wizard_create: '建立 Agent',
     wizard_creating: '建立中...',
     wizard_token_error: '請輸入有效的 Discord Bot Token（50 個字元以上）',
+    wizard_test: '測試',
+    wizard_testing: '正在驗證 Token...',
+    wizard_add_server: '加入伺服器',
+    wizard_no_guild: '尚未設定伺服器，請先完成基礎 Agent 設定。',
+    wizard_invite_sent: 'Bot 邀請連結已開啟，請在瀏覽器中完成授權。',
   },
 
   papers: {
