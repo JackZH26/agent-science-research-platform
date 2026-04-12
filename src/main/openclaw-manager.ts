@@ -297,6 +297,17 @@ class OpenClawManager extends EventEmitter {
   }
 
   /**
+   * Unregister an agent. Stops it first if running.
+   */
+  removeAgent(name: string): void {
+    const inst = this.instances.get(name);
+    if (!inst) return;
+    if (inst.running) this.stopAgent(name);
+    this.instances.delete(name);
+    this.logBuffers.delete(name);
+  }
+
+  /**
    * Start a single agent's gateway.
    *
    * Uses explicit `node` to run openclaw.mjs instead of relying on shebang,

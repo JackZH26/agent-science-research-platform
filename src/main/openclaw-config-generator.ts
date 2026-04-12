@@ -246,6 +246,109 @@ export function generateAllConfigs(
 }
 
 /**
+ * Generate config for a single custom agent and register it.
+ * Used when adding agents after initial setup (custom agent wizard).
+ */
+export function generateSingleAgentConfig(
+  agent: AgentSetupConfig,
+  index: number,
+  guildId: string,
+  workspacePath: string,
+  soulContent?: string,
+): { success: boolean; error?: string } {
+  const wsDir = workspacePath || path.join(os.homedir(), 'asrp-workspace');
+
+  const openrouterKey = safeKeyStore.getKey('openrouterKey') || '';
+  const anthropicKey = safeKeyStore.getKey('anthropicKey') || '';
+  const googleKey = safeKeyStore.getKey('googleKey') || '';
+
+  try {
+    if (!agent.discordToken) {
+      return { success: false, error: `${agent.name}: no Discord token` };
+    }
+
+    const profileDir = openclawManager.getProfileDir(agent.name);
+    fs.mkdirSync(profileDir, { recursive: true });
+
+    // Custom agents use a sanitized role name as their workspace folder
+    const roleName = (agent.role || 'custom').toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const agentWorkspace = path.join(wsDir, 'system', `agent-${roleName}`);
+    // If workspace already exists (role name collision), append agent name
+    const finalWorkspace = fs.existsSync(agentWorkspace)
+      ? path.join(wsDir, 'system', `agent-${agent.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`)
+      : agentWorkspace;
+    fs.mkdirSync(finalWorkspace, { recursive: true });
+
+    // Symlink shared dirs
+    linkSharedDirsForAgent(wsDir, finalWorkspace);
+
+    // Write SOUL.md — use provided soulContent or generate from template
+    const soulPath = path.join(finalWorkspace, 'SOUL.md');
+    if (soulContent) {
+      fs.writeFileSync(soulPath, soulContent, 'utf-8');
+    } else if (!fs.existsSync(soulPath)) {
+      // Read custom template from resources
+      const templatePath = path.join(
+        require('electron').app.isPackaged
+          ? path.join(process.resourcesPath, 'resources')
+          : path.join(require('electron').app.getAppPath(), 'resources'),
+        'agents', 'custom-soul-template.md'
+      );
+      let template = '# {NAME} — {ROLE}\n\nCustom agent.';
+      try { template = fs.readFileSync(templatePath, 'utf-8'); } catch { /* use fallback */ }
+      const displayName = agent.discordBotName || agent.customName || agent.name;
+      const soul = template
+        .replace(/\{NAME\}/g, displayName)
+        .replace(/\{ROLE\}/g, agent.role || 'Custom')
+        .replace(/\{RESPONSIBILITIES\}/g, '- Collaborate with team members on research tasks\n- Respond to @mentions promptly');
+      fs.writeFileSync(soulPath, soul, 'utf-8');
+    }
+
+    // Build model ID
+    let modelId = agent.model || (openrouterKey ? 'anthropic/claude-sonnet-4-6' : 'google/gemini-2.5-flash');
+    if (modelId.startsWith('claude-') && !modelId.includes('/')) {
+      modelId = 'anthropic/' + modelId;
+    }
+
+    // Build config
+    const config: Record<string, unknown> = {
+      agents: { defaults: { workspace: finalWorkspace, model: modelId } },
+      channels: {
+        discord: {
+          enabled: true,
+          token: agent.discordToken,
+          allowBots: 'mentions',
+          groupPolicy: 'allowlist',
+          guilds: {
+            [guildId]: { requireMention: true },  // Custom agents always require @mention
+          },
+        },
+      },
+      gateway: { mode: 'local', port: openclawManager.getPortForAgent(index) },
+    };
+
+    const configPath = path.join(profileDir, 'openclaw.json');
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
+
+    // Write .env
+    const envLines: string[] = [];
+    if (openrouterKey) envLines.push(`OPENROUTER_API_KEY=${openrouterKey}`);
+    if (anthropicKey) envLines.push(`ANTHROPIC_API_KEY=${anthropicKey}`);
+    if (googleKey) envLines.push(`GOOGLE_AI_API_KEY=${googleKey}`);
+    if (envLines.length > 0) {
+      fs.writeFileSync(path.join(profileDir, '.env'), envLines.join('\n') + '\n', { encoding: 'utf-8', mode: 0o600 });
+    }
+
+    // Register with manager
+    openclawManager.registerAgent(agent.name, agent.role, index, agent.discordBotName);
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
  * Check if configs exist for any agent
  */
 export function hasConfig(): boolean {

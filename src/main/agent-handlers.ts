@@ -13,7 +13,11 @@ import {
   isValidAgentName,
   isAllowedChatRole,
   withAuth,
+  atomicWriteJSON,
 } from './ipc-handlers';
+import { generateSingleAgentConfig } from './openclaw-config-generator';
+import { openclawManager } from './openclaw-manager';
+import { appendAudit } from './audit-store';
 
 // ============================================================
 // AGENT HANDLERS (channel: 'agents:*')
@@ -80,6 +84,153 @@ export function registerAgentHandlers(): void {
 
   ipcMain.handle('agents:stop', withAuth(async (_userId: number, agentName: string) => {
     return { success: true, message: `Agent ${agentName} stop requested (stub)` };
+  }));
+
+  // ------ Custom Agent CRUD ------
+
+  const MAX_AGENTS = 6;
+  const BASE_ROLES = ['theorist', 'engineer', 'reviewer', 'assistant'];
+
+  // Create a new custom agent
+  ipcMain.handle('agents:create', withAuth(async (
+    _userId: number,
+    opts: {
+      name: string;
+      role: string;
+      model: string;
+      discordToken: string;
+      discordBotName: string;
+      soulContent?: string;
+    },
+  ) => {
+    // Validate inputs
+    if (!opts.name || typeof opts.name !== 'string' || opts.name.length > 32) {
+      return { success: false, error: 'Invalid agent name (1-32 characters)' };
+    }
+    if (!opts.role || typeof opts.role !== 'string' || opts.role.length > 32) {
+      return { success: false, error: 'Invalid role (1-32 characters)' };
+    }
+    if (!opts.discordToken || typeof opts.discordToken !== 'string' || opts.discordToken.length < 50) {
+      return { success: false, error: 'Invalid Discord bot token' };
+    }
+    if (!opts.discordBotName || typeof opts.discordBotName !== 'string') {
+      return { success: false, error: 'Discord bot name is required' };
+    }
+    if (opts.soulContent && opts.soulContent.length > 51200) {
+      return { success: false, error: 'SOUL content exceeds 50KB limit' };
+    }
+
+    // Read current settings
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+    let settings: Record<string, unknown> = {};
+    try {
+      if (fs.existsSync(settingsPath)) {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      }
+    } catch { /* start fresh */ }
+
+    const configs = (settings.agentConfigs || []) as Array<Record<string, unknown>>;
+
+    // Check agent limit
+    if (configs.length >= MAX_AGENTS) {
+      return { success: false, error: `Maximum ${MAX_AGENTS} agents reached` };
+    }
+
+    // Check duplicate name
+    const nameLC = opts.name.toLowerCase();
+    if (configs.some(c => c && ((c.agentId as string) || '').toLowerCase() === nameLC)) {
+      return { success: false, error: 'An agent with this name already exists' };
+    }
+
+    // Determine index and guildId
+    const index = configs.length;
+    const guildId = (settings.guildId || settings.discordGuildId || '') as string;
+    const workspace = (settings.workspace || path.join(require('os').homedir(), 'asrp-workspace')) as string;
+
+    // Generate config files
+    const result = generateSingleAgentConfig(
+      {
+        name: opts.name,
+        role: opts.role,
+        model: opts.model || 'claude-sonnet-4-6',
+        discordToken: opts.discordToken,
+        discordBotName: opts.discordBotName,
+        customName: opts.discordBotName,
+      },
+      index,
+      guildId,
+      workspace,
+      opts.soulContent,
+    );
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
+
+    // Persist to settings.json
+    configs.push({
+      agentId: opts.name,
+      role: opts.role,
+      model: opts.model || 'claude-sonnet-4-6',
+      discordToken: opts.discordToken,
+      discordBotName: opts.discordBotName,
+      customName: opts.discordBotName,
+      isCustom: true,
+    });
+    settings.agentConfigs = configs;
+    atomicWriteJSON(settingsPath, settings);
+
+    appendAudit({
+      type: 'config',
+      agent: 'System',
+      message: `Custom agent created: ${opts.discordBotName} (${opts.role})`,
+    });
+
+    return { success: true, agentName: opts.name };
+  }));
+
+  // Delete a custom agent (base 3 agents cannot be deleted)
+  ipcMain.handle('agents:delete', withAuth(async (_userId: number, agentName: string) => {
+    if (!isValidAgentName(agentName)) {
+      return { success: false, error: 'Invalid agent name' };
+    }
+
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+    let settings: Record<string, unknown> = {};
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    } catch {
+      return { success: false, error: 'Cannot read settings' };
+    }
+
+    const configs = (settings.agentConfigs || []) as Array<Record<string, unknown>>;
+    const idx = configs.findIndex(c => c && (c.agentId === agentName || c.discordBotName === agentName));
+    if (idx === -1) {
+      return { success: false, error: 'Agent not found' };
+    }
+
+    // Prevent deleting base agents
+    const cfg = configs[idx];
+    const role = ((cfg.role as string) || '').toLowerCase();
+    if (BASE_ROLES.includes(role) && !cfg.isCustom) {
+      return { success: false, error: 'Cannot delete base agents (Theorist, Engineer, Reviewer)' };
+    }
+
+    // Stop agent if running
+    openclawManager.removeAgent(agentName);
+
+    // Remove from settings
+    configs.splice(idx, 1);
+    settings.agentConfigs = configs;
+    atomicWriteJSON(settingsPath, settings);
+
+    appendAudit({
+      type: 'config',
+      agent: 'System',
+      message: `Custom agent deleted: ${agentName}`,
+    });
+
+    return { success: true };
   }));
 }
 

@@ -13,6 +13,78 @@
   <div class="loading"><div class="spinner"></div> <span data-i18n="agents.loading">Loading agents...</span></div>
 </div>
 
+<!-- Max agent limit warning -->
+<div id="agent-limit-warning" style="display:none;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.3);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--text-secondary);line-height:1.6;text-align:center" data-i18n="agents.limit_warning">
+  More agents increase system overhead and may cause slowdowns. Agents can automatically create temporary sub-agents — 6 agents are sufficient for most research scenarios.
+</div>
+
+<!-- Create Agent Wizard Modal -->
+<div id="create-agent-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--card-bg,#fff);border-radius:14px;width:560px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.18)">
+    <!-- Wizard Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)" data-i18n="agents.create_agent">Add Custom Agent</div>
+        <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px" id="wizard-step-label">Step 1 / 3</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeCreateModal()" style="font-size:18px;padding:4px 8px">×</button>
+    </div>
+    <!-- Step indicators -->
+    <div style="display:flex;gap:4px;padding:12px 20px 0">
+      <div class="wizard-step-dot active" id="wdot-1"></div>
+      <div class="wizard-step-dot" id="wdot-2"></div>
+      <div class="wizard-step-dot" id="wdot-3"></div>
+    </div>
+    <!-- Step 1: Basic Info -->
+    <div id="wizard-step-1" class="wizard-step" style="padding:20px;display:flex;flex-direction:column;gap:14px">
+      <div class="wizard-field">
+        <label data-i18n="agents.wizard_name">Agent Name</label>
+        <input type="text" id="wiz-name" class="wizard-input" placeholder="e.g. Darwin" maxlength="32">
+      </div>
+      <div class="wizard-field">
+        <label data-i18n="agents.wizard_role">Role / Position</label>
+        <input type="text" id="wiz-role" class="wizard-input" placeholder="e.g. PM, Writer, Analyst" maxlength="32">
+      </div>
+      <div class="wizard-field">
+        <label data-i18n="agents.wizard_model">Model</label>
+        <select id="wiz-model" class="wizard-input">
+          <option value="claude-opus-4-6">Opus 4.6</option>
+          <option value="claude-sonnet-4-6" selected>Sonnet 4.6</option>
+          <option value="claude-haiku-4-5">Haiku 4.5</option>
+        </select>
+      </div>
+    </div>
+    <!-- Step 2: SOUL -->
+    <div id="wizard-step-2" class="wizard-step" style="padding:20px;display:none;flex-direction:column;gap:10px">
+      <label data-i18n="agents.wizard_soul_label" style="font-size:13px;font-weight:600;color:var(--text)">Agent SOUL Definition</label>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:4px" data-i18n="agents.wizard_soul_hint">Define the agent's identity, responsibilities, and behaviour. A template has been generated — customise as needed.</div>
+      <textarea id="wiz-soul" class="wizard-input" style="min-height:220px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;line-height:1.5;resize:vertical"></textarea>
+    </div>
+    <!-- Step 3: Discord -->
+    <div id="wizard-step-3" class="wizard-step" style="padding:20px;display:none;flex-direction:column;gap:14px">
+      <div style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.25);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text-secondary);line-height:1.5">
+        <strong>⚠️</strong> <span data-i18n="agents.wizard_discord_info">ASRP uses Discord as the agent communication channel. Create a Bot in the Discord Developer Portal first.</span>
+      </div>
+      <div class="wizard-field">
+        <label data-i18n="agents.wizard_bot_token">Bot Token *</label>
+        <input type="password" id="wiz-token" class="wizard-input" placeholder="Paste your Discord bot token">
+      </div>
+      <div class="wizard-field">
+        <label data-i18n="agents.wizard_bot_name">Bot Display Name *</label>
+        <input type="text" id="wiz-botname" class="wizard-input" placeholder="ASRP-Darwin" maxlength="32">
+      </div>
+      <a href="#" onclick="event.preventDefault();openHomepageUrl('https://discord.com/developers/applications')" style="font-size:11px;color:var(--accent)" data-i18n="agents.wizard_discord_help">How to create a Discord Bot? →</a>
+    </div>
+    <!-- Footer -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--border);gap:10px">
+      <button class="btn btn-ghost btn-sm" id="wiz-back" onclick="wizardBack()" style="display:none" data-i18n="agents.wizard_back">Back</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" onclick="closeCreateModal()" data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="wiz-next" onclick="wizardNext()" data-i18n="agents.wizard_next">Next</button>
+    </div>
+  </div>
+</div>
+
 <!-- SOUL Editor Modal -->
 <div id="soul-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:none;align-items:center;justify-content:center">
   <div id="soul-modal-inner" style="background:#fff;border-radius:14px;width:700px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,0.18)">
@@ -178,6 +250,67 @@
 #soul-preview-content li { margin-bottom: 4px; }
 #soul-preview-content code { background: #e8f2ec; padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #3d7558; }
 #soul-preview-content strong { color: var(--text-primary); }
+
+/* Custom agent card — slightly different background */
+.agent-card-new.custom-agent {
+  background: var(--card-bg, #fff);
+  border-color: rgba(74,140,106,0.25);
+  background-image: linear-gradient(135deg, rgba(74,140,106,0.02) 0%, rgba(74,140,106,0.06) 100%);
+}
+.agent-card-new.custom-agent:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(74,140,106,0.14);
+}
+
+/* Add Agent "+" card */
+.add-agent-card {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 36px 18px; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 200px;
+}
+.add-agent-card:hover {
+  border-color: var(--accent);
+  background: rgba(74,140,106,0.03);
+}
+.add-agent-icon {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--accent-light, rgba(74,140,106,0.1));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: var(--accent); font-weight: 300;
+}
+.add-agent-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.add-agent-hint { font-size: 11px; color: var(--text-tertiary); text-align: center; max-width: 180px; line-height: 1.4; }
+
+/* Delete button on custom agent card */
+.agent-delete-btn {
+  position: absolute; top: 10px; right: 10px;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: none; background: rgba(220,38,38,0.08); color: #dc2626;
+  font-size: 14px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+.agent-card-new:hover .agent-delete-btn { opacity: 1; }
+.agent-delete-btn:hover { background: rgba(220,38,38,0.15); }
+
+/* Wizard styles */
+.wizard-step-dot {
+  flex: 1; height: 3px; border-radius: 2px;
+  background: var(--border); transition: background 0.2s;
+}
+.wizard-step-dot.active { background: var(--accent); }
+.wizard-step-dot.done { background: var(--success, #16a34a); }
+.wizard-field { display: flex; flex-direction: column; gap: 4px; }
+.wizard-field label { font-size: 13px; font-weight: 600; color: var(--text); }
+.wizard-input {
+  padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; background: var(--bg-secondary, #fafcfa); color: var(--text);
+  outline: none; transition: border-color 0.15s;
+}
+.wizard-input:focus { border-color: var(--accent); }
 </style>
 
 <script>
@@ -188,11 +321,16 @@
     { value: 'claude-haiku-4-5',  label: 'Haiku 4.5' },
   ];
 
+  const MAX_AGENTS = 6;
+  const BASE_ROLES = ['theorist', 'engineer', 'reviewer', 'assistant'];
+
   // Role colors for default avatars
   const ROLE_COLORS = {
     Theorist:  '#7c69f0',
     Engineer:  '#4a8c6a',
     Assistant: '#4a82c8',
+    Reviewer:  '#4a82c8',
+    Custom:    '#e67e22',
   };
 
   // Minimalist SVG icons (stroke-based, 14px)
@@ -215,7 +353,7 @@
 
   // Default avatar: circle with initial letter
   function defaultAvatar(name, role) {
-    const color = ROLE_COLORS[role] || 'var(--accent)';
+    const color = ROLE_COLORS[role] || ROLE_COLORS.Custom || 'var(--accent)';
     const initial = (name || '?').charAt(0).toUpperCase();
     return `<div class="agent-avatar" style="background:${color}">${escHtml(initial)}</div>`;
   }
@@ -244,13 +382,26 @@
     return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
   }
 
+  function isCustomAgent(a) {
+    if (a.isCustom) return true;
+    var r = (a.role || '').toLowerCase();
+    return !BASE_ROLES.includes(r);
+  }
+
   function renderCards(agents) {
     const container = document.getElementById('agent-cards');
+    var limitWarning = document.getElementById('agent-limit-warning');
+
     if (!agents || agents.length === 0) {
       container.innerHTML = '<div class="empty-state"><h3>' + escHtml(t('agents.no_agents')) + '</h3><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="Router.navigate(\'/settings\')">' + escHtml(t('nav.settings')) + '</button></div>';
+      if (limitWarning) limitWarning.style.display = 'none';
       return;
     }
-    container.innerHTML = agents.map((a) => {
+
+    // Show/hide limit warning
+    if (limitWarning) limitWarning.style.display = agents.length >= MAX_AGENTS ? 'block' : 'none';
+
+    var cardsHtml = agents.map((a) => {
       const statusClass = a.status === 'running' ? 'running' : a.status === 'stopped' ? 'stopped' : 'idle';
       const statusKey = { running: 'agents.status_running', stopped: 'agents.status_stopped', idle: 'agents.status_idle' }[a.status] || 'agents.status_idle';
       const statusLabel = t(statusKey);
@@ -268,7 +419,15 @@
         ? '<div class="agent-avatar"><img src="' + escHtml(a.avatarUrl) + '" alt="' + safeName + '"></div>'
         : defaultAvatar(a.name, a.role);
 
-      return '<div class="agent-card-new" id="card-' + safeName + '">' +
+      var isCustom = isCustomAgent(a);
+      var cardClass = 'agent-card-new' + (isCustom ? ' custom-agent' : '');
+
+      return '<div class="' + cardClass + '" id="card-' + safeName + '" style="position:relative">' +
+
+        // Delete button (custom agents only)
+        (isCustom
+          ? '<button class="agent-delete-btn" onclick="event.stopPropagation();deleteAgent(\'' + jsName + '\')" title="' + escHtml(t('agents.delete_agent')) + '">×</button>'
+          : '') +
 
         // Header
         '<div class="agent-card-header" onclick="toggleCard(\'' + jsName + '\')">' +
@@ -363,6 +522,17 @@
 
       '</div>';
     }).join('');
+
+    // "+" Add Agent card (only if below limit)
+    if (agents.length < MAX_AGENTS) {
+      cardsHtml += '<div class="add-agent-card" onclick="openCreateModal()" title="' + escHtml(t('agents.create_agent')) + '">' +
+        '<div class="add-agent-icon">+</div>' +
+        '<div class="add-agent-label">' + escHtml(t('agents.create_agent')) + '</div>' +
+        '<div class="add-agent-hint">' + escHtml(t('agents.create_hint')) + '</div>' +
+      '</div>';
+    }
+
+    container.innerHTML = cardsHtml;
   }
 
   function formatLogLine(line) {
@@ -551,6 +721,150 @@
     if (e.target === this) closeSoulModal();
   });
 
+  // ---- Create Agent Wizard ----
+  var wizardStep = 1;
+
+  window.openCreateModal = function() {
+    wizardStep = 1;
+    document.getElementById('wiz-name').value = '';
+    document.getElementById('wiz-role').value = '';
+    document.getElementById('wiz-model').value = 'claude-sonnet-4-6';
+    document.getElementById('wiz-soul').value = '';
+    document.getElementById('wiz-token').value = '';
+    document.getElementById('wiz-botname').value = '';
+    updateWizardUI();
+    document.getElementById('create-agent-modal').style.display = 'flex';
+  };
+
+  window.closeCreateModal = function() {
+    document.getElementById('create-agent-modal').style.display = 'none';
+  };
+
+  document.getElementById('create-agent-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeCreateModal();
+  });
+
+  function updateWizardUI() {
+    for (var i = 1; i <= 3; i++) {
+      var step = document.getElementById('wizard-step-' + i);
+      if (step) step.style.display = i === wizardStep ? 'flex' : 'none';
+      var dot = document.getElementById('wdot-' + i);
+      if (dot) {
+        dot.className = 'wizard-step-dot' + (i === wizardStep ? ' active' : i < wizardStep ? ' done' : '');
+      }
+    }
+    document.getElementById('wizard-step-label').textContent = 'Step ' + wizardStep + ' / 3';
+    document.getElementById('wiz-back').style.display = wizardStep > 1 ? '' : 'none';
+
+    var nextBtn = document.getElementById('wiz-next');
+    if (wizardStep === 3) {
+      nextBtn.textContent = t('agents.wizard_create');
+      nextBtn.setAttribute('data-i18n', 'agents.wizard_create');
+    } else {
+      nextBtn.textContent = t('agents.wizard_next');
+      nextBtn.setAttribute('data-i18n', 'agents.wizard_next');
+    }
+  }
+
+  window.wizardBack = function() {
+    if (wizardStep > 1) { wizardStep--; updateWizardUI(); }
+  };
+
+  window.wizardNext = async function() {
+    if (wizardStep === 1) {
+      var name = document.getElementById('wiz-name').value.trim();
+      var role = document.getElementById('wiz-role').value.trim();
+      if (!name) { document.getElementById('wiz-name').focus(); return; }
+      if (!role) { document.getElementById('wiz-role').focus(); return; }
+      // Auto-generate SOUL if empty
+      var soulEl = document.getElementById('wiz-soul');
+      if (!soulEl.value.trim()) {
+        var botName = 'ASRP-' + name;
+        soulEl.value = '# ' + botName + ' — ' + role + '\n\n' +
+          '## Identity\nYou are **' + botName + '**, the **' + role + '** of the ASRP research team.\n' +
+          'On Discord, users @mention you as **@' + botName + '** — always respond when mentioned.\n\n' +
+          '## Responsibilities\n- Collaborate with team members on research tasks\n- Respond to @mentions promptly\n- Document findings and share progress\n\n' +
+          '## Core Values\n- Precision over speed — every claim needs evidence\n- Collaborate closely with the rest of the ASRP team\n- Document your work for reproducibility\n\n' +
+          '## Communication Style\nConcise, structured, and evidence-based.';
+        document.getElementById('wiz-botname').value = botName;
+      }
+      wizardStep = 2; updateWizardUI();
+    } else if (wizardStep === 2) {
+      wizardStep = 3; updateWizardUI();
+    } else if (wizardStep === 3) {
+      await createAgent();
+    }
+  };
+
+  async function createAgent() {
+    var name = document.getElementById('wiz-name').value.trim();
+    var role = document.getElementById('wiz-role').value.trim();
+    var model = document.getElementById('wiz-model').value;
+    var soul = document.getElementById('wiz-soul').value;
+    var token = document.getElementById('wiz-token').value.trim();
+    var botName = document.getElementById('wiz-botname').value.trim();
+
+    if (!token || token.length < 50) {
+      showToast(t('agents.wizard_token_error'), 'error');
+      document.getElementById('wiz-token').focus();
+      return;
+    }
+    if (!botName) {
+      document.getElementById('wiz-botname').focus();
+      return;
+    }
+
+    var nextBtn = document.getElementById('wiz-next');
+    nextBtn.disabled = true;
+    nextBtn.textContent = t('agents.wizard_creating');
+
+    try {
+      var authToken = localStorage.getItem('asrp_token') || '';
+      var res = await window.asrp.agents.create(authToken, {
+        name: name,
+        role: role,
+        model: model,
+        discordToken: token,
+        discordBotName: botName,
+        soulContent: soul,
+      });
+      if (res.success) {
+        showToast(t('agents.create_success').replace('{name}', botName), 'success');
+        closeCreateModal();
+        loadAgents();
+      } else {
+        showToast(res.error || 'Create failed', 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    }
+    nextBtn.disabled = false;
+    nextBtn.textContent = t('agents.wizard_create');
+  }
+
+  // ---- Delete Agent ----
+  window.deleteAgent = async function(agentName) {
+    if (!confirm(t('agents.delete_confirm').replace('{name}', agentName))) return;
+    try {
+      var authToken = localStorage.getItem('asrp_token') || '';
+      var res = await window.asrp.agents.delete(authToken, agentName);
+      if (res.success) {
+        showToast(t('agents.delete_success').replace('{name}', agentName), 'success');
+        loadAgents();
+      } else {
+        showToast(res.error || 'Delete failed', 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    }
+  };
+
+  window.openHomepageUrl = function(url) {
+    if (window.asrp && window.asrp.system && window.asrp.system.openExternal) {
+      window.asrp.system.openExternal(url);
+    } else { window.open(url, '_blank'); }
+  };
+
   window.loadAgents = async function() {
     if (!window.asrp) return;
     var container = document.getElementById('agent-cards');
@@ -570,23 +884,37 @@
         });
       }
 
-      if (agents.length === 0 && window.asrp.settings) {
-        var settings = await window.asrp.settings.get();
-        var savedConfigs = settings.agentConfigs;
-        if (Array.isArray(savedConfigs)) {
-          agents = savedConfigs.filter(function(c) { return c && c.agentId; }).map(function(c) {
-            return {
-              name: c.discordBotName || c.customName || c.agentId || 'Agent',
-              role: c.role === 'Assistant' ? 'Reviewer' : (c.role || 'Reviewer'),
-              status: 'stopped',
-              model: c.model || '',
-              sessions: 0,
-              tokenUsage: { input: 0, output: 0, cost: 0 },
-              uptime: 0,
-              recentLogs: ['Click Start to connect to Discord'],
-            };
+      // Merge isCustom flag from settings into agents from any source
+      var settingsConfigs = null;
+      if (window.asrp.settings) {
+        try {
+          var settingsData = await window.asrp.settings.get();
+          settingsConfigs = settingsData.agentConfigs;
+        } catch(e) { /* ignore */ }
+      }
+
+      if (agents.length === 0 && Array.isArray(settingsConfigs)) {
+        agents = settingsConfigs.filter(function(c) { return c && c.agentId; }).map(function(c) {
+          return {
+            name: c.discordBotName || c.customName || c.agentId || 'Agent',
+            role: c.role === 'Assistant' ? 'Reviewer' : (c.role || 'Reviewer'),
+            status: 'stopped',
+            model: c.model || '',
+            sessions: 0,
+            tokenUsage: { input: 0, output: 0, cost: 0 },
+            uptime: 0,
+            recentLogs: ['Click Start to connect to Discord'],
+            isCustom: !!c.isCustom,
+          };
+        });
+      } else if (agents.length > 0 && Array.isArray(settingsConfigs)) {
+        // Merge isCustom from settings into openclaw-sourced agents
+        agents = agents.map(function(a) {
+          var cfg = settingsConfigs.find(function(c) {
+            return c && (c.discordBotName === a.name || c.agentId === a.name);
           });
-        }
+          return cfg && cfg.isCustom ? Object.assign({}, a, { isCustom: true }) : a;
+        });
       }
 
       if (agents.length > 0 && agents.every(function(a) { return a.status === 'stopped'; })) {

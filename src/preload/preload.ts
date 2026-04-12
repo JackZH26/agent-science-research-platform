@@ -93,6 +93,15 @@ const agents = {
     ipcRenderer.on('agents:status-update', handler);
     return () => ipcRenderer.removeListener('agents:status-update', handler);
   },
+
+  create: (token: string, opts: {
+    name: string; role: string; model: string;
+    discordToken: string; discordBotName: string; soulContent?: string;
+  }) =>
+    invoke<{ success: boolean; agentName?: string; error?: string }>('agents:create', token, opts),
+
+  delete: (token: string, agentName: string) =>
+    invoke<{ success: boolean; error?: string }>('agents:delete', token, agentName),
 };
 
 // ---- Files API ----
