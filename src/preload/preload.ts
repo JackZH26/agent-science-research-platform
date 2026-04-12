@@ -278,9 +278,10 @@ const tools = {
       failed: number;
     }>('tools:install-required', token),
 
-  onInstallProgress: (callback: (data: { toolId: string; status: string; message: string }) => void) => {
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.on('tools:install-progress', (_e: unknown, data: { toolId: string; status: string; message: string }) => callback(data));
+  onInstallProgress: (callback: (data: { toolId: string; status: string; message: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { toolId: string; status: string; message: string }) => callback(data);
+    ipcRenderer.on('tools:install-progress', handler);
+    return () => ipcRenderer.removeListener('tools:install-progress', handler);
   },
 };
 

@@ -511,6 +511,9 @@ window.__i18n_zht = {
     priority_recommended: '推薦',
     priority_optional: '一般',
     auto_install_note: '安裝後自動配置',
+    homepage: '主頁',
+    copy: '複製',
+    close: '關閉',
   },
 
   setup: {

@@ -142,12 +142,13 @@
   var statusMap = {};      // toolId -> { installed, version, error }
   var progressMap = {};    // toolId -> { status, message }
   var currentPriority = 'all';
+  var _unsubProgress = null;  // unsubscribe handle for install-progress IPC
 
   function tSafe(key, fb) {
     if (typeof window.t === 'function') { try { var v = window.t(key); if (v && v !== key) return v; } catch(e){} }
     return fb != null ? fb : key;
   }
-  function escHtml(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escHtml(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;'); }
   function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 
   var PRIORITY_ORDER = ['required', 'highly-recommended', 'recommended', 'optional'];
@@ -169,9 +170,9 @@
       populateCategoryFilter();
     } catch(e) { console.warn('[tools] list failed:', e); }
 
-    // Listen for install progress
+    // Listen for install progress (store unsubscribe for cleanup)
     try {
-      window.asrp.tools.onInstallProgress(function(data) {
+      _unsubProgress = window.asrp.tools.onInstallProgress(function(data) {
         progressMap[data.toolId] = data;
         if (data.status === 'installed' || data.status === 'error') {
           // Re-check this tool
@@ -188,11 +189,12 @@
   function populateCategoryFilter() {
     var sel = document.getElementById('tl-category');
     if (!sel) return;
-    sel.innerHTML = '<option value="all">' + escHtml(tSafe('tools.category_all', 'All Categories')) + '</option>';
+    var html = '<option value="all">' + escHtml(tSafe('tools.category_all', 'All Categories')) + '</option>';
     for (var i = 0; i < categories.length; i++) {
       var c = categories[i];
-      sel.innerHTML += '<option value="' + escHtml(c.id) + '">' + escHtml(c.name) + '</option>';
+      html += '<option value="' + escHtml(c.id) + '">' + escHtml(c.name) + '</option>';
     }
+    sel.innerHTML = html;
   }
 
   // ---- Status checks ----
@@ -457,8 +459,43 @@
     var platform = navigator.platform.toLowerCase().includes('mac') ? 'darwin'
       : navigator.platform.toLowerCase().includes('win') ? 'win32' : 'linux';
     var instr = tool.manualInstructions[platform] || tool.manualInstructions['darwin'] || '';
-    var msg = tool.name + ' requires manual installation:\n\n' + instr + '\n\nHomepage: ' + tool.homepage;
-    alert(msg);
+
+    // Build a modal overlay instead of native alert()
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:var(--bg-secondary,#fff);border-radius:12px;padding:24px;max-width:520px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.25);';
+    var title = document.createElement('h3');
+    title.style.cssText = 'margin:0 0 12px;font-size:15px;color:var(--text,#222);';
+    title.textContent = tool.name + ' — ' + tSafe('tools.btn_manual', 'Manual Installation');
+    var pre = document.createElement('pre');
+    pre.style.cssText = 'background:var(--bg-tertiary,#f5f5f5);padding:12px;border-radius:6px;font-size:12px;line-height:1.5;overflow-x:auto;white-space:pre-wrap;word-break:break-all;color:var(--text,#222);user-select:all;margin:0 0 12px;';
+    pre.textContent = instr;
+    var btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-outline btn-sm';
+    copyBtn.textContent = tSafe('tools.copy', 'Copy');
+    copyBtn.onclick = function() {
+      navigator.clipboard.writeText(instr).then(function() { copyBtn.textContent = '✓'; setTimeout(function() { copyBtn.textContent = tSafe('tools.copy', 'Copy'); }, 1500); });
+    };
+    var homeBtn = document.createElement('button');
+    homeBtn.className = 'btn btn-outline btn-sm';
+    homeBtn.textContent = tSafe('tools.homepage', 'Homepage');
+    homeBtn.onclick = function() { openHomepage(tool.homepage); };
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'btn btn-primary btn-sm';
+    closeBtn.textContent = tSafe('tools.close', 'Close');
+    closeBtn.onclick = function() { overlay.remove(); };
+    btnRow.appendChild(copyBtn);
+    btnRow.appendChild(homeBtn);
+    btnRow.appendChild(closeBtn);
+    box.appendChild(title);
+    box.appendChild(pre);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+    document.body.appendChild(overlay);
   };
 
   window.openHomepage = function(url) {
@@ -480,6 +517,7 @@
   if (window.Utils && typeof window.Utils.onPageUnload === 'function') {
     window.Utils.onPageUnload(function() {
       window.removeEventListener('language-changed', _toolsOnLang);
+      if (typeof _unsubProgress === 'function') { _unsubProgress(); _unsubProgress = null; }
     });
   }
 

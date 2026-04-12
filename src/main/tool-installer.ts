@@ -215,7 +215,7 @@ export async function installTool(tool: ToolEntry): Promise<InstallResult> {
 
 async function installViaPip(tool: ToolEntry): Promise<InstallResult> {
   const pkg = tool.installPackage || tool.id;
-  return runInstallCommand('pip', ['install', '--upgrade', pkg], tool.id);
+  return runInstallCommand('python3', ['-m', 'pip', 'install', '--upgrade', pkg], tool.id);
 }
 
 async function installViaSystem(tool: ToolEntry, platform: string): Promise<InstallResult> {
@@ -241,11 +241,12 @@ async function installViaClawHub(tool: ToolEntry): Promise<InstallResult> {
   return runInstallCommand('clawhub', ['install', pkg], tool.id);
 }
 
-function runInstallCommand(cmd: string, args: string[], toolId: string): Promise<InstallResult> {
+function runInstallCommand(cmd: string, args: string[], toolId: string, timeoutMs = 300000): Promise<InstallResult> {
   return new Promise((resolve) => {
     const isWin = process.platform === 'win32';
     let stdout = '';
     let stderr = '';
+    let done = false;
 
     let child: ChildProcess;
     try {
@@ -269,6 +270,8 @@ function runInstallCommand(cmd: string, args: string[], toolId: string): Promise
     });
 
     child.on('close', (code) => {
+      if (done) return;
+      done = true;
       if (code === 0) {
         resolve({ success: true, output: stdout });
       } else {
@@ -281,8 +284,18 @@ function runInstallCommand(cmd: string, args: string[], toolId: string): Promise
     });
 
     child.on('error', (e) => {
+      if (done) return;
+      done = true;
       resolve({ success: false, error: `${cmd} not found or failed: ${e.message}` });
     });
+
+    // 5-minute timeout to prevent hanging installs
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      try { child.kill(); } catch { /* ignore */ }
+      resolve({ success: false, error: `Installation timed out after ${Math.round(timeoutMs / 1000)}s` });
+    }, timeoutMs);
   });
 }
 
@@ -304,7 +317,7 @@ function updateAgentToolsMd(tool: ToolEntry): void {
     } catch { /* start fresh */ }
 
     // Check if tool is already documented
-    if (content.includes(`**${tool.name}**`)) return;
+    if (content.includes(`**${tool.name}**`)) continue;
 
     // If file is the default OpenClaw template, replace it
     if (!content.includes('## Installed Tools') && !content.includes('## Required Tools')) {

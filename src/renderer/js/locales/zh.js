@@ -511,6 +511,9 @@ window.__i18n_zh = {
     priority_recommended: '推荐',
     priority_optional: '一般',
     auto_install_note: '安装后自动配置',
+    homepage: '主页',
+    copy: '复制',
+    close: '关闭',
   },
 
   setup: {

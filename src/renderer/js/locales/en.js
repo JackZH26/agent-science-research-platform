@@ -511,6 +511,9 @@ window.__i18n_en = {
     priority_recommended: 'Recommended',
     priority_optional: 'Optional',
     auto_install_note: 'Auto-installed on setup',
+    homepage: 'Homepage',
+    copy: 'Copy',
+    close: 'Close',
   },
 
   setup: {
